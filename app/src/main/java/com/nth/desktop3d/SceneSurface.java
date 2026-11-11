@@ -19,14 +19,14 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
     private final FloatBuffer quad = buffer(new float[]{-1,-1,1,-1,-1,1,1,1});
     private final FloatBuffer crystal;
     private int program, meshProgram, width, height;
-    private final float[] projection = new float[16], view = new float[16], model = new float[16], mvp = new float[16], temp = new float[16];
+    private final float[] projection = new float[16], view = new float[16], model = new float[16], mvp = new float[16], temp = new float[16], inverse = new float[16], normalMatrix = new float[16];
     private final float[] touchData = {0,0,-100, 0,0,-100, 0,0,-100, 0,0,-100};
     private int touchIndex;
     private volatile int sceneMode, count = 5;
     private volatile float tiltX, tiltY, strength = .5f, speed = .6f;
     private volatile boolean ambient = true, reduced, ripple = true, shadows = true;
     private int aPosition, uResolution, uTilt, uTime, uMotion, uMode, uCount, uSpeed, uRipple, uShadow, uTouches;
-    private int mPosition, mNormal, mMatrix;
+    private int mPosition, mNormal, mMatrix, mNormalMatrix;
     public SceneSurface(Context context) {
         super(context);
         String source;
@@ -78,9 +78,9 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
         uResolution=GLES20.glGetUniformLocation(program,"resolution");uTilt=GLES20.glGetUniformLocation(program,"tilt");uTime=GLES20.glGetUniformLocation(program,"clockTime");
         uMotion=GLES20.glGetUniformLocation(program,"motion");uMode=GLES20.glGetUniformLocation(program,"mode");uCount=GLES20.glGetUniformLocation(program,"fishCount");
         uSpeed=GLES20.glGetUniformLocation(program,"fishSpeed");uRipple=GLES20.glGetUniformLocation(program,"rippleEnabled");uShadow=GLES20.glGetUniformLocation(program,"shadowEnabled");uTouches=GLES20.glGetUniformLocation(program,"touches");
-        meshProgram=link("attribute vec3 position;attribute vec3 normal;uniform mat4 matrix;varying vec3 n;void main(){n=normal;gl_Position=matrix*vec4(position,1.0);}",
-            "precision mediump float;varying vec3 n;void main(){float d=.35+.65*abs(dot(normalize(n),normalize(vec3(-.4,.8,1.0))));gl_FragColor=vec4(vec3(.28,.62,.95)*d,1.0);}");
-        mPosition=GLES20.glGetAttribLocation(meshProgram,"position");mNormal=GLES20.glGetAttribLocation(meshProgram,"normal");mMatrix=GLES20.glGetUniformLocation(meshProgram,"matrix");
+        meshProgram=link("attribute vec3 position;attribute vec3 normal;uniform mat4 matrix;uniform mat4 normalMatrix;varying vec3 n;void main(){n=mat3(normalMatrix)*normal;gl_Position=matrix*vec4(position,1.0);}",
+            "precision mediump float;varying vec3 n;void main(){vec3 N=normalize(n);float d=.27+.73*max(0.0,dot(N,normalize(vec3(-.4,.8,1.0))));float rim=pow(1.0-abs(N.z),3.0);gl_FragColor=vec4(vec3(.40,.64,.94)*d+vec3(.12,.18,.25)*rim,1.0);}");
+        mPosition=GLES20.glGetAttribLocation(meshProgram,"position");mNormal=GLES20.glGetAttribLocation(meshProgram,"normal");mMatrix=GLES20.glGetUniformLocation(meshProgram,"matrix");mNormalMatrix=GLES20.glGetUniformLocation(meshProgram,"normalMatrix");
     }
     @Override public void onSurfaceChanged(GL10 gl,int w,int h) { width=w;height=h;GLES20.glViewport(0,0,w,h);Matrix.perspectiveM(projection,0,42,(float)w/h,.1f,100); }
     @Override public void onDrawFrame(GL10 gl) {
@@ -96,8 +96,9 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
         if(sceneMode<2) {
             GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glUseProgram(meshProgram);
             Matrix.setLookAtM(view,0,tiltX*strength*.14f,tiltY*strength*.14f,5,0,0,0,0,1,0);
-            Matrix.setIdentityM(model,0);Matrix.translateM(model,0,.65f,.83f,0);
-            Matrix.rotateM(model,0,ambient?t*7:22,0,1,0);Matrix.rotateM(model,0,20,1,0,0);Matrix.scaleM(model,0,.22f,.33f,.22f);
+            Matrix.setIdentityM(model,0);Matrix.translateM(model,0,.48f,-.35f,0);
+            Matrix.rotateM(model,0,ambient?t*7:22,0,1,0);Matrix.rotateM(model,0,20,1,0,0);Matrix.scaleM(model,0,.20f,.29f,.20f);
+            Matrix.invertM(inverse,0,model,0);Matrix.transposeM(normalMatrix,0,inverse,0);GLES20.glUniformMatrix4fv(mNormalMatrix,1,false,normalMatrix,0);
             Matrix.multiplyMM(temp,0,view,0,model,0);Matrix.multiplyMM(mvp,0,projection,0,temp,0);GLES20.glUniformMatrix4fv(mMatrix,1,false,mvp,0);
             crystal.position(0);GLES20.glEnableVertexAttribArray(mPosition);GLES20.glVertexAttribPointer(mPosition,3,GLES20.GL_FLOAT,false,24,crystal);
             crystal.position(3);GLES20.glEnableVertexAttribArray(mNormal);GLES20.glVertexAttribPointer(mNormal,3,GLES20.GL_FLOAT,false,24,crystal);

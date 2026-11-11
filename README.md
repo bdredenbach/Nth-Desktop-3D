@@ -1,7 +1,7 @@
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and four original GPU scenes. First development release: **0.1.0**.
+animated Start menus and four original GPU scenes. Current development release: **0.2.0**.
 
 ## Included
 
@@ -28,12 +28,24 @@ to browse every desktop item without relying on motion or spatial positioning.
 Gravity renders up to 18 tiles simultaneously; remaining items remain accessible
 through that list. Each desktop supports up to 60 items.
 
+## Visual refresh and stability (0.2.0)
+
+The shell now uses a graphite palette, a lighter clock, original line icons,
+individual raised app icons and a single floating dock. Scene studio has previews
+rendered from the shipped scene shader. Menus use smaller, measured perspective
+rotations and quiet action rows. Crystal normals follow the mesh rotation.
+
+The desktop uses a deterministic measured shortcut plane instead of changing
+Android GridLayout column counts after restoring children. Horizontal paging
+locks out vertical scroll gestures. Keyboard insets resize panels independently
+of the dock, and panel positions respect asymmetric cutouts.
+
 ## Use
 
 1. Install the debug APK and open Nth Desktop 3D.
 2. Choose **Set as my Home app**, or explore before selecting a default.
 3. Tilt gently for depth. Swipe the desktop or use the page arrows.
-4. Open **N³** for Start. Hold an app for its menu.
+4. Open the **cube in the dock** for Start. Hold an app for its menu.
 5. Open **Scenes** to change the environment; hold the taskbar for desktop options.
 
 3D settings provides tilt on/off, depth strength, recentering, ambient motion,
@@ -53,7 +65,8 @@ Gradle 8.11.1 and the project pins Android Gradle Plugin 8.9.2.
 
 APK: `app/build/outputs/apk/debug/app-debug.apk`. Android 8.0/API 26 or later,
 OpenGL ES 2.0. No third-party runtime dependencies. Unit tests cover bounded
-physics, wrapped desktops, time-independent smoothing, and arithmetic parsing.
+physics, wrapped desktops, time-independent smoothing, arithmetic parsing, and
+keyboard/cutout panel placement.
 See `docs/verification.md` for runtime evidence and remaining device checks.
 
 ## Architecture

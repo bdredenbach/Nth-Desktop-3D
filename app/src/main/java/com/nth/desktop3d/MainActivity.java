@@ -57,7 +57,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private SceneSurface scene;
     private DesktopView desktop;
     private FrameLayout root,overlay;
-    private LinearLayout shell,header,bar,panel;
+    private LinearLayout shell,header,bar,panel,dock,paging;
     private TextView clock,date,modeLabel,pageLabel,status;
     private Button clockButton,startButton;
     private Runnable onPanelClose;
@@ -67,7 +67,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private long previousFrame,lastRender;
     private long rippleUntil;
     private boolean sceneDirty=true;
-    private int insetTop,insetBottom,insetLeft,insetRight;
+    private int insetTop,insetBottom,insetLeft,insetRight,imeBottom;
     private int panelKind; // 1 apps, 2 other; allows package callbacks to refresh app results.
     private boolean flyoutPanel;
     private EditText appSearch;
@@ -111,8 +111,10 @@ public final class MainActivity extends Activity implements MotionController.Lis
             if(Build.VERSION.SDK_INT>=30){android.graphics.Insets s=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());insetLeft=s.left;insetTop=s.top;insetRight=s.right;insetBottom=s.bottom;}
             else{insetLeft=insets.getSystemWindowInsetLeft();insetTop=insets.getSystemWindowInsetTop();insetRight=insets.getSystemWindowInsetRight();insetBottom=insets.getSystemWindowInsetBottom();}
             // IME remains inside the safe panel and does not move the taskbar sideways.
-            if(Build.VERSION.SDK_INT>=30&&insets.isVisible(WindowInsets.Type.ime()))insetBottom=Math.max(insetBottom,insets.getInsets(WindowInsets.Type.ime()).bottom);
-            shell.setPadding(insetLeft+dp(12),insetTop+dp(8),insetRight+dp(12),insetBottom+dp(6));
+            imeBottom=Build.VERSION.SDK_INT>=30&&insets.isVisible(WindowInsets.Type.ime())?insets.getInsets(WindowInsets.Type.ime()).bottom:0;
+            shell.setPadding(insetLeft+dp(compact()?16:20),insetTop+dp(8),insetRight+dp(compact()?16:20),insetBottom+dp(8));
+            int chromeWidth=Math.min(dp(560),Math.max(1,(root.getWidth()>0?root.getWidth():getResources().getDisplayMetrics().widthPixels)-insetLeft-insetRight-dp(compact()?32:40)));
+            for(View chrome:new View[]{dock,paging}){LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(chromeWidth,-2);cp.gravity=Gravity.CENTER_HORIZONTAL;chrome.setLayoutParams(cp);}
             layoutPanel();return insets;
         });root.requestApplyInsets();
         catalog.launcher.registerCallback(packageCallback,handler);
@@ -125,26 +127,28 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void buildHeader(){
         header=Ui.column(this);header.setClipChildren(false);
         LinearLayout heading=Ui.row(this);
-        TextView brand=Ui.text(this,"Nᵗʰ  /  3D",15,Ui.ACCENT);brand.setTypeface(null,Typeface.BOLD);heading.addView(brand,new LinearLayout.LayoutParams(0,dp(32),1));
-        Button mode=Ui.button(this,"Scenes",this::showModes);heading.addView(mode,new LinearLayout.LayoutParams(dp(88),dp(40)));header.addView(heading);
-        LinearLayout info=Ui.row(this);LinearLayout time=Ui.column(this);
-        clock=Ui.text(this,"",compact()?25:38,Ui.TEXT);clock.setTypeface(Typeface.create("sans-serif-light",Typeface.NORMAL));time.addView(clock);
-        date=Ui.text(this,"",12,Ui.MUTED);time.addView(date);info.addView(time,new LinearLayout.LayoutParams(0,-2,1));
-        Button all=Ui.button(this,"All shortcuts",this::showDesktopOverview);info.addView(all,new LinearLayout.LayoutParams(dp(117),dp(44)));header.addView(info);
-        modeLabel=Ui.text(this,LauncherStore.MODES[store.mode],12,Ui.ACCENT);modeLabel.setPadding(0,dp(7),0,dp(3));header.addView(modeLabel);
+        android.widget.ImageView mark=new android.widget.ImageView(this);mark.setImageDrawable(new GlyphDrawable("cube",Ui.ACCENT));heading.addView(mark,new LinearLayout.LayoutParams(dp(22),dp(25)));
+        TextView brand=Ui.text(this,"NTH DESKTOP",11,Ui.ACCENT);brand.setLetterSpacing(.16f);brand.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(0,dp(44),1);bp.leftMargin=dp(10);heading.addView(brand,bp);
+        Button mode=Ui.quiet(this,"Scenes",this::showModes);mode.setContentDescription("Scenes");heading.addView(mode,new LinearLayout.LayoutParams(dp(80),dp(48)));header.addView(heading);
+        LinearLayout info=Ui.row(this);info.setPadding(0,dp(4),0,dp(4));LinearLayout time=Ui.column(this);
+        clock=Ui.text(this,"",compact()?30:54,Ui.TEXT);clock.setTypeface(Typeface.create("sans-serif-light",Typeface.NORMAL));clock.setLetterSpacing(-.04f);clock.setIncludeFontPadding(false);time.addView(clock);
+        date=Ui.text(this,"",13,Ui.MUTED);date.setPadding(dp(2),dp(5),0,0);time.addView(date);info.addView(time,new LinearLayout.LayoutParams(0,-2,1));
+        Button all=Ui.icon(this,"grid","All shortcuts",this::showDesktopOverview);info.addView(all,new LinearLayout.LayoutParams(dp(48),dp(48)));header.addView(info);
+        modeLabel=Ui.text(this,LauncherStore.MODES[store.mode],11,Ui.ACCENT);modeLabel.setLetterSpacing(.04f);modeLabel.setPadding(dp(2),dp(12),0,0);header.addView(modeLabel);
         shell.addView(header,new LinearLayout.LayoutParams(-1,-2));
     }
     private void buildTaskbar(){
         bar=Ui.column(this);bar.setClipChildren(false);bar.setClipToPadding(false);
-        LinearLayout paging=Ui.row(this);
-        Button previous=Ui.button(this,"‹",()->desktop.changePage(-1));previous.setContentDescription("Previous desktop");paging.addView(previous,new LinearLayout.LayoutParams(dp(48),dp(40)));
-        pageLabel=Ui.text(this,"",12,Ui.MUTED);pageLabel.setGravity(Gravity.CENTER);paging.addView(pageLabel,new LinearLayout.LayoutParams(0,dp(40),1));
-        Button next=Ui.button(this,"›",()->desktop.changePage(1));next.setContentDescription("Next desktop");paging.addView(next,new LinearLayout.LayoutParams(dp(48),dp(40)));bar.addView(paging);
-        LinearLayout dock=Ui.row(this);dock.setBackground(Ui.surface(0xF016263F,20,this));dock.setPadding(dp(6),dp(6),dp(6),dp(6));dock.setElevation(dp(12));
-        startButton=Ui.button(this,"N³",this::showStart);startButton.setContentDescription("Open 3D Start menu");dock.addView(startButton,new LinearLayout.LayoutParams(dp(53),dp(48)));
-        Button search=Ui.button(this,"Apps",this::showStart);LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,dp(48),1);sp.setMargins(dp(5),0,dp(5),0);dock.addView(search,sp);
-        Button controls=Ui.button(this,"☷",this::showControls);controls.setContentDescription("Device controls");dock.addView(controls,new LinearLayout.LayoutParams(dp(46),dp(48)));
-        clockButton=Ui.button(this,"",this::showCalendar);clockButton.setContentDescription("Open calendar and time");LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(dp(79),dp(48));cp.leftMargin=dp(5);dock.addView(clockButton,cp);
+        paging=Ui.row(this);
+        Button previous=Ui.icon(this,"left","Previous desktop",()->desktop.changePage(-1));paging.addView(previous,new LinearLayout.LayoutParams(dp(48),dp(48)));
+        pageLabel=Ui.text(this,"",11,Ui.MUTED);pageLabel.setGravity(Gravity.CENTER);paging.addView(pageLabel,new LinearLayout.LayoutParams(0,dp(48),1));
+        Button next=Ui.icon(this,"right","Next desktop",()->desktop.changePage(1));paging.addView(next,new LinearLayout.LayoutParams(dp(48),dp(48)));bar.addView(paging);
+        dock=Ui.row(this);dock.setBackground(Ui.satin(this,0xF52B374D,0xF0111C2E,24));dock.setPadding(dp(8),dp(7),dp(8),dp(7));dock.setElevation(dp(12));
+        startButton=Ui.icon(this,"cube","Open 3D Start menu",this::showStart);dock.addView(startButton,new LinearLayout.LayoutParams(dp(48),dp(48)));
+        Button search=Ui.quiet(this,"Search apps",this::showStart);search.setTextSize(13);LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,dp(48),1);dock.addView(search,sp);
+        Button controls=Ui.icon(this,"sliders","Device controls",this::showControls);dock.addView(controls,new LinearLayout.LayoutParams(dp(48),dp(48)));
+        View divider=new View(this);divider.setBackgroundColor(0x24D9E7FF);LinearLayout.LayoutParams line=new LinearLayout.LayoutParams(dp(1),dp(26));line.setMargins(dp(5),0,dp(8),0);dock.addView(divider,line);
+        clockButton=Ui.quiet(this,"",this::showCalendar);clockButton.setPadding(0,0,0,0);clockButton.setContentDescription("Open calendar and time");dock.addView(clockButton,new LinearLayout.LayoutParams(dp(65),dp(48)));
         dock.setOnLongClickListener(v->{backgroundMenu();return true;});bar.addView(dock);shell.addView(bar,new LinearLayout.LayoutParams(-1,-2));updateClock();
     }
     private void updateClock(){
@@ -157,7 +161,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     @Override protected void onPause(){resumed=false;Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();super.onPause();}
     @Override protected void onDestroy(){destroyed=true;handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();super.onDestroy();}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);closePanel();motion.recenter();}
-    @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);closePanel();motion.recenter();clock.setTextSize(compact()?25:38);desktop.rebuild();root.requestApplyInsets();}
+    @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);closePanel();motion.recenter();clock.setTextSize(compact()?30:54);desktop.rebuild();root.requestApplyInsets();}
     @Override public void onBackPressed(){if(overlay!=null)closePanel();else if(store.page!=0){store.page=0;desktop.rebuild();pageChanged();store.save();}}
     @Override public int displayRotation(){return getWindowManager().getDefaultDisplay().getRotation();}
     @Override public void onTilt(float x,float y){if(Math.abs(x-currentX)>.002f||Math.abs(y-currentY)>.002f)sceneDirty=true;currentX=x;currentY=y;if(scene!=null)scene.tilt(x,y);if(desktop!=null)desktop.tilt(x,y);}
@@ -184,7 +188,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         });
     }
     @Override public void pageChanged(){
-        int count=store.pages.get(store.page).size();pageLabel.setText("Desktop "+(store.page+1)+" / "+LauncherStore.PAGE_COUNT+"  ·  "+count+" shortcuts");
+        int count=store.pages.get(store.page).size();pageLabel.setText("Desktop "+(store.page+1)+" of "+LauncherStore.PAGE_COUNT+"  ·  "+count+" shortcut"+(count==1?"":"s"));
     }
     @Override public void ripple(float x,float y){
         if(store.mode==3&&store.ripples&&!store.reducedMotion&&!systemReduced)rippleUntil=android.os.SystemClock.uptimeMillis()+3600;
@@ -209,37 +213,43 @@ public final class MainActivity extends Activity implements MotionController.Lis
         closePanel();desktop.setModal(true);startButton.setSelected(true);panelKind=2;
         flyoutPanel=flyout;
         overlay=new FrameLayout(this);overlay.setBackgroundColor(0xAA030A17);overlay.setOnClickListener(v->closePanel());root.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
-        panel=Ui.column(this);panel.setBackground(Ui.surface(Ui.PANEL,22,this));panel.setElevation(dp(28));panel.setPadding(dp(16),dp(12),dp(16),dp(12));panel.setOnClickListener(v->{});panel.setCameraDistance(dp(2400));
+        panel=Ui.column(this);panel.setBackground(Ui.satin(this,0xFF1B273C,0xFF101A2C,26));panel.setElevation(dp(28));panel.setPadding(dp(20),dp(12),dp(20),dp(16));panel.setOnClickListener(v->{});panel.setCameraDistance(dp(2400));
         overlay.addView(panel);layoutPanel();
-        LinearLayout heading=Ui.row(this);TextView label=Ui.text(this,title,19,Ui.TEXT);label.setTypeface(null,Typeface.BOLD);heading.addView(label,new LinearLayout.LayoutParams(0,dp(46),1));
-        Button close=Ui.button(this,"×",this::closePanel);close.setContentDescription("Close "+title);heading.addView(close,new LinearLayout.LayoutParams(dp(46),dp(46)));panel.addView(heading);
+        LinearLayout heading=Ui.row(this);TextView label=Ui.text(this,title,20,Ui.TEXT);label.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));heading.addView(label,new LinearLayout.LayoutParams(0,dp(46),1));
+        Button close=Ui.icon(this,"close","Close "+title,this::closePanel);heading.addView(close,new LinearLayout.LayoutParams(dp(46),dp(46)));panel.addView(heading);
         if(!store.reducedMotion&&!systemReduced){
-            panel.setAlpha(.2f);panel.setTranslationY(dp(32));
-            if(store.menuStyle==1)panel.setRotationY(-55);else panel.setRotationX(store.menuStyle==2?-68:-16);
-            panel.setPivotY(1000);panel.animate().alpha(1).translationY(0).rotationX(0).rotationY(0).setDuration(290).start();
+            LinearLayout opening=panel;
+            opening.setAlpha(0);opening.setTranslationY(dp(20));
+            opening.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener(){
+                @Override public boolean onPreDraw(){opening.getViewTreeObserver().removeOnPreDrawListener(this);if(panel!=opening)return true;
+                    opening.setPivotX(opening.getWidth()*.5f);opening.setPivotY(opening.getHeight()*(store.menuStyle==2?1:.65f));
+                    if(store.menuStyle==1)opening.setRotationY(-18);else opening.setRotationX(store.menuStyle==2?-28:-9);
+                    opening.animate().alpha(1).translationY(0).rotationX(0).rotationY(0).setInterpolator(new android.view.animation.DecelerateInterpolator()).setDuration(240).start();return true;}
+            });
         }
         return panel;
     }
     private void layoutPanel(){
         if(panel==null)return;
-        FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(-1,-1);p.gravity=Gravity.CENTER;
-        p.setMargins(insetLeft+dp(compact()?60:12),insetTop+dp(12),insetRight+dp(compact()?60:12),insetBottom+dp(12));panel.setLayoutParams(p);
-        if(flyoutPanel&&root.getWidth()>0&&root.getHeight()>0){
-            p.width=Math.max(dp(220),Math.min(dp(540),root.getWidth()-insetLeft-insetRight-dp(24)));
-            p.height=Math.max(dp(120),Math.min(dp(500),root.getHeight()-insetTop-insetBottom-dp(104)));
-            p.gravity=Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL;p.setMargins(0,insetTop+dp(12),0,insetBottom+dp(80));panel.setLayoutParams(p);
-        }
+        int bottom=Math.max(insetBottom,imeBottom);
+        PanelGeometry.Bounds bounds=PanelGeometry.place(root.getWidth(),root.getHeight(),insetLeft,insetTop,insetRight,bottom,dp(flyoutPanel?520:720),dp(flyoutPanel?520:820),dp(12),flyoutPanel&&imeBottom==0?dp(84):0);
+        FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(bounds.width,bounds.height);
+        // Center inside the safe rectangle. FrameLayout's CENTER gravity applies
+        // unequal margins as offsets, which can put a keyboard-resized panel offscreen.
+        p.gravity=Gravity.TOP|Gravity.LEFT;
+        p.leftMargin=bounds.left;p.topMargin=bounds.top;
+        panel.setLayoutParams(p);
     }
     private LinearLayout scrollBody(LinearLayout parent){
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);parent.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));LinearLayout body=Ui.column(this);body.setPadding(0,dp(10),0,dp(8));scroll.addView(body,new ScrollView.LayoutParams(-1,-2));return body;
     }
     private void paragraph(LinearLayout body,String text){TextView p=Ui.text(this,text,14,Ui.MUTED);p.setPadding(0,dp(8),0,dp(14));p.setLineSpacing(dp(3),1);body.addView(p,new LinearLayout.LayoutParams(-1,-2));}
-    private void action(LinearLayout body,String text,Runnable action){Button b=Ui.button(this,text,action);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=dp(8);body.addView(b,p);}
+    private void action(LinearLayout body,String text,Runnable action){Button b=Ui.quiet(this,text,action);b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=dp(2);body.addView(b,p);}
     private void section(LinearLayout body,String name){TextView h=Ui.text(this,name,16,Ui.TEXT);h.setTypeface(null,Typeface.BOLD);h.setPadding(0,dp(16),0,dp(8));body.addView(h);}
     private void toast(String text){Toast.makeText(this,text,Toast.LENGTH_SHORT).show();}
 
     private void showStart(){
-        LinearLayout p=openPanel("Start  /  Nth Desktop 3D");panelKind=1;
+        LinearLayout p=openPanel("Your apps");panelKind=1;
         appSearch=new EditText(this);appSearch.setSingleLine(true);appSearch.setHint("Search apps and Nth tools");appSearch.setTextColor(Ui.TEXT);appSearch.setHintTextColor(Ui.MUTED);appSearch.setTextSize(16);appSearch.setSelectAllOnFocus(true);appSearch.setContentDescription("Search installed apps");
         appSearch.setBackground(Ui.surface(0xFF0B172B,14,this));appSearch.setPadding(dp(14),0,dp(14),0);LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(-1,dp(50));ep.setMargins(0,dp(10),0,dp(10));p.addView(appSearch,ep);
         LinearLayout shortcuts=Ui.row(this);
@@ -258,7 +268,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         final List<AppCatalog.Entry> items=new ArrayList<>();boolean onlyBuiltins;
         void filter(String q){items.clear();items.addAll(catalog.filter(q,onlyBuiltins));notifyDataSetChanged();}
         @Override public int getCount(){return items.size();}@Override public Object getItem(int n){return items.get(n);}@Override public long getItemId(int n){return items.get(n).key.hashCode();}
-        @Override public View getView(int n,View old,ViewGroup parent){AppCatalog.Entry e=items.get(n);IconTile tile=new IconTile(MainActivity.this,e.label,e.icon,e.key);tile.setFocusable(false);tile.setClickable(false);tile.setLongClickable(false);tile.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1,dp(104)));return tile;}
+        @Override public View getView(int n,View old,ViewGroup parent){AppCatalog.Entry e=items.get(n);IconTile tile=new IconTile(MainActivity.this,e.label,e.icon,e.key);tile.setFocusable(false);tile.setClickable(false);tile.setLongClickable(false);tile.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1,dp(114)));return tile;}
     }
 
     @Override public void menu(LauncherStore.Item item){
@@ -304,17 +314,21 @@ public final class MainActivity extends Activity implements MotionController.Lis
         for(int i=0;i<LauncherStore.PAGE_COUNT;i++){section(body,"Desktop "+(i+1));if(store.pages.get(i).isEmpty())paragraph(body,"No shortcuts yet.");for(LauncherStore.Item item:store.pages.get(i)){Button b=Ui.button(this,item.label,()->open(item));b.setOnLongClickListener(v->{menu(item);return true;});LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(48));p.bottomMargin=dp(6);body.addView(b,p);}}
     }
     @Override public void backgroundMenu(){
-        LinearLayout body=scrollBody(openPanel("Desktop"));action(body,"Scene studio",this::showModes);action(body,"3D settings",this::showSettings);action(body,"New folder",this::newFolder);action(body,"Arrange shortcuts",()->{desktop.arrange();closePanel();});action(body,"All desktop shortcuts",this::showDesktopOverview);action(body,"Recenter tilt",()->{motion.recenter();closePanel();toast("Tilt centered");});action(body,"Set default Home",this::requestHome);
+        LinearLayout body=scrollBody(openPanel("Desktop",true));action(body,"Scene studio",this::showModes);action(body,"3D settings",this::showSettings);action(body,"New folder",this::newFolder);action(body,"Arrange shortcuts",()->{desktop.arrange();closePanel();});action(body,"All desktop shortcuts",this::showDesktopOverview);action(body,"Recenter tilt",()->{motion.recenter();closePanel();toast("Tilt centered");});action(body,"Set default Home",this::requestHome);
     }
     private void newFolder(){EditText edit=new EditText(this);edit.setSingleLine(true);edit.setHint("Folder name");Ui.pad(edit,16);new AlertDialog.Builder(this).setTitle("New folder").setView(edit).setNegativeButton("Cancel",null).setPositiveButton("Create",(d,w)->{String name=edit.getText().toString().trim();if(!name.isEmpty()&&store.pages.get(store.page).size()<60){store.pages.get(store.page).add(new LauncherStore.Item("folder",name));store.save();desktop.rebuild();pageChanged();closePanel();}}).show();}
 
     private void showModes(){
-        LinearLayout body=scrollBody(openPanel("Scene studio"));paragraph(body,"Choose a scene. Your shortcuts and folders stay in place; menus and transitions can be mixed in 3D settings.");
-        String[] descriptions={"Raised shortcut planes, mountain layers, a lit crystal, and perspective desktop transitions.","Tilt to roll and collide shortcut tiles. Drag to throw; hold to pin a tile. All shortcuts remains available above the desktop.","A planet and layered starfield shift with your viewing angle.","Swimming koi beneath floating leaves, with a pebble bed, shadows, and touch ripples."};
+        LinearLayout p=openPanel("Scene studio");LinearLayout body=scrollBody(p);
+        paragraph(body,"A different dimension for your desktop.");
+        String[] descriptions={"Layered mountains. Sculpted light.","Tilt, toss, and play with your shortcuts.","A quiet orbit through a field of stars.","Koi, floating leaves, and touch ripples."};
         for(int n=0;n<4;n++){
-            final int selected=n;Button b=Ui.button(this,(store.mode==n?"✓  ":"")+LauncherStore.MODES[n],()->{desktop.savePositions();store.mode=selected;store.save();applySettings(true);showModes();});b.setSelected(store.mode==n);b.setContentDescription(LauncherStore.MODES[n]+(store.mode==n?", selected":""));body.addView(b,new LinearLayout.LayoutParams(-1,dp(52)));paragraph(body,descriptions[n]);
+            final int selected=n;SceneCard card=new SceneCard(this,n,descriptions[n],store.mode==n);
+            card.setOnClickListener(v->{desktop.savePositions();store.mode=selected;store.save();applySettings(true);showModes();});
+            LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,dp(108));cp.bottomMargin=dp(12);body.addView(card,cp);
         }
-        action(body,"Try this scene",this::closePanel);action(body,"Mix menus and transitions",this::showSettings);
+        Button tryScene=Ui.primary(this,"Try this scene",this::closePanel);LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,dp(52));tp.topMargin=dp(10);p.addView(tryScene,tp);
+        Button mix=Ui.quiet(this,"Menus and transitions",this::showSettings);p.addView(mix,new LinearLayout.LayoutParams(-1,dp(48)));
     }
     private void showSettings(){
         LinearLayout body=scrollBody(openPanel("3D settings"));
@@ -359,12 +373,12 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void systemPanel(String action,String fallback){if(Build.VERSION.SDK_INT>=29){try{startActivity(new Intent(action));return;}catch(RuntimeException ignored){}}openSystem(fallback);}
     private void openSystem(String action){try{startActivity(new Intent(action));}catch(RuntimeException e){toast("That settings screen is unavailable on this device.");}}
     private void showAbout(){
-        LinearLayout body=scrollBody(openPanel("Nth Desktop 3D"));paragraph(body,"Version 0.1.0\n\nFour scenes. One desktop.\n\nTilt gently to explore depth. Swipe the desktop or use the arrows to turn pages. Hold an app for its menu. Hold the taskbar for desktop options.\n\nScene studio changes the environment. 3D settings mixes the transition and menu style independently.");
+        LinearLayout body=scrollBody(openPanel("Nth Desktop 3D"));paragraph(body,"Version 0.2.0\n\nFour scenes. One desktop.\n\nTilt gently to explore depth. Swipe the desktop or use the arrows to turn pages. Hold an app for its menu. Hold the taskbar for desktop options.\n\nScene studio changes the environment. 3D settings mixes the transition and menu style independently.");
         paragraph(body,"This first version includes app launching, persistent shortcuts and folders, Nth Notes, Calculator, Calendar, scene controls, and Android settings shortcuts. Android widgets, the wider Nth utility suite, and .nthdesktop imports are planned for later passes.");
         action(body,"Scene studio",this::showModes);action(body,"3D settings",this::showSettings);action(body,"Set default Home",this::requestHome);
     }
     private void welcome(){
-        if(destroyed||!resumed)return;LinearLayout body=scrollBody(openPanel("Welcome to Nth Desktop 3D"));paragraph(body,"Your desktop has depth.\n\nTilt your phone gently for parallax. Swipe or tap the arrows to turn desktops. Open N³ for apps and hold an app for shortcut options. Try all four scenes from Scene studio.\n\nReduced motion, tilt strength, menu styles, and transitions are in 3D settings.");
+        if(destroyed||!resumed)return;LinearLayout body=scrollBody(openPanel("Welcome to Nth Desktop 3D"));paragraph(body,"Your desktop has depth.\n\nTilt your phone gently for parallax. Swipe or tap the arrows to turn desktops. Open the cube in the dock for apps and hold an app for shortcut options. Try all four scenes from Scene studio.\n\nReduced motion, tilt strength, menu styles, and transitions are in 3D settings.");
         action(body,"Set as my Home app",this::requestHome);action(body,"Explore the desktop",()->{store.preferences.edit().putBoolean("welcomed",true).apply();closePanel();});action(body,"Choose a scene",()->{store.preferences.edit().putBoolean("welcomed",true).apply();showModes();});
     }
     private void requestHome(){

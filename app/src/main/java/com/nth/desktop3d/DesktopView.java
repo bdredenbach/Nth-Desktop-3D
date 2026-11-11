@@ -9,7 +9,6 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
-import android.widget.GridLayout;
 import android.widget.ScrollView;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,9 +23,9 @@ final class DesktopView extends FrameLayout {
     private final FrameLayout stage;
     private final List<Body> bodies=new ArrayList<>();
     private ScrollView scroller;
-    private GridLayout grid;
+    private ShortcutGrid grid;
     private float downX,downY,tiltX,tiltY;
-    private boolean swiping,animating,touching,modal,reduced,powerSave;
+    private boolean swiping,animating,touching,modal,reduced,powerSave,held,verticalGesture;
     private ValueAnimator animator;
     private int width,height;
     private final Runnable backgroundHold;
@@ -37,23 +36,21 @@ final class DesktopView extends FrameLayout {
     }
     DesktopView(Context c,LauncherStore store,AppCatalog catalog,Host host) {
         super(c);this.store=store;this.catalog=catalog;this.host=host;setClipChildren(false);setClipToPadding(false);
-        backgroundHold=()->{if(!swiping&&touching)this.host.backgroundMenu();};
+        backgroundHold=()->{if(!swiping&&!verticalGesture&&touching&&!modal){held=true;this.host.backgroundMenu();}};
         stage=new FrameLayout(c);stage.setClipChildren(false);stage.setClipToPadding(false);stage.setCameraDistance(Ui.dp(c,2200));
         addView(stage,new LayoutParams(-1,-1));setFocusable(false);
     }
     void configure(boolean reduced,boolean powerSave){this.reduced=reduced;this.powerSave=powerSave;}
     void tilt(float x,float y){tiltX=x;tiltY=y;}
-    void setModal(boolean v){modal=v;}
+    void setModal(boolean v){modal=v;if(v){touching=false;removeCallbacks(backgroundHold);}}
     void rebuild(){
         if(animator!=null)animator.cancel();animating=false;stage.animate().cancel();resetTransform();stage.removeAllViews();bodies.clear();
         boolean gravity=store.mode==1&&!reduced;
         if(!gravity){
             scroller=new ScrollView(getContext());scroller.setFillViewport(true);scroller.setClipToPadding(false);scroller.setVerticalScrollBarEnabled(false);
-            grid=new GridLayout(getContext()){
-                @Override public boolean onTouchEvent(MotionEvent e){if(e.getActionMasked()==MotionEvent.ACTION_DOWN)host.ripple(e.getX(),e.getY());return super.onTouchEvent(e);}
-                @Override public boolean performClick(){return super.performClick();}
-            };grid.setAlignmentMode(GridLayout.ALIGN_BOUNDS);grid.setUseDefaultMargins(false);grid.setPadding(Ui.dp(getContext(),4),Ui.dp(getContext(),12),Ui.dp(getContext(),4),Ui.dp(getContext(),12));
-            grid.setOnLongClickListener(v->{host.backgroundMenu();return true;});
+            grid=new ShortcutGrid(getContext());grid.setPadding(0,Ui.dp(getContext(),24),0,Ui.dp(getContext(),12));
+            grid.setOnTouchListener((v,e)->{if(e.getActionMasked()==MotionEvent.ACTION_DOWN)host.ripple(e.getX(),e.getY()-scroller.getScrollY());return false;});
+            grid.setOnLongClickListener(v->{held=true;host.backgroundMenu();return true;});
             scroller.addView(grid,new ScrollView.LayoutParams(-1,-2));stage.addView(scroller,new LayoutParams(-1,-1));
         }else {scroller=null;grid=null;}
         List<LauncherStore.Item> items=store.pages.get(store.page);
@@ -64,11 +61,12 @@ final class DesktopView extends FrameLayout {
             IconTile tile=new IconTile(getContext(),item.label,entry==null?null:entry.icon,item.key);
             tile.setOnClickListener(v->host.open(item));tile.setOnLongClickListener(v->{host.menu(item);return true;});
             Body body=new Body(tile,item);bodies.add(body);
-            if(gravity){stage.addView(tile,new LayoutParams(Ui.dp(getContext(),78),Ui.dp(getContext(),91)));installDrag(body);}
+            if(gravity){tile.physicsStyle();stage.addView(tile,new LayoutParams(Ui.dp(getContext(),78),physicsTileHeight()));installDrag(body);}
             else grid.addView(tile);
         }
         updateLayout();post(this::updateLayout);
     }
+    private int physicsTileHeight(){return Ui.dp(getContext(),98+Math.max(0,getResources().getConfiguration().fontScale-1)*30);}
     private void installDrag(Body body){
         body.tile.setOnTouchListener(new View.OnTouchListener(){float sx,sy,bx,by,lastX,lastY;long start,last;boolean moved,held;final Runnable hold=()->{held=true;body.tile.performLongClick();};
             @Override public boolean onTouch(View v,MotionEvent e){
@@ -88,16 +86,13 @@ final class DesktopView extends FrameLayout {
     private void updateLayout(){
         width=getWidth();height=getHeight();if(width==0||height==0)return;
         if(grid!=null){
-            grid.setMinimumHeight(height);
-            int columns=Math.max(3,Math.min(8,width/Ui.dp(getContext(),90)));grid.setColumnCount(columns);
-            int tileHeight=Ui.dp(getContext(),104);int available=Math.max(0,width-Ui.dp(getContext(),8));
-            for(Body body:bodies){GridLayout.LayoutParams p=new GridLayout.LayoutParams();p.width=available/columns-Ui.dp(getContext(),8);p.height=tileHeight;p.setMargins(Ui.dp(getContext(),4),Ui.dp(getContext(),5),Ui.dp(getContext(),4),Ui.dp(getContext(),5));body.tile.setLayoutParams(p);}
+            grid.requestLayout();
         }else{
-            int cols=Math.max(3,width/Ui.dp(getContext(),85));int size=Ui.dp(getContext(),78),h=Ui.dp(getContext(),91);int i=0;
+            int cols=Math.max(1,width/Ui.dp(getContext(),85));int size=Ui.dp(getContext(),78),h=physicsTileHeight();int i=0;
             for(Body b:bodies){
                 // A bounded shelf for extra items keeps even large desktops reachable.
                 float x=b.item.x<0?(i%cols)*(width/(float)cols)+4:b.item.x*Math.max(0,width-size);
-                float y=b.item.y<0?Math.max(0,height-h-(i/cols)*Ui.dp(getContext(),98)):b.item.y*Math.max(0,height-h);
+                float y=b.item.y<0?Math.max(0,height-h-(i/cols)*(h+Ui.dp(getContext(),7))):b.item.y*Math.max(0,height-h);
                 b.x=SceneMath.clamp(x,0,Math.max(0,width-size));b.y=SceneMath.clamp(y,0,Math.max(0,height-h));
                 b.tile.setTranslationX(b.x);b.tile.setTranslationY(b.y);i++;
             }
@@ -143,7 +138,8 @@ final class DesktopView extends FrameLayout {
     private void resetTransform(){stage.setRotationX(0);stage.setRotationY(0);stage.setTranslationX(0);stage.setScaleX(1);stage.setScaleY(1);stage.setAlpha(1);}
     @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){super.onSizeChanged(w,h,oldw,oldh);post(this::updateLayout);}
     @Override public boolean dispatchTouchEvent(MotionEvent e){
-        if(e.getActionMasked()==MotionEvent.ACTION_DOWN)touching=true;
+        if(e.getActionMasked()==MotionEvent.ACTION_DOWN){touching=true;held=false;verticalGesture=false;}
+        if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&Math.hypot(e.getX()-downX,e.getY()-downY)>ViewConfiguration.get(getContext()).getScaledTouchSlop())removeCallbacks(backgroundHold);
         boolean result=super.dispatchTouchEvent(e);
         if(e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL){touching=false;removeCallbacks(backgroundHold);}
         return result;
@@ -151,14 +147,18 @@ final class DesktopView extends FrameLayout {
     @Override public boolean onInterceptTouchEvent(MotionEvent e){
         if(animating)return true;
         if(e.getActionMasked()==MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();swiping=false;}
-        if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&store.mode!=1){float dx=e.getX()-downX,dy=e.getY()-downY;if(Math.abs(dx)>Ui.dp(getContext(),22)&&Math.abs(dx)>Math.abs(dy)*1.4f){swiping=true;return true;}}
+        if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&(store.mode!=1||reduced)&&!held){float dx=e.getX()-downX,dy=e.getY()-downY;
+            int slop=ViewConfiguration.get(getContext()).getScaledTouchSlop();
+            if(!swiping&&Math.abs(dy)>slop&&Math.abs(dy)>Math.abs(dx))verticalGesture=true;
+            if(!verticalGesture&&Math.abs(dx)>slop*2&&Math.abs(dx)>Math.abs(dy)*1.4f){swiping=true;return true;}}
         return false;
     }
     @Override public boolean onTouchEvent(MotionEvent e){
         switch(e.getActionMasked()){
             case MotionEvent.ACTION_DOWN:downX=e.getX();downY=e.getY();touching=true;swiping=false;postDelayed(backgroundHold,ViewConfiguration.getLongPressTimeout());host.ripple(e.getX(),e.getY());return true;
-            case MotionEvent.ACTION_MOVE:if(Math.hypot(e.getX()-downX,e.getY()-downY)>Ui.dp(getContext(),12)){swiping=true;removeCallbacks(backgroundHold);}return true;
-            case MotionEvent.ACTION_UP:removeCallbacks(backgroundHold);if(swiping&&Math.abs(e.getX()-downX)>Ui.dp(getContext(),42)){touching=false;changePage(e.getX()<downX?1:-1);}else performClick();return true;
+            case MotionEvent.ACTION_MOVE:float dx=e.getX()-downX,dy=e.getY()-downY;
+                if(Math.hypot(dx,dy)>ViewConfiguration.get(getContext()).getScaledTouchSlop()){removeCallbacks(backgroundHold);if(Math.abs(dy)>Math.abs(dx))verticalGesture=true;if(!verticalGesture&&Math.abs(dx)>Math.abs(dy)*1.4f)swiping=true;}return true;
+            case MotionEvent.ACTION_UP:removeCallbacks(backgroundHold);if(!held&&!verticalGesture&&swiping&&Math.abs(e.getX()-downX)>Ui.dp(getContext(),48)){touching=false;changePage(e.getX()<downX?1:-1);}else if(!held&&!swiping&&!verticalGesture)performClick();return true;
             case MotionEvent.ACTION_CANCEL:removeCallbacks(backgroundHold);return true;
             default:return true;
         }
