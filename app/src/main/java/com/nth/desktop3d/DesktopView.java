@@ -1,0 +1,167 @@
+package com.nth.desktop3d;
+
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
+import android.content.Context;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewConfiguration;
+import android.view.animation.DecelerateInterpolator;
+import android.widget.FrameLayout;
+import android.widget.GridLayout;
+import android.widget.ScrollView;
+import java.util.ArrayList;
+import java.util.List;
+
+/** Accessible shortcut planes, with bounded physics and native inverse-transform input. */
+@android.annotation.SuppressLint("ViewConstructor") // Requires the canonical layout and launcher action host.
+final class DesktopView extends FrameLayout {
+    interface Host { void open(LauncherStore.Item item);void menu(LauncherStore.Item item);void backgroundMenu();void pageChanged();void ripple(float x,float y); }
+    private final LauncherStore store;
+    private final AppCatalog catalog;
+    private final Host host;
+    private final FrameLayout stage;
+    private final List<Body> bodies=new ArrayList<>();
+    private ScrollView scroller;
+    private GridLayout grid;
+    private float downX,downY,tiltX,tiltY;
+    private boolean swiping,animating,touching,modal,reduced,powerSave;
+    private ValueAnimator animator;
+    private int width,height;
+    private final Runnable backgroundHold;
+    private static final class Body {
+        final IconTile tile;final LauncherStore.Item item;
+        float x,y,vx,vy,rotation;
+        Body(IconTile tile,LauncherStore.Item item){this.tile=tile;this.item=item;}
+    }
+    DesktopView(Context c,LauncherStore store,AppCatalog catalog,Host host) {
+        super(c);this.store=store;this.catalog=catalog;this.host=host;setClipChildren(false);setClipToPadding(false);
+        backgroundHold=()->{if(!swiping&&touching)this.host.backgroundMenu();};
+        stage=new FrameLayout(c);stage.setClipChildren(false);stage.setClipToPadding(false);stage.setCameraDistance(Ui.dp(c,2200));
+        addView(stage,new LayoutParams(-1,-1));setFocusable(false);
+    }
+    void configure(boolean reduced,boolean powerSave){this.reduced=reduced;this.powerSave=powerSave;}
+    void tilt(float x,float y){tiltX=x;tiltY=y;}
+    void setModal(boolean v){modal=v;}
+    void rebuild(){
+        if(animator!=null)animator.cancel();animating=false;stage.animate().cancel();resetTransform();stage.removeAllViews();bodies.clear();
+        boolean gravity=store.mode==1&&!reduced;
+        if(!gravity){
+            scroller=new ScrollView(getContext());scroller.setFillViewport(true);scroller.setClipToPadding(false);scroller.setVerticalScrollBarEnabled(false);
+            grid=new GridLayout(getContext()){
+                @Override public boolean onTouchEvent(MotionEvent e){if(e.getActionMasked()==MotionEvent.ACTION_DOWN)host.ripple(e.getX(),e.getY());return super.onTouchEvent(e);}
+                @Override public boolean performClick(){return super.performClick();}
+            };grid.setAlignmentMode(GridLayout.ALIGN_BOUNDS);grid.setUseDefaultMargins(false);grid.setPadding(Ui.dp(getContext(),4),Ui.dp(getContext(),12),Ui.dp(getContext(),4),Ui.dp(getContext(),12));
+            grid.setOnLongClickListener(v->{host.backgroundMenu();return true;});
+            scroller.addView(grid,new ScrollView.LayoutParams(-1,-2));stage.addView(scroller,new LayoutParams(-1,-1));
+        }else {scroller=null;grid=null;}
+        List<LauncherStore.Item> items=store.pages.get(store.page);
+        int visible=0;
+        for(LauncherStore.Item item:items){
+            if(gravity&&visible++>=18)break; // Every shortcut is also accessible in All shortcuts.
+            AppCatalog.Entry entry=catalog.find(item.key);
+            IconTile tile=new IconTile(getContext(),item.label,entry==null?null:entry.icon,item.key);
+            tile.setOnClickListener(v->host.open(item));tile.setOnLongClickListener(v->{host.menu(item);return true;});
+            Body body=new Body(tile,item);bodies.add(body);
+            if(gravity){stage.addView(tile,new LayoutParams(Ui.dp(getContext(),78),Ui.dp(getContext(),91)));installDrag(body);}
+            else grid.addView(tile);
+        }
+        updateLayout();post(this::updateLayout);
+    }
+    private void installDrag(Body body){
+        body.tile.setOnTouchListener(new View.OnTouchListener(){float sx,sy,bx,by,lastX,lastY;long start,last;boolean moved,held;final Runnable hold=()->{held=true;body.tile.performLongClick();};
+            @Override public boolean onTouch(View v,MotionEvent e){
+                switch(e.getActionMasked()){
+                    case MotionEvent.ACTION_DOWN:sx=lastX=e.getRawX();sy=lastY=e.getRawY();bx=body.x;by=body.y;last=start=e.getEventTime();moved=held=false;v.setPressed(true);v.postDelayed(hold,ViewConfiguration.getLongPressTimeout());return true;
+                    case MotionEvent.ACTION_MOVE:
+                        float dx=e.getRawX()-sx,dy=e.getRawY()-sy;
+                        if(Math.hypot(dx,dy)>Ui.dp(getContext(),9)){moved=true;v.removeCallbacks(hold);}
+                        if(moved&&!held){body.x=SceneMath.clamp(bx+dx,0,Math.max(0,width-v.getWidth()));body.y=SceneMath.clamp(by+dy,0,Math.max(0,height-v.getHeight()));long dt=Math.max(1,e.getEventTime()-last);body.vx=(e.getRawX()-lastX)*1000/dt;body.vy=(e.getRawY()-lastY)*1000/dt;v.setTranslationX(body.x);v.setTranslationY(body.y);last=e.getEventTime();lastX=e.getRawX();lastY=e.getRawY();}return true;
+                    case MotionEvent.ACTION_UP:v.removeCallbacks(hold);v.setPressed(false);if(!moved&&!held&&e.getEventTime()-start<500)v.performClick();savePositions();return true;
+                    case MotionEvent.ACTION_CANCEL:v.removeCallbacks(hold);v.setPressed(false);return true;
+                    default:return false;
+                }
+            }
+        });
+    }
+    private void updateLayout(){
+        width=getWidth();height=getHeight();if(width==0||height==0)return;
+        if(grid!=null){
+            grid.setMinimumHeight(height);
+            int columns=Math.max(3,Math.min(8,width/Ui.dp(getContext(),90)));grid.setColumnCount(columns);
+            int tileHeight=Ui.dp(getContext(),104);int available=Math.max(0,width-Ui.dp(getContext(),8));
+            for(Body body:bodies){GridLayout.LayoutParams p=new GridLayout.LayoutParams();p.width=available/columns-Ui.dp(getContext(),8);p.height=tileHeight;p.setMargins(Ui.dp(getContext(),4),Ui.dp(getContext(),5),Ui.dp(getContext(),4),Ui.dp(getContext(),5));body.tile.setLayoutParams(p);}
+        }else{
+            int cols=Math.max(3,width/Ui.dp(getContext(),85));int size=Ui.dp(getContext(),78),h=Ui.dp(getContext(),91);int i=0;
+            for(Body b:bodies){
+                // A bounded shelf for extra items keeps even large desktops reachable.
+                float x=b.item.x<0?(i%cols)*(width/(float)cols)+4:b.item.x*Math.max(0,width-size);
+                float y=b.item.y<0?Math.max(0,height-h-(i/cols)*Ui.dp(getContext(),98)):b.item.y*Math.max(0,height-h);
+                b.x=SceneMath.clamp(x,0,Math.max(0,width-size));b.y=SceneMath.clamp(y,0,Math.max(0,height-h));
+                b.tile.setTranslationX(b.x);b.tile.setTranslationY(b.y);i++;
+            }
+        }
+    }
+    void frame(float dt){
+        if(modal||touching||animating)return;
+        if(store.mode!=1||reduced){stage.setRotationY(reduced?0:tiltX*store.strength*3);stage.setRotationX(reduced?0:-tiltY*store.strength*2);return;}
+        if(powerSave)return;
+        float scale=getResources().getDisplayMetrics().density;float time=Math.min(dt,.025f);
+        for(Body b:bodies){
+            if(b.item.fixed)continue;
+            b.vx+=tiltX*store.strength*950*scale*time;b.vy+=(250+tiltY*store.strength*700)*scale*time;
+            b.vx*=Math.pow(.88,time*60);b.vy*=Math.pow(.985,time*60);b.x+=b.vx*time;b.y+=b.vy*time;
+            float[] hit=SceneMath.constrain(b.x,b.y,b.vx,b.vy,width,height,b.tile.getWidth());b.x=hit[0];b.vx=hit[2];
+            float maxY=Math.max(0,height-b.tile.getHeight());if(b.y<0){b.y=0;b.vy=Math.abs(b.vy)*.45f;}if(b.y>maxY){b.y=maxY;b.vy=-Math.abs(b.vy)*.36f;}
+        }
+        for(int pass=0;pass<2;pass++)for(int i=0;i<bodies.size();i++)for(int j=i+1;j<bodies.size();j++){
+            Body a=bodies.get(i),b=bodies.get(j);float dx=b.x-a.x,dy=b.y-a.y;float w=(a.tile.getWidth()+b.tile.getWidth())*.47f,h=(a.tile.getHeight()+b.tile.getHeight())*.46f;
+            if(Math.abs(dx)<w&&Math.abs(dy)<h){
+                float overlapX=w-Math.abs(dx),overlapY=h-Math.abs(dy),sign;
+                if(overlapX<overlapY){sign=dx>=0?1:-1;float amount=overlapX*.51f;if(!a.item.fixed)a.x-=sign*amount;if(!b.item.fixed)b.x+=sign*amount;float v=a.vx;if(!a.item.fixed)a.vx=b.vx*.55f;if(!b.item.fixed)b.vx=v*.55f;}
+                else{sign=dy>=0?1:-1;float amount=overlapY*.51f;if(!a.item.fixed)a.y-=sign*amount;if(!b.item.fixed)b.y+=sign*amount;float v=a.vy;if(!a.item.fixed)a.vy=b.vy*.3f;if(!b.item.fixed)b.vy=v*.3f;}
+            }
+        }
+        for(Body b:bodies){b.x=SceneMath.clamp(b.x,0,Math.max(0,width-b.tile.getWidth()));b.y=SceneMath.clamp(b.y,0,Math.max(0,height-b.tile.getHeight()));b.rotation=SceneMath.smooth(b.rotation,SceneMath.clamp(b.vx/22,-12,12),time,3);b.tile.setTranslationX(b.x);b.tile.setTranslationY(b.y);b.tile.setRotation(b.item.fixed?0:b.rotation);b.tile.setRotationY(tiltX*store.strength*6);}
+    }
+    void savePositions(){if(store.mode==1&&!reduced)for(Body b:bodies){b.item.x=b.x/Math.max(1,width-b.tile.getWidth());b.item.y=b.y/Math.max(1,height-b.tile.getHeight());}}
+    void arrange(){for(LauncherStore.Item i:store.pages.get(store.page)){i.x=i.y=-1;}rebuild();store.save();}
+    void changePage(int direction){
+        if(animating||modal)return;savePositions();
+        if(reduced){store.page=SceneMath.wrap(store.page+direction,LauncherStore.PAGE_COUNT);rebuild();store.save();host.pageChanged();return;}
+        animating=true;int next=SceneMath.wrap(store.page+direction,LauncherStore.PAGE_COUNT);final boolean[] switched={false};
+        animator=ValueAnimator.ofFloat(0,1);animator.setDuration(470);animator.setInterpolator(new DecelerateInterpolator());
+        animator.addUpdateListener(a->{float progress=(float)a.getAnimatedValue();if(progress>=.5f&&!switched[0]){switched[0]=true;store.page=next;ValueAnimator keep=animator;animator=null;rebuild();animator=keep;animating=true;host.pageChanged();}
+            float local=progress<.5f?progress*2:(progress-.5f)*2;boolean incoming=progress>=.5f;float amount=incoming?(1-local):local;float sign=(incoming?-direction:direction);
+            stage.setPivotX(store.transition==0?(sign>0?0:width):width*.5f);stage.setPivotY(height*.5f);
+            stage.setRotationY(store.transition==2?0:sign*amount*(store.transition==0?78:45));stage.setRotationX(store.transition==2?sign*amount*68:0);
+            stage.setTranslationX(store.transition==1?-sign*amount*width*.35f:0);stage.setScaleX(1-amount*.12f);stage.setScaleY(1-amount*.12f);stage.setAlpha(1-amount*.6f);
+        });
+        animator.addListener(new AnimatorListenerAdapter(){@Override public void onAnimationEnd(Animator a){animating=false;resetTransform();store.save();}});animator.start();
+    }
+    private void resetTransform(){stage.setRotationX(0);stage.setRotationY(0);stage.setTranslationX(0);stage.setScaleX(1);stage.setScaleY(1);stage.setAlpha(1);}
+    @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){super.onSizeChanged(w,h,oldw,oldh);post(this::updateLayout);}
+    @Override public boolean dispatchTouchEvent(MotionEvent e){
+        if(e.getActionMasked()==MotionEvent.ACTION_DOWN)touching=true;
+        boolean result=super.dispatchTouchEvent(e);
+        if(e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL){touching=false;removeCallbacks(backgroundHold);}
+        return result;
+    }
+    @Override public boolean onInterceptTouchEvent(MotionEvent e){
+        if(animating)return true;
+        if(e.getActionMasked()==MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();swiping=false;}
+        if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&store.mode!=1){float dx=e.getX()-downX,dy=e.getY()-downY;if(Math.abs(dx)>Ui.dp(getContext(),22)&&Math.abs(dx)>Math.abs(dy)*1.4f){swiping=true;return true;}}
+        return false;
+    }
+    @Override public boolean onTouchEvent(MotionEvent e){
+        switch(e.getActionMasked()){
+            case MotionEvent.ACTION_DOWN:downX=e.getX();downY=e.getY();touching=true;swiping=false;postDelayed(backgroundHold,ViewConfiguration.getLongPressTimeout());host.ripple(e.getX(),e.getY());return true;
+            case MotionEvent.ACTION_MOVE:if(Math.hypot(e.getX()-downX,e.getY()-downY)>Ui.dp(getContext(),12)){swiping=true;removeCallbacks(backgroundHold);}return true;
+            case MotionEvent.ACTION_UP:removeCallbacks(backgroundHold);if(swiping&&Math.abs(e.getX()-downX)>Ui.dp(getContext(),42)){touching=false;changePage(e.getX()<downX?1:-1);}else performClick();return true;
+            case MotionEvent.ACTION_CANCEL:removeCallbacks(backgroundHold);return true;
+            default:return true;
+        }
+    }
+    @Override public boolean performClick(){super.performClick();return true;}
+}

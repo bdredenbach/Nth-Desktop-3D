@@ -1,0 +1,304 @@
+NTH DESKTOP 3D
+Video review and implementation brief
+Prepared November 11, 2026
+
+STATUS
+
+This is the design and engineering brief for a new Android home launcher.
+It records the supplied video references, proposed modes, and acceptance
+criteria. No Android source, APK, device performance measurements, or
+repository changes have been produced in this pass. Mode names below are
+proposed Nth Desktop names, not verified names of the reference products.
+
+PRODUCT DIRECTION
+
+Create a launcher whose desktop, icons, menus, folders, flyouts, and built-in
+windows share a coherent sense of space. Phone tilt changes the viewing
+angle and separates background layers. Touch remains the primary control.
+
+Use one launcher with independently selectable background scenes, desktop
+layouts, transitions, and menu styles. Presets offer complete looks without
+preventing combinations such as a Living Pond background with a rotating
+Start menu. Switching presets must preserve shortcuts and folders.
+
+The first install should demonstrate a tasteful amount of depth immediately.
+Use Spatial Desktop as the proposed default, with an original layered
+landscape, a stable bottom taskbar, and a lifting Start menu. Provide an
+obvious mode chooser and a short tip about tilting the phone.
+
+REFERENCE REVIEW
+
+Timestamps refer to the attached recordings, not the original online videos.
+Observations describe visible behavior; implementation proposals are separate.
+The recordings demonstrate effects but do not establish their source code,
+licensing, sensor algorithms, power consumption, or speed on the Pixel 10.
+
+226449.mp4 — about 2 minutes 23 seconds
+
+  00:02–00:44: An icon physics/rolling setup. Shortcuts and selected photo
+  tiles move, rotate, and gather near the bottom. Setup includes Add App,
+  Add Photo, Add Video, Settings, and Preview. At about 00:30 the preview
+  also offers wallpaper installation. This is visual inspiration for a
+  physics scene; the recording alone does not prove its sensor behavior.
+
+  00:50–01:20: A launcher with raised-looking widgets and a strong
+  perspective rotation between home panels, clearly visible near 00:52
+  and 01:16. There is also an alphabetical app drawer. These support a
+  spatial desktop preset and a separate app-browsing surface.
+
+  01:38–02:22: Colorful home pages, folders, app lists, a theme browser,
+  and decorative leaves. This supports theme variety and ambient elements.
+  The visible artwork alone is not evidence of accelerometer parallax.
+
+226451.mp4 — about 46 seconds
+
+  00:16–00:20: Pebbles form a background beneath fish and floating leaves.
+
+  00:22–00:34: Settings show two background choices, a fish count selector
+  with visible values from three through seven, Slow/Medium/Fast fish
+  speed, and a Water Ripple/Fish Shadow choice.
+
+  00:36–00:42: A pale stone variant, moving fish and leaves, and a visible
+  water distortion/ripple effect. This is the clearest reference for a
+  Living Pond preset. Tilt-driven camera motion would be our addition.
+
+226446.mp4 — about 2 minutes 18 seconds
+
+  00:00–00:02: An underwater scene behind the launcher.
+
+  00:08–00:26: A clock widget with animated flip-like changes and several
+  home pages.
+
+  00:28–00:42: An effects interface with Desktop, Drawer, Clicking, Menu,
+  and Mark categories. Multiple perspective/folding/rotating effect
+  thumbnails are visible, and home items visibly transform during swipes.
+  Avoid inventing exact product effect names from these small thumbnails.
+
+  00:44–00:46: An app drawer with icons shown at changing angles.
+
+  00:58–01:00: A favorites/menu overlay over a softened home scene.
+
+  01:04–01:28: Live wallpaper selection and a character-based scene
+  demonstrated while the phone is tilted.
+
+  01:36–02:15: Further character and space-themed scenes, including a
+  green character and a purple starfield. Separate foreground/background
+  motion is the main inspiration for Holographic Depth.
+
+PROPOSED MODES
+
+1. SPATIAL DESKTOP
+
+  Main reference: 226449.mp4 at 00:50–01:20, with transition ideas from
+  226446.mp4 at 00:28–00:46.
+
+  Home pages become panels with thickness, perspective, and shadows.
+  Swiping can rotate a cube, turn a panel like a hinged door, move through
+  a curved carousel, or tilt a stack of cards. Cube and carousel are our
+  proposed selectable implementations, not verified effect names.
+
+  Icons rise slightly when pressed. Folders lift forward and open into
+  a fan or compact spread. Built-in windows can join a depth-stack switcher.
+
+  Keep taskbar controls anchored at the bottom. Rotating home pages must
+  not move the Start button, clock, or tray out of reach. Desktop content
+  reserves space for the taskbar in portrait and landscape.
+
+2. GRAVITY PLAYGROUND
+
+  Main reference: 226449.mp4 at 00:02–00:44.
+
+  Represent selected shortcuts as shallow 3D tiles or discs. Tilting the
+  phone changes a simulated gravity vector; objects roll, collide, and
+  settle inside a bounded play area. Optional photo tiles can join them.
+
+  Pinning holds important shortcuts in place. A visible Arrange action
+  returns items to an orderly layout. Hold an object to steady it and open
+  its context menu. Capture the selected item's stable identifier so
+  movement cannot cause the wrong app to launch.
+
+  Begin with shortcuts and still photos. Multiple simultaneous video
+  tiles need a separate performance experiment before being included.
+  Physics remains confined to the play area; taskbar controls stay fixed.
+
+3. HOLOGRAPHIC DEPTH
+
+  Main reference: 226446.mp4 at 01:04–02:15.
+
+  Use separate background, middle, subject, and foreground layers. Their
+  differing movement as the viewing angle changes creates depth. Add
+  optional particles, lighting, and subtle icon shadows.
+
+  Ship original scenes such as a starfield, underwater setting, and
+  abstract landscape. Existing comic characters in the recording serve
+  only as references; they are not bundled artwork for the new app.
+
+  Support a single-photo mode with modest whole-image movement, plus
+  a richer layered-image mode. A single photograph must not be described
+  as automatically containing separated depth layers. Automatic depth
+  estimation would be an additional feature with its own investigation.
+
+4. LIVING POND
+
+  Main reference: 226451.mp4 at 00:16–00:42.
+
+  Give the scene separate pebble, fish, water, and floating-leaf depths.
+  Fish follow smooth paths, leaves drift, and background touches produce
+  ripples. Add a gentle tilt-driven view shift and moving shadows.
+
+  Expose background selection, fish count, fish speed, ripples, and shadows.
+  Our implementation can allow ripples and shadows together rather than
+  copying the reference's either/or choice.
+
+  Water response must not intercept taps intended for shortcuts, menus,
+  widgets, or the taskbar. Let animation run only while home is visible.
+
+3D THROUGHOUT THE LAUNCHER
+
+  Start menu: Choose a lifting layered panel, rotating category carousel,
+  or unfolding book. Keep app names readable and the focused selection
+  facing the user. Search text and keyboard input use native Android UI.
+
+  Hold/right-click menus: A compact panel unfolds from the selected item.
+  Include relevant actions such as Open, Add to desktop, Pin/Unpin,
+  Rename shortcut, App info, and Uninstall through Android's own flow.
+  Available actions depend on whether the item is an app, folder,
+  shortcut, or built-in feature.
+
+  Flyouts: Calendar, sound, and device controls swing or lift from their
+  taskbar anchor, then settle into a readable, touch-friendly position.
+  Keep Android-controlled actions in their supported system screens.
+
+  Folders: A folder can open like a box, spread into a fan, or expand into
+  a floating grid. Long lists must remain searchable and practical.
+
+  Built-in windows: Add restrained thickness, lighting, shadows, opening
+  and closing motion, and a stack/carousel switcher. Resizing and dragging
+  continue to work after the animation settles.
+
+  Further experiments: A room with app shelves; a radial shortcut wheel;
+  a floating clock with flip digits; a portal-like app launch animation;
+  and an optional reflective desktop floor. Treat these as later options
+  after the main four modes work reliably.
+
+  Native Android apps still launch through Android. A launcher can style
+  its own home scene and built-in content, but should not promise arbitrary
+  3D control of another app's interface or unrestricted live app previews.
+
+ENGINEERING FOUNDATION
+
+  Use a new shared scene/rendering layer with native Android launcher
+  services. A practical initial candidate is Kotlin with an OpenGL ES
+  scene for perspective, depth, textured geometry, lighting, and picking.
+  Check the required graphics capabilities at runtime or declare the
+  minimum accurately. A 3D scene needs more than a wallpaper animation.
+
+  Separate scene data, animation state, and Android actions. App identity
+  uses component plus user/profile, not the visible label or icon position.
+  Use Android's LauncherApps interface for app entries and launching.
+
+  Reuse appropriate existing Nth logic for folders, setup, app discovery,
+  backup, and built-in utilities once the source baseline is selected.
+  The new renderer should not require duplicating each utility for every
+  mode. Keep editable text, accessibility focus, and ordinary controls
+  available through native Android surfaces.
+
+  Host external widgets through AppWidgetHost. Prototype the combination
+  of native interactive widgets and scene transitions early; rendering a
+  preview texture is not equivalent to hosting a live interactive widget.
+  The proposed approach is to animate a representation during a page
+  transition and restore the real host view when the page settles.
+
+  Keep scene selection, transition style, menu style, motion intensity,
+  and quality independent in saved settings. Maintain one canonical layout
+  so changing an effect cannot lose an icon or create duplicate shortcuts.
+
+  Plan .nthdesktop compatibility by inspecting the existing schema before
+  implementation. Preserve 3D-specific settings as versioned fields and
+  map imported ordinary layouts into a safe 3D default. Compatibility has
+  not yet been implemented or verified for this new launcher.
+
+MOTION AND INPUT
+
+  Prefer the game rotation vector where available for smooth relative
+  orientation. Fall back to gravity or a filtered accelerometer. Detect
+  sensor availability rather than assuming a specific phone configuration.
+
+  Establish a neutral pose when home opens, support Recenter, remap axes
+  for screen orientation, smooth the signal, and clamp its effect. Start
+  with a modest camera angle; expose stronger motion as an option.
+  Avoid depending on compass direction or unbounded accumulated yaw.
+
+  Start/stop sensor listeners and rendering with visible lifecycle state.
+  Pause when home is covered or the screen is off. Reduce ambient motion
+  and rendering cost under battery saver. Do not add a background sensor
+  service solely to keep a hidden home scene moving.
+
+  Keep menus and touch targets steady while being used. Convert touch
+  coordinates with the same current transforms used to render an object.
+  Resolve the nearest visible hit, respect clipping, and prevent back-face
+  or hidden icons from receiving taps.
+
+  Offer motion strength, animation speed, tilt on/off, reduced motion,
+  and a simple stable layout. Effects must have a usable touch-only path.
+
+FIRST BUILD AND SUBSEQUENT PASSES
+
+  First Android build: a real HOME launcher, installed apps and search,
+  persistent shortcuts/folders, a stable taskbar, one original layered
+  background with tilt, cube/carousel page transitions, a lifting 3D Start
+  menu, a hold menu, basic flyouts, and a mode/settings preview.
+
+  Next pass: selectable Gravity Playground and Living Pond scenes,
+  additional holographic backgrounds, folder styles, and menu variants.
+
+  Following pass: integrate selected Nth utilities and verify their window
+  behavior, external widget hosting, backup imports, performance, and
+  accessibility. Room/shelf and heavier shader experiments follow evidence
+  that the core launcher remains smooth and comfortable.
+
+  This order is a proposed implementation sequence, not a claim that any
+  milestone has already been completed. The new repository URL/source
+  baseline is still needed before a repository-backed Android build.
+
+ACCEPTANCE CHECKS
+
+  - First launch offers the default-home flow and explains tilt briefly.
+  - App launch, return Home, app installation/removal, and profile handling
+    keep the expected entries and current page consistent.
+  - Every mode preserves folders, shortcuts, and taskbar placement.
+  - Tap/hold/swipe/drag select the intended object at maximum motion.
+  - Start, search, folders, context menus, and flyouts support Back and
+    remain usable with the keyboard open and after rotation.
+  - No desktop labels or menus disappear beneath the taskbar or cutout.
+  - Missing sensors and reduced motion leave a fully usable launcher.
+  - Home stops sensor/render work while another app covers it.
+  - GPU context recreation restores textures and the selected scene.
+  - Check small and large app collections and imported layouts.
+  - Profile real frame times, memory, heat, and battery on the Pixel 10.
+    Aim for steady 60 fps first; offer a higher refresh option only after
+    measurements support it. No device speed or battery claim is made yet.
+
+PRIMARY ANDROID REFERENCES
+
+These sources support the platform capabilities and limits. Specific scene
+designs, controls, preset names, and implementation choices above are proposals.
+
+OpenGL ES, including device capability checks:
+https://developer.android.com/develop/ui/views/graphics/opengl/about-opengl
+
+Relative orientation and the game rotation vector:
+https://developer.android.com/develop/sensors-and-location/sensors/sensors_position
+
+Sensor availability, coordinate systems, and listener lifecycle:
+https://developer.android.com/develop/sensors-and-location/sensors/sensors_overview
+
+Launcher activity discovery, profiles, and app launch:
+https://developer.android.com/reference/android/content/pm/LauncherApps
+
+Hosting interactive Android widgets:
+https://developer.android.com/develop/ui/views/appwidgets/host
+
+Task API limits: getAppTasks applies to the calling app; third-party access
+to the old global recent-task list is restricted:
+https://developer.android.com/reference/android/app/ActivityManager
