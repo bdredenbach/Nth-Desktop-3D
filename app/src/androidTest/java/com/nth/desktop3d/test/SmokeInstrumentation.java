@@ -67,7 +67,9 @@ public final class SmokeInstrumentation extends Instrumentation {
         directory.mkdirs();try(java.io.FileOutputStream stream=new java.io.FileOutputStream(new java.io.File(directory,name+".png"))){bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,stream);}catch(java.io.IOException e){throw new AssertionError(e);}finally{bitmap.recycle();}
     }
     private void back(){main(()->activity.onBackPressed());idle(300);}
-    private void idle(long ms){waitForIdleSync();SystemClock.sleep(ms);waitForIdleSync();}
+    // A live wallpaper/physics loop need not leave the message queue completely idle.
+    // Use a bounded animation wait and a UI-thread barrier instead of waiting forever.
+    private void idle(long ms){SystemClock.sleep(ms);runOnMainSync(()->{});}
     private void main(Runnable r){AtomicReference<Throwable> failure=new AtomicReference<>();runOnMainSync(()->{try{r.run();}catch(Throwable e){failure.set(e);}});if(failure.get()!=null)throw new AssertionError(failure.get());}
     private static void check(boolean condition,String message){if(!condition)throw new AssertionError(message);}
 }
