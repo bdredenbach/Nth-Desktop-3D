@@ -19,9 +19,23 @@ of physical Pixel 10 testing.
 
 ## Runtime status
 
-Android emulator testing is in progress. See the final build report for the
-observed installation/UI outcome. Never infer Android interaction testing from
-shader screenshots or unit tests.
+A GitHub Android 35 emulator reached the app during the initial smoke run.
+That run stopped on a null comparison in the test helper, rather than an app
+startup exception. The helper was corrected. A later run stalled while waiting
+for a completely idle UI message queue; this launcher continuously animates.
+The current helper uses bounded waits and a UI-thread barrier, with an 8-minute
+command timeout and a 15-minute job timeout.
+
+The corrected check was still queued behind the stale run at delivery. It has
+**not** been recorded as a passing Android UI test. The current GitHub connection
+cannot cancel the obsolete run. Check the Actions page for subsequent results:
+
+https://github.com/bdredenbach/Nth-Desktop-3D/actions
+
+The local unaccelerated Android 35 emulator could not provide stable package
+services during first boot, so it was stopped. Desktop scene screenshots are
+shader evidence, not Android UI screenshots. Pixel interaction testing remains
+necessary.
 
 ## Remaining device checks
 
