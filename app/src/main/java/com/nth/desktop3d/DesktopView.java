@@ -129,6 +129,44 @@ final class DesktopView extends FrameLayout {
                 widget.setTranslationX(store.preferences.getInt("widget_x_"+id,0));
                 stage.addView(widget,lp);widget.setElevation(Ui.dp(getContext(),14));
                 widget.setOnLongClickListener(v->{selectWidget(widget,id,info);return true;});
+                widget.setOnTouchListener(new View.OnTouchListener(){
+                    float startX,startY,originX;int originTop;boolean dragging;
+                    @Override public boolean onTouch(View v,MotionEvent e){
+                        switch(e.getActionMasked()){
+                            case MotionEvent.ACTION_DOWN:
+                                startX=e.getRawX();startY=e.getRawY();originX=widget.getTranslationX();
+                                originTop=((FrameLayout.LayoutParams)widget.getLayoutParams()).topMargin;
+                                dragging=false;return selectedWidget==widget;
+                            case MotionEvent.ACTION_MOVE:
+                                if(selectedWidget!=widget)return false;
+                                float dx=e.getRawX()-startX,dy=e.getRawY()-startY;
+                                if(Math.hypot(dx,dy)>Ui.dp(getContext(),8))dragging=true;
+                                if(dragging){
+                                    float bound=Math.max(0,(getWidth()-widget.getWidth())/2f);
+                                    widget.setTranslationX(SceneMath.clamp(originX+dx,-bound,bound));
+                                    FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)widget.getLayoutParams();
+                                    p.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),Math.round(originTop+dy)));
+                                    widget.setLayoutParams(p);
+                                    if(widgetToolbar!=null){
+                                        FrameLayout.LayoutParams t=(FrameLayout.LayoutParams)widgetToolbar.getLayoutParams();
+                                        t.topMargin=Math.max(0,p.topMargin-Ui.dp(getContext(),46));
+                                        widgetToolbar.setTranslationX(widget.getTranslationX());widgetToolbar.setLayoutParams(t);
+                                    }
+                                }
+                                return true;
+                            case MotionEvent.ACTION_UP:
+                                if(selectedWidget!=widget)return false;
+                                if(dragging){
+                                    int top=((FrameLayout.LayoutParams)widget.getLayoutParams()).topMargin;
+                                    store.preferences.edit().putInt("widget_x_"+id,Math.round(widget.getTranslationX()))
+                                        .putInt("widget_top_"+id,top).apply();
+                                }
+                                dragging=false;return true;
+                            case MotionEvent.ACTION_CANCEL:dragging=false;return selectedWidget==widget;
+                            default:return false;
+                        }
+                    }
+                });
                 position++;
             }catch(RuntimeException ignored){}
         }
