@@ -45,9 +45,9 @@ final class DesktopView extends FrameLayout {
     }
     void configure(boolean reduced,boolean powerSave){this.reduced=reduced;this.powerSave=powerSave;}
     void tilt(float x,float y){tiltX=x;tiltY=y;}
-    void setModal(boolean v){modal=v;if(v){touching=false;removeCallbacks(backgroundHold);}}
+    void setModal(boolean v){modal=v;if(v){clearSelection();touching=false;removeCallbacks(backgroundHold);}}
     void rebuild(){
-        if(animator!=null)animator.cancel();animating=false;stage.animate().cancel();resetTransform();stage.removeAllViews();bodies.clear();
+        clearSelection();if(animator!=null)animator.cancel();animating=false;stage.animate().cancel();resetTransform();stage.removeAllViews();bodies.clear();
         boolean gravity=store.mode==1&&!reduced;
         if(!gravity){
             scroller=new ScrollView(getContext());scroller.setFillViewport(true);scroller.setClipToPadding(false);scroller.setVerticalScrollBarEnabled(false);
@@ -62,7 +62,7 @@ final class DesktopView extends FrameLayout {
             if(gravity&&visible++>=18)break; // Every shortcut is also accessible in All shortcuts.
             AppCatalog.Entry entry=catalog.find(item.key);
             IconTile tile=new IconTile(getContext(),item.label,entry==null?null:entry.icon,item.key);
-            tile.setOnClickListener(v->host.open(item));tile.setOnLongClickListener(v->{host.menu(item);return true;});
+            tile.setOnClickListener(v->host.open(item));tile.setOnLongClickListener(v->{selectTile(tile,item);return true;});
             Body body=new Body(tile,item);bodies.add(body);
             if(gravity){tile.physicsStyle();stage.addView(tile,new LayoutParams(Ui.dp(getContext(),78),physicsTileHeight()));installDrag(body);}
             else grid.addView(tile);
@@ -90,6 +90,24 @@ final class DesktopView extends FrameLayout {
                 position++;
             }catch(RuntimeException ignored){}
         }
+    }
+    private IconTile selectedTile;
+    private Runnable delayedMenu;
+    private void clearSelection(){
+        if(selectedTile!=null){
+            selectedTile.animate().cancel();
+            selectedTile.setBackground(Ui.touch(getContext(),null,18));
+            selectedTile.setScaleX(1f);selectedTile.setScaleY(1f);
+            selectedTile=null;
+        }
+        if(delayedMenu!=null){removeCallbacks(delayedMenu);delayedMenu=null;}
+    }
+    private void selectTile(IconTile tile,LauncherStore.Item item){
+        clearSelection();selectedTile=tile;
+        tile.setBackground(Ui.touch(getContext(),Ui.satin(getContext(),0x7445D9F5,0x99203454,18),18));
+        if(!reduced)tile.animate().scaleX(1.07f).scaleY(1.07f).setDuration(130).start();
+        delayedMenu=()->{if(selectedTile==tile&&!modal){clearSelection();host.menu(item);}};
+        postDelayed(delayedMenu,220);
     }
     private int physicsTileHeight(){return Ui.dp(getContext(),98+Math.max(0,getResources().getConfiguration().fontScale-1)*30);}
     private void installDrag(Body body){
