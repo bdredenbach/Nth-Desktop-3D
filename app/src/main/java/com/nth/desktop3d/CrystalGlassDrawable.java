@@ -74,6 +74,35 @@ final class CrystalGlassDrawable extends Drawable {
             canvas.drawRoundRect(inner,Math.max(0,r-density*2),Math.max(0,r-density*2),paint);
             paint.setShader(null);paint.setStyle(Paint.Style.FILL);
         }
+        // Prism Crystal: restrained spectral edge dispersion and a curved caustic.
+        if(crystal.material()==2){
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(Math.max(1f,density*1.7f));
+            paint.setColor(modulate(0x7B68E9FF));
+            Path spectrum=new Path();
+            spectrum.moveTo(rect.left+density*3,rect.bottom-r);
+            spectrum.quadTo(rect.left+density*2,rect.bottom-density*2,rect.left+r,rect.bottom-density*2);
+            spectrum.lineTo(rect.left+w*.36f,rect.bottom-density*2);
+            canvas.drawPath(spectrum,paint);
+            paint.setColor(modulate(0x6AD99AFF));
+            Path topEdge=new Path();
+            topEdge.moveTo(rect.left+r,rect.top+density*2);
+            topEdge.lineTo(rect.right-r,rect.top+density*2);
+            canvas.drawPath(topEdge,paint);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setShader(new LinearGradient(rect.left+w*.12f,rect.top,
+                    rect.left+w*.82f,rect.top+h,
+                    new int[]{0x00000000,modulate(0x25D9F7FF),modulate(0x208E83FF),0x00000000},
+                    new float[]{0f,.34f,.72f,1f},Shader.TileMode.CLAMP));
+            Path glint=new Path();
+            glint.moveTo(rect.left+w*.09f,rect.top);
+            glint.lineTo(rect.left+w*.21f,rect.top);
+            glint.lineTo(rect.left+w*.72f,rect.bottom);
+            glint.lineTo(rect.left+w*.57f,rect.bottom);
+            glint.close();
+            canvas.drawPath(glint,paint);
+            paint.setShader(null);
+        }
         canvas.restoreToCount(save);
 
         paint.setStyle(Paint.Style.STROKE);
