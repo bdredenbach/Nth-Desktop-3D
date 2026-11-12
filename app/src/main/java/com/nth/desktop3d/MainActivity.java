@@ -319,7 +319,18 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void showFolder(LauncherStore.Item folder){
         LinearLayout body=scrollBody(openPanel(folder.label));
         if(folder.children.isEmpty())paragraph(body,"Hold an app in Start and choose Add to folder to put it here.");
-        for(LauncherStore.Item item:folder.children){Button b=Ui.button(this,item.label,()->open(item));b.setOnLongClickListener(v->{menu(item);return true;});LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(52));p.bottomMargin=dp(8);body.addView(b,p);}
+        android.widget.GridLayout shelf=new android.widget.GridLayout(this);
+        shelf.setColumnCount(compact()?5:3);shelf.setClipChildren(false);
+        for(LauncherStore.Item item:folder.children){
+            AppCatalog.Entry entry=catalog.find(item.key);
+            IconTile tile=new IconTile(this,item.label,entry==null?null:entry.icon,item.key);
+            tile.setOnClickListener(v->open(item));
+            tile.setOnLongClickListener(v->{menu(item);return true;});
+            android.widget.GridLayout.LayoutParams lp=new android.widget.GridLayout.LayoutParams();
+            lp.width=dp(compact()?94:100);lp.height=dp(112);
+            lp.setMargins(dp(4),dp(6),dp(4),dp(8));shelf.addView(tile,lp);
+        }
+        body.addView(shelf,new LinearLayout.LayoutParams(-1,-2));
         action(body,"Rename folder",()->rename(folder));
     }
     private void showDesktopOverview(){
