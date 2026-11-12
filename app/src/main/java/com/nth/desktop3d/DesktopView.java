@@ -262,16 +262,17 @@ final class DesktopView extends FrameLayout {
     }
     private void moveWidget(android.appwidget.AppWidgetHostView widget,int id,int dx,int dy){
         FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)widget.getLayoutParams();
-        float x=SceneMath.clamp(widget.getTranslationX()+Ui.dp(getContext(),32)*dx,
-            -Math.max(0,(getWidth()-widget.getWidth())/2f),Math.max(0,(getWidth()-widget.getWidth())/2f));
-        int top=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),
-            p.topMargin+Ui.dp(getContext(),32)*dy));
-        widget.setTranslationX(x);p.topMargin=top;widget.setLayoutParams(p);
-        store.preferences.edit().putInt("widget_x_"+id,Math.round(x)).putInt("widget_top_"+id,top).apply();
+        int cols=Math.max(1,Math.min(8,Math.max(1,getWidth())/cellWidth()));
+        int cw=Math.max(1,getWidth()/cols);
+        p.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),p.leftMargin+cw*dx));
+        p.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),p.topMargin+cellHeight()*dy));
+        widget.setLayoutParams(p);
+        store.preferences.edit().putInt("widget_left_"+id,p.leftMargin).putInt("widget_top_"+id,p.topMargin).apply();
         if(widgetToolbar!=null){
             FrameLayout.LayoutParams toolbar=(FrameLayout.LayoutParams)widgetToolbar.getLayoutParams();
-            toolbar.topMargin=Math.max(0,top-Ui.dp(getContext(),46));
-            widgetToolbar.setTranslationX(x);widgetToolbar.setLayoutParams(toolbar);
+            toolbar.topMargin=Math.max(0,p.topMargin-Ui.dp(getContext(),46));
+            toolbar.leftMargin=p.leftMargin;
+            widgetToolbar.setLayoutParams(toolbar);
         }
     }
     private void resizeWidget(android.appwidget.AppWidgetHostView widget,int id,android.appwidget.AppWidgetProviderInfo info,int direction){
