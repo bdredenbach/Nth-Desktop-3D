@@ -303,8 +303,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
                 }
                 else if(type==MotionEvent.ACTION_UP||type==MotionEvent.ACTION_CANCEL){
                     Button target=active;
-                    boolean slide=type==MotionEvent.ACTION_UP&&target!=null
-                        &&Math.abs(e.getX()-downX)>dp(20)&&Math.abs(e.getY()-downY)<dp(45);
+                    boolean slide=type==MotionEvent.ACTION_UP&&cardGesture&&target!=null
+                        &&(Math.abs(e.getX()-downX)>dp(18)||Math.abs(e.getY()-downY)>dp(18));
                     focus(null);
                     if(slide){target.performClick();return true;}
                 }
