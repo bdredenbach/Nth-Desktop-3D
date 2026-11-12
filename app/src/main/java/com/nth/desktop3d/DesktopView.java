@@ -110,6 +110,43 @@ final class DesktopView extends FrameLayout {
         addWidgets();
         updateLayout();post(this::updateLayout);
     }
+    // Shared desktop grid metrics for widgets and shortcuts.
+    private int cellWidth(){return Ui.dp(getContext(),Math.max(84,Math.round(84*getResources().getConfiguration().fontScale*.8f)));}
+    private int cellHeight(){return Ui.dp(getContext(),112+Math.max(0,getResources().getConfiguration().fontScale-1)*30);}
+    private int snap(int pixels,int cell){return Math.round(pixels/(float)Math.max(1,cell))*Math.max(1,cell);}
+    private android.graphics.Point emptyWidgetSpot(int id,int w,int h){
+        int screenW=Math.max(Ui.dp(getContext(),320),getWidth());
+        int screenH=Math.max(Ui.dp(getContext(),540),getHeight());
+        int cols=Math.max(1,Math.min(8,screenW/cellWidth()));
+        int cw=screenW/cols,ch=cellHeight();
+        int spanX=Math.max(1,(int)Math.ceil(w/(double)cw));
+        int spanY=Math.max(1,(int)Math.ceil(h/(double)ch));
+        int rows=Math.max(1,(screenH-Ui.dp(getContext(),36))/ch);
+        boolean[][] busy=new boolean[rows][cols];
+        int shortcutCount=store.pages.get(store.page).size();
+        for(int i=0;i<shortcutCount;i++){
+            int row=i/cols,col=i%cols;
+            if(row<rows)busy[row][col]=true;
+        }
+        String ids=store.preferences.getString("widget_ids_page_"+store.page,"");
+        for(String raw:ids.split(",")){
+            int other;try{other=Integer.parseInt(raw);}catch(NumberFormatException e){continue;}
+            if(other==id||!store.preferences.contains("widget_top_"+other))continue;
+            int ox=store.preferences.getInt("widget_left_"+other,0);
+            int oy=store.preferences.getInt("widget_top_"+other,0);
+            int ow=store.preferences.getInt("widget_width_"+other,cw*2);
+            int oh=store.preferences.getInt("widget_height_"+other,ch);
+            int left=Math.max(0,ox/cw),top=Math.max(0,(oy-Ui.dp(getContext(),24))/ch);
+            for(int y=top;y<Math.min(rows,top+(int)Math.ceil(oh/(double)ch));y++)
+                for(int x=left;x<Math.min(cols,left+(int)Math.ceil(ow/(double)cw));x++)busy[y][x]=true;
+        }
+        for(int row=0;row+spanY<=rows;row++)for(int col=0;col+spanX<=cols;col++){
+            boolean free=true;
+            for(int y=row;y<row+spanY;y++)for(int x=col;x<col+spanX;x++)if(busy[y][x])free=false;
+            if(free)return new android.graphics.Point(col*cw,Ui.dp(getContext(),24)+row*ch);
+        }
+        return new android.graphics.Point(0,Math.max(Ui.dp(getContext(),24),screenH-h));
+    }
     private void addWidgets(){
         String ids=store.preferences.getString("widget_ids_page_"+store.page,"");
         if(ids.isEmpty())return;
@@ -124,17 +161,24 @@ final class DesktopView extends FrameLayout {
                 int width=store.preferences.getInt("widget_width_"+id,Ui.dp(getContext(),Math.min(300,Math.max(160,info.minWidth))));
                 int height=store.preferences.getInt("widget_height_"+id,Ui.dp(getContext(),Math.min(260,Math.max(100,info.minHeight))));
                 FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(width,height);
-                lp.gravity=android.view.Gravity.TOP|android.view.Gravity.CENTER_HORIZONTAL;
-                lp.topMargin=store.preferences.getInt("widget_top_"+id,Ui.dp(getContext(),16+position*24));
-                widget.setTranslationX(store.preferences.getInt("widget_x_"+id,0));
+                lp.gravity=android.view.Gravity.TOP|android.view.Gravity.LEFT;
+                android.graphics.Point spot=emptyWidgetSpot(id,width,height);
+                int left=store.preferences.getInt("widget_left_"+id,spot.x);
+                int top=store.preferences.getInt("widget_top_"+id,spot.y);
+                lp.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-width),left));
+                lp.topMargin=Math.max(0,top);
+                if(!store.preferences.contains("widget_left_"+id))
+                    store.preferences.edit().putInt("widget_left_"+id,lp.leftMargin)
+                        .putInt("widget_top_"+id,lp.topMargin).apply();
                 stage.addView(widget,lp);widget.setElevation(Ui.dp(getContext(),14));
                 widget.setOnLongClickListener(v->{selectWidget(widget,id,info);return true;});
                 widget.setOnTouchListener(new View.OnTouchListener(){
-                    float startX,startY,originX;int originTop;boolean dragging;
+                    float startX,startY;int originLeft,originTop;boolean dragging;
                     @Override public boolean onTouch(View v,MotionEvent e){
                         switch(e.getActionMasked()){
                             case MotionEvent.ACTION_DOWN:
-                                startX=e.getRawX();startY=e.getRawY();originX=widget.getTranslationX();
+                                startX=e.getRawX();startY=e.getRawY();
+                                originLeft=((FrameLayout.LayoutParams)widget.getLayoutParams()).leftMargin;
                                 originTop=((FrameLayout.LayoutParams)widget.getLayoutParams()).topMargin;
                                 dragging=false;return selectedWidget==widget;
                             case MotionEvent.ACTION_MOVE:
@@ -142,24 +186,28 @@ final class DesktopView extends FrameLayout {
                                 float dx=e.getRawX()-startX,dy=e.getRawY()-startY;
                                 if(Math.hypot(dx,dy)>Ui.dp(getContext(),8))dragging=true;
                                 if(dragging){
-                                    float bound=Math.max(0,(getWidth()-widget.getWidth())/2f);
-                                    widget.setTranslationX(SceneMath.clamp(originX+dx,-bound,bound));
                                     FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)widget.getLayoutParams();
+                                    p.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),Math.round(originLeft+dx)));
                                     p.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),Math.round(originTop+dy)));
                                     widget.setLayoutParams(p);
                                     if(widgetToolbar!=null){
                                         FrameLayout.LayoutParams t=(FrameLayout.LayoutParams)widgetToolbar.getLayoutParams();
                                         t.topMargin=Math.max(0,p.topMargin-Ui.dp(getContext(),46));
-                                        widgetToolbar.setTranslationX(widget.getTranslationX());widgetToolbar.setLayoutParams(t);
+                                        t.leftMargin=p.leftMargin;widgetToolbar.setLayoutParams(t);
                                     }
                                 }
                                 return true;
                             case MotionEvent.ACTION_UP:
                                 if(selectedWidget!=widget)return false;
                                 if(dragging){
-                                    int top=((FrameLayout.LayoutParams)widget.getLayoutParams()).topMargin;
-                                    store.preferences.edit().putInt("widget_x_"+id,Math.round(widget.getTranslationX()))
-                                        .putInt("widget_top_"+id,top).apply();
+                                    FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)widget.getLayoutParams();
+                                    int cols=Math.max(1,Math.min(8,Math.max(1,getWidth())/cellWidth()));
+                                    int cw=Math.max(1,getWidth()/cols);
+                                    p.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),snap(p.leftMargin,cw)));
+                                    p.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),Ui.dp(getContext(),24)+snap(p.topMargin-Ui.dp(getContext(),24),cellHeight())));
+                                    widget.setLayoutParams(p);
+                                    store.preferences.edit().putInt("widget_left_"+id,p.leftMargin)
+                                        .putInt("widget_top_"+id,p.topMargin).apply();
                                 }
                                 dragging=false;return true;
                             case MotionEvent.ACTION_CANCEL:dragging=false;return selectedWidget==widget;
