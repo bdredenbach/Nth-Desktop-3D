@@ -120,7 +120,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         });root.requestApplyInsets();
         catalog.launcher.registerCallback(packageCallback,handler);
         registerReceiver(powerReceiver,new IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED));
-        applySettings(true);reloadApps();
+        applySettings(true);applyCrystalAppearance();reloadApps();
         if(!store.preferences.getBoolean("welcomed",false))handler.postDelayed(this::welcome,450);
     }
     private int dp(float n){return Ui.dp(this,n);}
@@ -152,6 +152,14 @@ public final class MainActivity extends Activity implements MotionController.Lis
         clockButton=Ui.quiet(this,"",this::showCalendar);clockButton.setPadding(0,0,0,0);clockButton.setContentDescription("Open calendar and time");dock.addView(clockButton,new LinearLayout.LayoutParams(dp(65),dp(48)));
         dock.setOnLongClickListener(v->{backgroundMenu();return true;});bar.addView(dock);shell.addView(bar,new LinearLayout.LayoutParams(-1,-2));updateClock();
     }
+    private void applyCrystalAppearance(){
+        if(dock!=null){
+            int opacity=Math.max(50,Math.min(235,255*(100-crystal.transparency())/100+80));
+            dock.setBackground(Ui.satin(this,(opacity<<24)|0x0044819C,0xCF0B1E36,24));
+            dock.invalidate();
+        }
+        if(panel!=null)panel.setBackground(Ui.satin(this,0xE3335C76,0xF20B1A30,26));
+    }
     private void updateClock(){
         Date now=new Date();String pattern=android.text.format.DateFormat.is24HourFormat(this)?"HH:mm":"h:mm";
         String time=new SimpleDateFormat(pattern,Locale.getDefault()).format(now);clock.setText(time);
@@ -170,7 +178,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         powerSave=getSystemService(PowerManager.class).isPowerSaveMode();
         systemReduced=Settings.Global.getFloat(getContentResolver(),Settings.Global.ANIMATOR_DURATION_SCALE,1)==0;
         boolean reduced=store.reducedMotion||systemReduced;
-        scene.configure(store,powerSave,systemReduced);desktop.configure(reduced,powerSave);modeLabel.setText(LauncherStore.MODES[store.mode]+(reduced?" · reduced motion":""));
+        scene.configure(store,powerSave,systemReduced);scene.configureCrystal(crystal);desktop.configure(reduced,powerSave);modeLabel.setText(LauncherStore.MODES[store.mode]+(reduced?" · reduced motion":""));
         if(resumed)motion.resume(store.tilt&&!reduced&&!powerSave);if(rebuild)desktop.rebuild();sceneDirty=true;scene.requestRender();pageChanged();
     }
     private void reloadApps(){
@@ -215,7 +223,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         flyoutPanel=flyout;
         overlay=new FrameLayout(this);overlay.setBackgroundColor(0xAA030A17);overlay.setOnClickListener(v->closePanel());root.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
         panel=Ui.column(this);panel.setBackground(Ui.satin(this,0xE3335C76,0xF20B1A30,26));panel.setElevation(dp(34));panel.setPadding(dp(20),dp(12),dp(20),dp(16));panel.setOnClickListener(v->{});panel.setCameraDistance(dp(2400));
-        overlay.addView(panel);layoutPanel();
+        overlay.addView(panel);layoutPanel();applyCrystalAppearance();
         LinearLayout heading=Ui.row(this);TextView label=Ui.text(this,title,20,Ui.TEXT);label.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));heading.addView(label,new LinearLayout.LayoutParams(0,dp(46),1));
         Button close=Ui.icon(this,"close","Close "+title,this::closePanel);heading.addView(close,new LinearLayout.LayoutParams(dp(46),dp(46)));panel.addView(heading);
         if(!store.reducedMotion&&!systemReduced){
@@ -345,13 +353,13 @@ public final class MainActivity extends Activity implements MotionController.Lis
         section(body,"Living Pond");slider(body,"Fish count",store.fishCount,3,7,v->{store.fishCount=v;changed(false);});slider(body,"Fish speed",Math.round(store.fishSpeed*100),20,150,v->{store.fishSpeed=v/100f;changed(false);});
         toggle(body,"Water ripples",store.ripples,v->{store.ripples=v;changed(false);});toggle(body,"Fish and leaf shadows",store.shadows,v->{store.shadows=v;changed(false);});
         section(body,"Crystal Glass · visual defaults");
-        slider(body,"Glass transparency",crystal.transparency(),0,100,v->crystal.setTransparency(v));
-        slider(body,"Crystal depth",crystal.depth(),0,100,v->crystal.setDepth(v));
-        slider(body,"Crystal motion",crystal.motion(),0,100,v->crystal.setMotion(v));
-        toggle(body,"Crystal parallax",crystal.parallax(),v->crystal.setParallax(v));
-        toggle(body,"Crystal dynamic shadows",crystal.shadows(),v->crystal.setShadows(v));
-        action(body,"Rendering: "+crystal.quality(),()->new AlertDialog.Builder(this).setTitle("Rendering quality").setSingleChoiceItems(new String[]{"Performance","Balanced","Cinematic"},crystal.qualityIndex(),(d,which)->{crystal.setQuality(which);d.dismiss();showSettings();}).setNegativeButton("Cancel",null).show());
-        paragraph(body,"Crystal controls are saved now; renderer material integration is a subsequent pass.");
+        slider(body,"Glass transparency",crystal.transparency(),0,100,v->{crystal.setTransparency(v);applyCrystalAppearance();});
+        slider(body,"Crystal depth",crystal.depth(),0,100,v->{crystal.setDepth(v);applySettings(false);});
+        slider(body,"Crystal motion",crystal.motion(),0,100,v->{crystal.setMotion(v);applySettings(false);});
+        toggle(body,"Crystal parallax",crystal.parallax(),v->{crystal.setParallax(v);applySettings(false);});
+        toggle(body,"Crystal dynamic shadows",crystal.shadows(),v->{crystal.setShadows(v);applySettings(false);});
+        action(body,"Rendering: "+crystal.quality(),()->new AlertDialog.Builder(this).setTitle("Rendering quality").setSingleChoiceItems(new String[]{"Performance","Balanced","Cinematic"},crystal.qualityIndex(),(d,which)->{crystal.setQuality(which);applySettings(false);d.dismiss();showSettings();}).setNegativeButton("Cancel",null).show());
+        paragraph(body,"Depth, motion, parallax and shadows now affect the scene. Glass transparency updates the dock and panels; advanced refraction is planned.");
         section(body,"Feed Page");
         toggle(body,"Enable feed",crystal.feedEnabled(),v->crystal.setFeedEnabled(v));
         action(body,"Feed provider: "+crystal.feedProviderLabel(),()->new AlertDialog.Builder(this).setTitle("Feed provider").setSingleChoiceItems(new String[]{"Google Discover (preferred)","Google App","Nth Feed (coming later)","Off"},crystal.feedProvider(),(d,which)->{crystal.setFeedProvider(which);d.dismiss();showSettings();}).setNegativeButton("Cancel",null).show());
