@@ -25,6 +25,16 @@ public final class CrystalPreferences {
     public int qualityIndex(){return Math.max(0,Math.min(2,prefs.getInt("quality",1)));}
     public String quality(){return new String[]{"Performance","Balanced","Cinematic"}[qualityIndex()];}
     public void setQuality(int v){put("quality",Math.max(0,Math.min(2,v)));}
+    public static final String[] MATERIALS={"Crystal Glass","Frosted Crystal","Prism Crystal","Deep Crystal"};
+    public static final String[] MENU_ANIMATIONS={"Rising Cards","Radial Arc","Floating Quick Actions","3D Stack","Minimal Context"};
+    public static final String[] LIGHTING={"Subtle","Dynamic","Prismatic"};
+    public int material(){return Math.max(0,Math.min(3,prefs.getInt("material",2)));}
+    public void setMaterial(int value){put("material",Math.max(0,Math.min(3,value)));}
+    public int menuAnimation(){return Math.max(0,Math.min(4,prefs.getInt("menu_animation",0)));}
+    public void setMenuAnimation(int value){put("menu_animation",Math.max(0,Math.min(4,value)));}
+    public int lighting(){return Math.max(0,Math.min(2,prefs.getInt("lighting",1)));}
+    public void setLighting(int value){put("lighting",Math.max(0,Math.min(2,value)));}
+    public boolean dynamicLighting(){return lighting()!=0;}
     public boolean feedEnabled(){return prefs.getBoolean("feed_enabled",true);}
     public void setFeedEnabled(boolean v){put("feed_enabled",v);}
     public int feedProvider(){return Math.max(0,Math.min(3,prefs.getInt("feed_provider",0)));}
