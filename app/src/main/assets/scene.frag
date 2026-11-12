@@ -21,7 +21,24 @@ mat2 rotate(float a) { return mat2(cos(a),-sin(a),sin(a),cos(a)); }
 
 vec3 night(vec2 uv) {
     vec2 p=uv; p+=tilt*.018;
-    vec3 col=mix(vec3(.035,.055,.14),vec3(.13,.18,.35),p.y);
+    vec3 col=mix(vec3(.012,.030,.075),vec3(.065,.145,.26),p.y);
+    // Crystal Glass atmosphere: independent luminous layers, not a static wallpaper.
+    vec2 lens=(uv-vec2(.73,.68)-tilt*.028)*vec2(resolution.x/resolution.y,1.0);
+    float halo=exp(-dot(lens,lens)*4.2);
+    col+=vec3(.025,.17,.24)*halo;
+    float beam=exp(-pow((lens.x+.20*lens.y)*5.5,2.0))*(.22+.78*smoothstep(.15,.95,uv.y));
+    col+=vec3(.025,.09,.15)*beam;
+    vec2 facets=(uv-vec2(.53,.54)-tilt*.012)*vec2(resolution.x/resolution.y,1.0);
+    float diamond=abs(facets.x)*.75+abs(facets.y)*1.25;
+    float rim=(1.0-smoothstep(.006,.022,abs(diamond-.34)))*.15;
+    col+=vec3(.12,.55,.75)*rim*shadowEnabled;
+    for(int i=0;i<3;i++){
+        float layer=float(i)+1.0;
+        vec2 stars=(uv+tilt*.009*layer)*vec2(23.0,37.0)/layer;
+        vec2 cell=floor(stars), f=fract(stars)-.5;
+        float sparkle=(1.0-smoothstep(.015,.08,length(f)))*step(.965,hash(cell+layer*9.0));
+        col+=vec3(.32,.72,1.0)*sparkle*(.18+.16*layer);
+    }
     float glow=exp(-length((p-vec2(.77,.72))*vec2(1.1,1.5))*4.0);
     col+=vec3(.17,.15,.35)*glow;
     // Three independently displaced ridgelines.
@@ -36,7 +53,7 @@ vec3 night(vec2 uv) {
     vec2 floorUv=vec2((p.x-.5)/(p.y+.08),1.0/(p.y+.08))*3.0;
     vec2 g=abs(fract(floorUv)-.5);
     float grid=(1.0-smoothstep(.008,.025,min(g.x,g.y)))*floorMask;
-    col+=vec3(.06,.12,.23)*grid*(.3+uv.y);
+    col+=vec3(.035,.20,.27)*grid*(.3+uv.y);
     return col;
 }
 
