@@ -102,7 +102,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
         getWindow().setStatusBarColor(Color.TRANSPARENT);getWindow().setNavigationBarColor(0xE60A1428);
         store=new LauncherStore(this);crystal=new CrystalPreferences(this);catalog=new AppCatalog(this);motion=new MotionController(this,this);
-        root=new FrameLayout(this);root.setBackgroundColor(0xFF0A1024);setContentView(root);
+        root=new FrameLayout(this);root.setBackgroundColor(0xFF061326);setContentView(root);
         scene=new SceneSurface(this);root.addView(scene,new FrameLayout.LayoutParams(-1,-1));
         shell=Ui.column(this);shell.setClipChildren(false);shell.setClipToPadding(false);root.addView(shell,new FrameLayout.LayoutParams(-1,-1));
         buildHeader();
@@ -144,7 +144,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         Button previous=Ui.icon(this,"left","Previous desktop",()->desktop.changePage(-1));paging.addView(previous,new LinearLayout.LayoutParams(dp(48),dp(48)));
         pageLabel=Ui.text(this,"",11,Ui.MUTED);pageLabel.setGravity(Gravity.CENTER);paging.addView(pageLabel,new LinearLayout.LayoutParams(0,dp(48),1));
         Button next=Ui.icon(this,"right","Next desktop",()->desktop.changePage(1));paging.addView(next,new LinearLayout.LayoutParams(dp(48),dp(48)));bar.addView(paging);
-        dock=Ui.row(this);dock.setBackground(Ui.satin(this,0xF52B374D,0xF0111C2E,24));dock.setPadding(dp(8),dp(7),dp(8),dp(7));dock.setElevation(dp(12));
+        dock=Ui.row(this);dock.setBackground(Ui.satin(this,0xB344819C,0xCF0B1E36,24));dock.setPadding(dp(8),dp(7),dp(8),dp(7));dock.setElevation(dp(18));
         startButton=Ui.icon(this,"cube","Open 3D Start menu",this::showStart);dock.addView(startButton,new LinearLayout.LayoutParams(dp(48),dp(48)));
         Button search=Ui.quiet(this,"Search apps",this::showStart);search.setTextSize(13);LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,dp(48),1);dock.addView(search,sp);
         Button controls=Ui.icon(this,"sliders","Device controls",this::showControls);dock.addView(controls,new LinearLayout.LayoutParams(dp(48),dp(48)));
@@ -214,7 +214,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         closePanel();desktop.setModal(true);startButton.setSelected(true);panelKind=2;
         flyoutPanel=flyout;
         overlay=new FrameLayout(this);overlay.setBackgroundColor(0xAA030A17);overlay.setOnClickListener(v->closePanel());root.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
-        panel=Ui.column(this);panel.setBackground(Ui.satin(this,0xFF1B273C,0xFF101A2C,26));panel.setElevation(dp(28));panel.setPadding(dp(20),dp(12),dp(20),dp(16));panel.setOnClickListener(v->{});panel.setCameraDistance(dp(2400));
+        panel=Ui.column(this);panel.setBackground(Ui.satin(this,0xE3335C76,0xF20B1A30,26));panel.setElevation(dp(34));panel.setPadding(dp(20),dp(12),dp(20),dp(16));panel.setOnClickListener(v->{});panel.setCameraDistance(dp(2400));
         overlay.addView(panel);layoutPanel();
         LinearLayout heading=Ui.row(this);TextView label=Ui.text(this,title,20,Ui.TEXT);label.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));heading.addView(label,new LinearLayout.LayoutParams(0,dp(46),1));
         Button close=Ui.icon(this,"close","Close "+title,this::closePanel);heading.addView(close,new LinearLayout.LayoutParams(dp(46),dp(46)));panel.addView(heading);
