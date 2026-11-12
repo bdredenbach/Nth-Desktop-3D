@@ -52,6 +52,7 @@ import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity implements MotionController.Listener, DesktopView.Host {
     private LauncherStore store;
+    private CrystalPreferences crystal;
     private AppCatalog catalog;
     private MotionController motion;
     private SceneSurface scene;
@@ -100,7 +101,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         super.onCreate(state);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
         getWindow().setStatusBarColor(Color.TRANSPARENT);getWindow().setNavigationBarColor(0xE60A1428);
-        store=new LauncherStore(this);catalog=new AppCatalog(this);motion=new MotionController(this,this);
+        store=new LauncherStore(this);crystal=new CrystalPreferences(this);catalog=new AppCatalog(this);motion=new MotionController(this,this);
         root=new FrameLayout(this);root.setBackgroundColor(0xFF0A1024);setContentView(root);
         scene=new SceneSurface(this);root.addView(scene,new FrameLayout.LayoutParams(-1,-1));
         shell=Ui.column(this);shell.setClipChildren(false);shell.setClipToPadding(false);root.addView(shell,new FrameLayout.LayoutParams(-1,-1));
@@ -343,7 +344,27 @@ public final class MainActivity extends Activity implements MotionController.Lis
         section(body,"Start menu and flyouts");choice(body,LauncherStore.MENUS,store.menuStyle,v->{store.menuStyle=v;changed(false);showSettings();});
         section(body,"Living Pond");slider(body,"Fish count",store.fishCount,3,7,v->{store.fishCount=v;changed(false);});slider(body,"Fish speed",Math.round(store.fishSpeed*100),20,150,v->{store.fishSpeed=v/100f;changed(false);});
         toggle(body,"Water ripples",store.ripples,v->{store.ripples=v;changed(false);});toggle(body,"Fish and leaf shadows",store.shadows,v->{store.shadows=v;changed(false);});
+        section(body,"Crystal Glass · visual defaults");
+        slider(body,"Glass transparency",crystal.transparency(),0,100,v->crystal.setTransparency(v));
+        slider(body,"Crystal depth",crystal.depth(),0,100,v->crystal.setDepth(v));
+        slider(body,"Crystal motion",crystal.motion(),0,100,v->crystal.setMotion(v));
+        toggle(body,"Crystal parallax",crystal.parallax(),v->crystal.setParallax(v));
+        toggle(body,"Crystal dynamic shadows",crystal.shadows(),v->crystal.setShadows(v));
+        action(body,"Rendering: "+crystal.quality(),()->new AlertDialog.Builder(this).setTitle("Rendering quality").setSingleChoiceItems(new String[]{"Performance","Balanced","Cinematic"},crystal.qualityIndex(),(d,which)->{crystal.setQuality(which);d.dismiss();showSettings();}).setNegativeButton("Cancel",null).show());
+        paragraph(body,"Crystal controls are saved now; renderer material integration is a subsequent pass.");
+        section(body,"Feed Page");
+        toggle(body,"Enable feed",crystal.feedEnabled(),v->crystal.setFeedEnabled(v));
+        action(body,"Feed provider: "+crystal.feedProviderLabel(),()->new AlertDialog.Builder(this).setTitle("Feed provider").setSingleChoiceItems(new String[]{"Google Discover (preferred)","Google App","Nth Feed (coming later)","Off"},crystal.feedProvider(),(d,which)->{crystal.setFeedProvider(which);d.dismiss();showSettings();}).setNegativeButton("Cancel",null).show());
+        toggle(body,"Edge swipe",crystal.feedEdgeSwipe(),v->crystal.setFeedEdgeSwipe(v));
+        toggle(body,"Feed 3D transition",crystal.feed3dTransition(),v->crystal.setFeed3dTransition(v));
+        action(body,"Open feed (Google App fallback)",this::openGoogleFeed);
+        paragraph(body,"Discover companion compatibility is experimental and not yet integrated. Google App fallback opens the installed Google app.");
         section(body,"Launcher");action(body,"Set default Home",this::requestHome);action(body,"Arrange current desktop",()->{desktop.arrange();toast("Shortcuts arranged");});action(body,"About Nth Desktop 3D",this::showAbout);
+    }
+    private void openGoogleFeed(){
+        Intent intent=getPackageManager().getLaunchIntentForPackage("com.google.android.googlequicksearchbox");
+        if(intent==null){toast("Google app unavailable. Install or enable Google to use the fallback.");return;}
+        try{startActivity(intent);}catch(RuntimeException e){toast("Could not open Google app.");}
     }
     private interface BoolAction{void set(boolean v);}private interface IntAction{void set(int v);}
     private void changed(boolean rebuild){store.save();applySettings(rebuild);}
