@@ -402,7 +402,14 @@ public final class MainActivity extends Activity implements MotionController.Lis
     @Override public void feed(){
         if(!crystal.feedEnabled()||crystal.feedProvider()==3)return;
         if(crystal.feedProvider()==2){toast("Nth Feed is not available yet.");return;}
-        openGoogleFeed();
+        showDiscoverEntry();
+    }
+    private void showDiscoverEntry(){
+        LinearLayout body=scrollBody(openPanel("Google Discover",true));
+        paragraph(body,"Your personalized news and interests, powered by Google.");
+        action(body,"Open Google Discover",this::openGoogleFeed);
+        action(body,"Feed preferences",this::showSettings);
+        paragraph(body,"Google's Discover feed cannot yet be embedded directly in Nth Desktop 3D. The Google app opens as a supported fallback while companion compatibility is investigated.");
     }
     @Override public void backgroundMenu(){
         LinearLayout body=scrollBody(openPanel("Desktop",true));
@@ -512,7 +519,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         action(body,"Feed provider: "+crystal.feedProviderLabel(),()->new AlertDialog.Builder(this).setTitle("Feed provider").setSingleChoiceItems(new String[]{"Google Discover (preferred)","Google App","Nth Feed (coming later)","Off"},crystal.feedProvider(),(d,which)->{crystal.setFeedProvider(which);d.dismiss();showSettings();}).setNegativeButton("Cancel",null).show());
         toggle(body,"Edge swipe",crystal.feedEdgeSwipe(),v->crystal.setFeedEdgeSwipe(v));
         toggle(body,"Feed 3D transition",crystal.feed3dTransition(),v->crystal.setFeed3dTransition(v));
-        action(body,"Open feed (Google App fallback)",this::openGoogleFeed);
+        action(body,"Google Discover",this::showDiscoverEntry);
         paragraph(body,"Discover companion compatibility is experimental and not yet integrated. Google App fallback opens the installed Google app.");
         section(body,"Launcher");action(body,"Set default Home",this::requestHome);action(body,"Arrange current desktop",()->{desktop.arrange();toast("Shortcuts arranged");});action(body,"About Nth Desktop 3D",this::showAbout);
     }
