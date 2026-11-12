@@ -16,7 +16,7 @@ import java.util.List;
 /** Accessible shortcut planes, with bounded physics and native inverse-transform input. */
 @android.annotation.SuppressLint("ViewConstructor") // Requires the canonical layout and launcher action host.
 final class DesktopView extends FrameLayout {
-    interface Host { void open(LauncherStore.Item item);void menu(LauncherStore.Item item);void backgroundMenu();void pageChanged();void ripple(float x,float y); }
+    interface Host { void open(LauncherStore.Item item);void menu(LauncherStore.Item item);void backgroundMenu();void pageChanged();void ripple(float x,float y);void startMenu();void feed(); }
     private final LauncherStore store;
     private final AppCatalog catalog;
     private final Host host;
@@ -25,6 +25,7 @@ final class DesktopView extends FrameLayout {
     private ScrollView scroller;
     private ShortcutGrid grid;
     private float downX,downY,tiltX,tiltY;
+    private final float gestureSlop;
     private boolean swiping,animating,touching,modal,reduced,powerSave,held,verticalGesture;
     private ValueAnimator animator;
     private int width,height;
@@ -35,7 +36,7 @@ final class DesktopView extends FrameLayout {
         Body(IconTile tile,LauncherStore.Item item){this.tile=tile;this.item=item;}
     }
     DesktopView(Context c,LauncherStore store,AppCatalog catalog,Host host) {
-        super(c);this.store=store;this.catalog=catalog;this.host=host;setClipChildren(false);setClipToPadding(false);
+        super(c);gestureSlop=Ui.dp(c,55);this.store=store;this.catalog=catalog;this.host=host;setClipChildren(false);setClipToPadding(false);
         backgroundHold=()->{if(!swiping&&!verticalGesture&&touching&&!modal){held=true;this.host.backgroundMenu();}};
         stage=new FrameLayout(c);stage.setClipChildren(false);stage.setClipToPadding(false);stage.setCameraDistance(Ui.dp(c,2200));
         addView(stage,new LayoutParams(-1,-1));setFocusable(false);
@@ -149,6 +150,7 @@ final class DesktopView extends FrameLayout {
         if(e.getActionMasked()==MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();swiping=false;}
         if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&(store.mode!=1||reduced)&&!held){float dx=e.getX()-downX,dy=e.getY()-downY;
             int slop=ViewConfiguration.get(getContext()).getScaledTouchSlop();
+            if(!swiping&&Math.abs(dy)>slop*2&&Math.abs(dy)>Math.abs(dx)*1.4f&&dy<0){return true;}
             if(!swiping&&Math.abs(dy)>slop&&Math.abs(dy)>Math.abs(dx))verticalGesture=true;
             if(!verticalGesture&&Math.abs(dx)>slop*2&&Math.abs(dx)>Math.abs(dy)*1.4f){swiping=true;return true;}}
         return false;
@@ -158,7 +160,17 @@ final class DesktopView extends FrameLayout {
             case MotionEvent.ACTION_DOWN:downX=e.getX();downY=e.getY();touching=true;swiping=false;postDelayed(backgroundHold,ViewConfiguration.getLongPressTimeout());host.ripple(e.getX(),e.getY());return true;
             case MotionEvent.ACTION_MOVE:float dx=e.getX()-downX,dy=e.getY()-downY;
                 if(Math.hypot(dx,dy)>ViewConfiguration.get(getContext()).getScaledTouchSlop()){removeCallbacks(backgroundHold);if(Math.abs(dy)>Math.abs(dx))verticalGesture=true;if(!verticalGesture&&Math.abs(dx)>Math.abs(dy)*1.4f)swiping=true;}return true;
-            case MotionEvent.ACTION_UP:removeCallbacks(backgroundHold);if(!held&&!verticalGesture&&swiping&&Math.abs(e.getX()-downX)>Ui.dp(getContext(),48)){touching=false;changePage(e.getX()<downX?1:-1);}else if(!held&&!swiping&&!verticalGesture)performClick();return true;
+            case MotionEvent.ACTION_UP:removeCallbacks(backgroundHold);if(!held&&!verticalGesture){
+                float dx=e.getX()-downX,dy=e.getY()-downY;
+                if(Math.abs(dy)>gestureSlop&&Math.abs(dy)>Math.abs(dx)*1.4f&&dy<0){host.startMenu();}
+                else if(swiping&&Math.abs(dx)>gestureSlop){
+                    if(dx<0&&store.page==0&&downX<Ui.dp(getContext(),45)){host.feed();}
+                    else if((dx>0&&store.page==0)||(dx<0&&store.page==LauncherStore.PAGE_COUNT-1)){
+                        float tilt=dx>0?12f:-12f;
+                        stage.animate().rotationY(tilt).setDuration(110).withEndAction(()->stage.animate().rotationY(0).setDuration(240).start()).start();
+                    }else changePage(dx<0?1:-1);
+                }else if(!swiping&&!verticalGesture)performClick();
+            }return true;
             case MotionEvent.ACTION_CANCEL:removeCallbacks(backgroundHold);return true;
             default:return true;
         }
