@@ -258,7 +258,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void layoutPanel(){
         if(panel==null)return;
         int bottom=Math.max(insetBottom,imeBottom);
-        PanelGeometry.Bounds bounds=PanelGeometry.place(root.getWidth(),root.getHeight(),insetLeft,insetTop,insetRight,bottom,dp(flyoutPanel?330:720),dp(flyoutPanel?280:820),dp(flyoutPanel?24:12),flyoutPanel&&imeBottom==0?dp(84):0);
+        PanelGeometry.Bounds bounds=PanelGeometry.place(root.getWidth(),root.getHeight(),insetLeft,insetTop,insetRight,bottom,dp(flyoutPanel?350:720),dp(flyoutPanel?540:820),dp(flyoutPanel?18:12),flyoutPanel&&imeBottom==0?dp(84):0);
         FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(bounds.width,bounds.height);
         // Center inside the safe rectangle. FrameLayout's CENTER gravity applies
         // unequal margins as offsets, which can put a keyboard-resized panel offscreen.
@@ -268,7 +268,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private LinearLayout scrollBody(LinearLayout parent){
         ScrollView scroll=new ScrollView(this){
-            float downX,downY;Button active;
+            float downX,downY;Button active;boolean cardGesture;
             private Button at(float y){
                 if(getChildCount()==0)return null;
                 ViewGroup body=(ViewGroup)getChildAt(0);
@@ -287,7 +287,11 @@ public final class MainActivity extends Activity implements MotionController.Lis
             }
             @Override public boolean dispatchTouchEvent(MotionEvent e){
                 int type=e.getActionMasked();
-                if(type==MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();focus(at(e.getY()));}
+                if(type==MotionEvent.ACTION_DOWN){
+                    downX=e.getX();downY=e.getY();
+                    cardGesture=flyoutPanel&&at(e.getY())!=null;
+                    focus(at(e.getY()));
+                }
                 else if(type==MotionEvent.ACTION_MOVE){
                     focus(at(e.getY()));
                     if(active!=null&&!store.reducedMotion&&!systemReduced){
@@ -306,6 +310,10 @@ public final class MainActivity extends Activity implements MotionController.Lis
                 }
                 return super.dispatchTouchEvent(e);
             }
+            @Override public boolean onInterceptTouchEvent(MotionEvent event){
+                if(flyoutPanel&&cardGesture)return false;
+                return super.onInterceptTouchEvent(event);
+            }
         };
         scroll.setFillViewport(false);
         scroll.setClipToPadding(false);
@@ -313,6 +321,23 @@ public final class MainActivity extends Activity implements MotionController.Lis
         parent.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout body=Ui.column(this);body.setPadding(dp(3),dp(6),dp(3),dp(8));
         scroll.addView(body,new ScrollView.LayoutParams(-1,-2));
+        if(flyoutPanel){
+            body.getViewTreeObserver().addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener(){
+                int previous=-1;
+                @Override public void onGlobalLayout(){
+                    if(panel==null||body.getParent()!=scroll)return;
+                    int content=body.getHeight();
+                    if(content<=0||content==previous)return;
+                    previous=content;
+                    int header=panel.getChildCount()>0?panel.getChildAt(0).getHeight():0;
+                    int wanted=content+header+panel.getPaddingTop()+panel.getPaddingBottom()+dp(6);
+                    int maximum=Math.max(dp(180),root.getHeight()-insetTop-Math.max(insetBottom,imeBottom)-dp(36));
+                    FrameLayout.LayoutParams params=(FrameLayout.LayoutParams)panel.getLayoutParams();
+                    int adjusted=Math.max(dp(120),Math.min(maximum,wanted));
+                    if(params.height!=adjusted){params.height=adjusted;panel.setLayoutParams(params);}
+                }
+            });
+        }
         scroll.setOnScrollChangeListener((View.OnScrollChangeListener)(v,x,y,oldX,oldY)->{
             if(store.reducedMotion||systemReduced)return;
             float focus=y+scroll.getHeight()*.5f;
