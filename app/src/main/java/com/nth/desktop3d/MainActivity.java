@@ -81,7 +81,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
             float dt=previousFrame==0?1/60f:Math.min(.05f,(time-previousFrame)/1_000_000_000f);previousFrame=time;
             desktop.frame(dt);
             // Cap GPU work at 60 fps (30 in battery saver), independently of screen refresh.
-            long interval=powerSave?33_000_000L:16_000_000L;
+            // Rendering tiers govern GPU submission cadence; Android power saver always wins.
+            long interval=(powerSave||crystal.qualityIndex()==0)?33_000_000L:16_000_000L;
             boolean animate=store.ambient&&!store.reducedMotion&&!systemReduced&&!powerSave;
             if(time-lastRender>=interval&&(animate||sceneDirty||android.os.SystemClock.uptimeMillis()<rippleUntil)){scene.requestRender();lastRender=time;sceneDirty=false;}
             Choreographer.getInstance().postFrameCallback(this);
@@ -158,7 +159,10 @@ public final class MainActivity extends Activity implements MotionController.Lis
             dock.setBackground(Ui.satin(this,(opacity<<24)|0x0044819C,0xCF0B1E36,24));
             dock.invalidate();
         }
-        if(panel!=null)panel.setBackground(Ui.satin(this,0xE3335C76,0xF20B1A30,26));
+        if(panel!=null){
+            int alpha=Math.max(175,Math.min(245,255-crystal.transparency()*2/3));
+            panel.setBackground(Ui.satin(this,(alpha<<24)|0x00335C76,0xF20B1A30,26));
+        }
     }
     private void updateClock(){
         Date now=new Date();String pattern=android.text.format.DateFormat.is24HourFormat(this)?"HH:mm":"h:mm";
@@ -179,7 +183,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         systemReduced=Settings.Global.getFloat(getContentResolver(),Settings.Global.ANIMATOR_DURATION_SCALE,1)==0;
         boolean reduced=store.reducedMotion||systemReduced;
         scene.configure(store,powerSave,systemReduced);scene.configureCrystal(crystal);desktop.configure(reduced,powerSave);modeLabel.setText(LauncherStore.MODES[store.mode]+(reduced?" · reduced motion":""));
-        if(resumed)motion.resume(store.tilt&&!reduced&&!powerSave);if(rebuild)desktop.rebuild();sceneDirty=true;scene.requestRender();pageChanged();
+        if(resumed)motion.resume(store.tilt&&crystal.parallax()&&!reduced&&!powerSave);if(rebuild)desktop.rebuild();sceneDirty=true;scene.requestRender();pageChanged();
     }
     private void reloadApps(){
         if(loading||destroyed)return;loading=true;
