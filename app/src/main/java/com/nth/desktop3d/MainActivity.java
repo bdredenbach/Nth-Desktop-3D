@@ -56,6 +56,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private android.appwidget.AppWidgetHost widgetHost;
     private android.appwidget.AppWidgetManager widgetManager;
     private int pendingWidgetId=-1;
+    private android.content.ComponentName pendingWidgetProvider;
     private AppCatalog catalog;
     private MotionController motion;
     private SceneSurface scene;
@@ -370,7 +371,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         paragraph(body,"Choose an Android widget to add to the current desktop. Widgets remain live and are restored when you reopen the launcher.");
         action(body,"Choose Android widget",()->{
             try{
-                pendingWidgetId=widgetHost.allocateAppWidgetId();
+                pendingWidgetId=widgetHost.allocateAppWidgetId();pendingWidgetProvider=null;
                 Intent pick=new Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_PICK);
                 pick.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,pendingWidgetId);
                 startActivityForResult(pick,3047);
@@ -378,11 +379,11 @@ public final class MainActivity extends Activity implements MotionController.Lis
         });
     }
     private void releasePendingWidget(){
-        if(pendingWidgetId>=0){widgetHost.deleteAppWidgetId(pendingWidgetId);pendingWidgetId=-1;}
+        if(pendingWidgetId>=0){widgetHost.deleteAppWidgetId(pendingWidgetId);pendingWidgetId=-1;}pendingWidgetProvider=null;
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);
-        if(request!=3047&&request!=3048)return;
+        if(request!=3047&&request!=3048&&request!=3049)return;
         if(result!=RESULT_OK){releasePendingWidget();return;}
         int id=data==null?pendingWidgetId:data.getIntExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,pendingWidgetId);
         if(id<0){releasePendingWidget();return;}
@@ -390,12 +391,14 @@ public final class MainActivity extends Activity implements MotionController.Lis
         android.appwidget.AppWidgetProviderInfo info=widgetManager.getAppWidgetInfo(id);
         if(info==null&&data!=null){
             android.content.ComponentName provider=data.getParcelableExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_PROVIDER);
+            if(provider==null)provider=pendingWidgetProvider;
             if(provider!=null)for(android.appwidget.AppWidgetProviderInfo candidate:widgetManager.getInstalledProviders()){
                 if(provider.equals(candidate.provider)){info=candidate;break;}
             }
         }
-        if(info==null){releasePendingWidget();toast("Widget could not be loaded.");return;}
+        if(info==null){releasePendingWidget();toast("Widget could not be loaded. Please try another widget.");return;}
         if(request==3047&&!widgetManager.bindAppWidgetIdIfAllowed(id,info.provider)){
+            pendingWidgetProvider=info.provider;
             try{
                 Intent bind=new Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_BIND);
                 bind.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,id);
@@ -403,10 +406,18 @@ public final class MainActivity extends Activity implements MotionController.Lis
                 startActivityForResult(bind,3048);return;
             }catch(RuntimeException e){releasePendingWidget();toast("Widget permission unavailable.");return;}
         }
+        if(request!=3049&&info.configure!=null){
+            try{
+                Intent configure=new Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_CONFIGURE);
+                configure.setComponent(info.configure);
+                configure.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,id);
+                startActivityForResult(configure,3049);return;
+            }catch(RuntimeException e){toast("Widget configuration unavailable; adding default widget.");}
+        }
         String key="widget_ids_page_"+store.page;
         String previous=store.preferences.getString(key,"");
         store.preferences.edit().putString(key,previous.isEmpty()?String.valueOf(id):previous+","+id).apply();
-        pendingWidgetId=-1;closePanel();desktop.rebuild();toast("Widget added to desktop");
+        pendingWidgetId=-1;pendingWidgetProvider=null;closePanel();desktop.rebuild();toast("Widget added to desktop");
     }
     private void newFolder(){EditText edit=new EditText(this);edit.setSingleLine(true);edit.setHint("Folder name");Ui.pad(edit,16);new AlertDialog.Builder(this).setTitle("New folder").setView(edit).setNegativeButton("Cancel",null).setPositiveButton("Create",(d,w)->{String name=edit.getText().toString().trim();if(!name.isEmpty()&&store.pages.get(store.page).size()<60){store.pages.get(store.page).add(new LauncherStore.Item("folder",name));store.save();desktop.rebuild();pageChanged();closePanel();}}).show();}
 
@@ -490,8 +501,13 @@ public final class MainActivity extends Activity implements MotionController.Lis
         action(body,"Scene studio",this::showModes);action(body,"3D settings",this::showSettings);action(body,"Set default Home",this::requestHome);
     }
     private void welcome(){
-        if(destroyed||!resumed)return;LinearLayout body=scrollBody(openPanel("Welcome to Nth Desktop 3D"));paragraph(body,"Your desktop has depth.\n\nTilt your phone gently for parallax. Swipe or tap the arrows to turn desktops. Open the cube in the dock for apps and hold an app for shortcut options. Try all four scenes from Scene studio.\n\nReduced motion, tilt strength, menu styles, and transitions are in 3D settings.");
-        action(body,"Set as my Home app",this::requestHome);action(body,"Explore the desktop",()->{store.preferences.edit().putBoolean("welcomed",true).apply();closePanel();});action(body,"Choose a scene",()->{store.preferences.edit().putBoolean("welcomed",true).apply();showModes();});
+        if(destroyed||!resumed)return;
+        LinearLayout body=scrollBody(openPanel("Welcome to Nth Desktop 3D",true));
+        section(body,"Your desktop. Another dimension.");
+        paragraph(body,"Tilt to explore Crystal Glass depth. Swipe up for apps, long-press the desktop for Settings and Widgets, and swipe between desktop pages.");
+        action(body,"Set as Home app",this::requestHome);
+        action(body,"Explore desktop",()->{store.preferences.edit().putBoolean("welcomed",true).apply();closePanel();});
+        action(body,"Choose a 3D scene",()->{store.preferences.edit().putBoolean("welcomed",true).apply();showModes();});
     }
     private void requestHome(){
         store.preferences.edit().putBoolean("welcomed",true).apply();
