@@ -83,28 +83,9 @@ final class DesktopView extends FrameLayout {
             Body body=new Body(tile,item);bodies.add(body);
             if(gravity){tile.physicsStyle();stage.addView(tile,new LayoutParams(Ui.dp(getContext(),78),physicsTileHeight()));installDrag(body);}
             else{
-                grid.addView(tile);
-                tile.setOnTouchListener(new View.OnTouchListener(){
-                    float x,y;boolean dragging;
-                    @Override public boolean onTouch(View v,MotionEvent e){
-                        if(e.getActionMasked()==MotionEvent.ACTION_DOWN){
-                            x=e.getX();y=e.getY();dragging=false;return false;
-                        }
-                        if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&selectedTile==tile&&!dragging
-                                &&Math.hypot(e.getX()-x,e.getY()-y)>Ui.dp(getContext(),12)){
-                            dragging=true;
-                            if(delayedMenu!=null){removeCallbacks(delayedMenu);delayedMenu=null;}
-                            tile.startDragAndDrop(ClipData.newPlainText("Nth shortcut",item.label),
-                                new View.DragShadowBuilder(tile),item,0);
-                            tile.setAlpha(.45f);
-                            return true;
-                        }
-                        if(e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL){
-                            tile.setAlpha(1f);dragging=false;
-                        }
-                        return false;
-                    }
-                });
+                // Normal scenes use free-form icon coordinates, not ordered grid cells.
+                stage.addView(tile,new LayoutParams(Ui.dp(getContext(),84),Ui.dp(getContext(),112)));
+                installDrag(body);
             }
         }
         addWidgets();
@@ -312,8 +293,12 @@ final class DesktopView extends FrameLayout {
                     case MotionEvent.ACTION_MOVE:
                         float dx=e.getRawX()-sx,dy=e.getRawY()-sy;
                         if(Math.hypot(dx,dy)>Ui.dp(getContext(),9)){moved=true;v.removeCallbacks(hold);}
-                        if(moved&&!held){body.x=SceneMath.clamp(bx+dx,0,Math.max(0,width-v.getWidth()));body.y=SceneMath.clamp(by+dy,0,Math.max(0,height-v.getHeight()));long dt=Math.max(1,e.getEventTime()-last);body.vx=(e.getRawX()-lastX)*1000/dt;body.vy=(e.getRawY()-lastY)*1000/dt;v.setTranslationX(body.x);v.setTranslationY(body.y);last=e.getEventTime();lastX=e.getRawX();lastY=e.getRawY();}return true;
-                    case MotionEvent.ACTION_UP:v.removeCallbacks(hold);v.setPressed(false);if(!moved&&!held&&e.getEventTime()-start<500)v.performClick();savePositions();return true;
+                        if(moved){held=false;body.x=SceneMath.clamp(bx+dx,0,Math.max(0,width-v.getWidth()));body.y=SceneMath.clamp(by+dy,0,Math.max(0,height-v.getHeight()));long dt=Math.max(1,e.getEventTime()-last);body.vx=(e.getRawX()-lastX)*1000/dt;body.vy=(e.getRawY()-lastY)*1000/dt;v.setTranslationX(body.x);v.setTranslationY(body.y);last=e.getEventTime();lastX=e.getRawX();lastY=e.getRawY();}return true;
+                    case MotionEvent.ACTION_UP:
+                        v.removeCallbacks(hold);v.setPressed(false);
+                        if(!moved&&!held&&e.getEventTime()-start<500)v.performClick();
+                        if(moved){savePositions();store.save();}
+                        return true;
                     case MotionEvent.ACTION_CANCEL:v.removeCallbacks(hold);v.setPressed(false);return true;
                     default:return false;
                 }
@@ -324,6 +309,17 @@ final class DesktopView extends FrameLayout {
         width=getWidth();height=getHeight();if(width==0||height==0)return;
         if(grid!=null){
             grid.requestLayout();
+            int cols=Math.max(1,Math.min(8,width/Ui.dp(getContext(),84)));
+            int cw=Math.max(1,width/cols),i=0;
+            for(Body body:bodies){
+                int tw=body.tile.getLayoutParams().width,th=body.tile.getLayoutParams().height;
+                float x=body.item.x<0?(i%cols)*cw:body.item.x*Math.max(0,width-tw);
+                float y=body.item.y<0?Ui.dp(getContext(),24)+(i/cols)*Ui.dp(getContext(),112):body.item.y*Math.max(0,height-th);
+                body.x=SceneMath.clamp(x,0,Math.max(0,width-tw));
+                body.y=SceneMath.clamp(y,0,Math.max(0,height-th));
+                body.tile.setTranslationX(body.x);body.tile.setTranslationY(body.y);
+                i++;
+            }
         }else{
             int cols=Math.max(1,width/Ui.dp(getContext(),85));int size=Ui.dp(getContext(),78),h=physicsTileHeight();int i=0;
             for(Body b:bodies){
@@ -357,7 +353,12 @@ final class DesktopView extends FrameLayout {
         }
         for(Body b:bodies){b.x=SceneMath.clamp(b.x,0,Math.max(0,width-b.tile.getWidth()));b.y=SceneMath.clamp(b.y,0,Math.max(0,height-b.tile.getHeight()));b.rotation=SceneMath.smooth(b.rotation,SceneMath.clamp(b.vx/22,-12,12),time,3);b.tile.setTranslationX(b.x);b.tile.setTranslationY(b.y);b.tile.setRotation(b.item.fixed?0:b.rotation);b.tile.setRotationY(tiltX*store.strength*6);}
     }
-    void savePositions(){if(store.mode==1&&!reduced)for(Body b:bodies){b.item.x=b.x/Math.max(1,width-b.tile.getWidth());b.item.y=b.y/Math.max(1,height-b.tile.getHeight());}}
+    void savePositions(){
+        for(Body b:bodies){
+            b.item.x=b.x/Math.max(1,width-b.tile.getWidth());
+            b.item.y=b.y/Math.max(1,height-b.tile.getHeight());
+        }
+    }
     void arrange(){for(LauncherStore.Item i:store.pages.get(store.page)){i.x=i.y=-1;}rebuild();store.save();}
     void changePage(int direction){
         if(animating||modal)return;savePositions();
