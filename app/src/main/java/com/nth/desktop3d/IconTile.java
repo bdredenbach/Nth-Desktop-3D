@@ -20,11 +20,11 @@ final class IconTile extends LinearLayout {
         super(c);setOrientation(VERTICAL);setGravity(Gravity.CENTER);setClipChildren(false);setClipToPadding(false);
         setPadding(Ui.dp(c,3),Ui.dp(c,8),Ui.dp(c,3),Ui.dp(c,6));
         setBackground(Ui.touch(c,null,18));setCameraDistance(Ui.dp(c,1800));
-        FrameLayout plinth=new FrameLayout(c);plinth.setBackground(Ui.satin(c,0xC52E3E58,0xBA172237,18));plinth.setElevation(Ui.dp(c,5));
+        FrameLayout plinth=new FrameLayout(c);plinth.setBackground(Ui.satin(c,0xA348A3C3,0xB4132B49,18));plinth.setElevation(Ui.dp(c,9));
         ImageView image=new ImageView(c);image.setImageDrawable(drawable==null?new BuiltinIcon(key):drawable);image.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
-        image.setScaleType(ImageView.ScaleType.FIT_CENTER);FrameLayout.LayoutParams ip=new FrameLayout.LayoutParams(Ui.dp(c,43),Ui.dp(c,43),Gravity.CENTER);plinth.addView(image,ip);addView(plinth,new LayoutParams(Ui.dp(c,58),Ui.dp(c,58)));
+        image.setScaleType(ImageView.ScaleType.FIT_CENTER);FrameLayout.LayoutParams ip=new FrameLayout.LayoutParams(Ui.dp(c,45),Ui.dp(c,45),Gravity.CENTER);plinth.addView(image,ip);addView(plinth,new LayoutParams(Ui.dp(c,60),Ui.dp(c,60)));
         label=Ui.text(c,name,12,Ui.TEXT);label.setGravity(Gravity.CENTER);label.setMaxLines(2);label.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        label.setShadowLayer(Ui.dp(c,2),0,Ui.dp(c,1),0xFF000000);LayoutParams p=new LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT);p.topMargin=Ui.dp(c,8);addView(label,p);
+        label.setShadowLayer(Ui.dp(c,2),0,Ui.dp(c,1),0xFF000000);LayoutParams p=new LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT);p.topMargin=Ui.dp(c,7);addView(label,p);
         label.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);setContentDescription(name);setFocusable(true);setClickable(true);setLongClickable(true);
     }
     void physicsStyle(){
