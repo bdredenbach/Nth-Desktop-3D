@@ -275,6 +275,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
                 if(!(child instanceof Button))continue;
                 float center=child.getTop()+child.getHeight()*.5f;
                 float proximity=Math.max(0,1-Math.abs(center-focus)/Math.max(1,scroll.getHeight()*.65f));
+                if(crystal.menuAnimation()==4)proximity=0;
                 child.animate().cancel();
                 child.animate().translationZ(dp(7)*proximity).scaleX(1+.025f*proximity)
                     .scaleY(1+.025f*proximity).setDuration(130).start();
@@ -523,6 +524,22 @@ public final class MainActivity extends Activity implements MotionController.Lis
             .setSingleChoiceItems(CrystalPreferences.LIGHTING,crystal.lighting(),(d,which)->{
                 crystal.setLighting(which);d.dismiss();showSettings();
             }).setNegativeButton("Cancel",null).show());
+        section(body,"Crystal Studio");
+        action(body,"Material: "+CrystalPreferences.MATERIALS[crystal.material()],()->
+            new AlertDialog.Builder(this).setTitle("Crystal material")
+                .setSingleChoiceItems(CrystalPreferences.MATERIALS,crystal.material(),(dialog,index)->{
+                    crystal.setMaterial(index);dialog.dismiss();applyCrystalAppearance();showSettings();
+                }).setNegativeButton("Cancel",null).show());
+        action(body,"Menu animation: "+CrystalPreferences.MENU_ANIMATIONS[crystal.menuAnimation()],()->
+            new AlertDialog.Builder(this).setTitle("Menu animation")
+                .setSingleChoiceItems(CrystalPreferences.MENU_ANIMATIONS,crystal.menuAnimation(),(dialog,index)->{
+                    crystal.setMenuAnimation(index);dialog.dismiss();showSettings();
+                }).setNegativeButton("Cancel",null).show());
+        action(body,"Lighting: "+CrystalPreferences.LIGHTING[crystal.lighting()],()->
+            new AlertDialog.Builder(this).setTitle("Crystal lighting")
+                .setSingleChoiceItems(CrystalPreferences.LIGHTING,crystal.lighting(),(dialog,index)->{
+                    crystal.setLighting(index);dialog.dismiss();applyCrystalAppearance();showSettings();
+                }).setNegativeButton("Cancel",null).show());
         section(body,"Crystal Glass · visual defaults");
         slider(body,"Glass transparency",crystal.transparency(),0,100,v->{crystal.setTransparency(v);applyCrystalAppearance();});
         slider(body,"Crystal depth",crystal.depth(),0,100,v->{crystal.setDepth(v);applySettings(false);});
