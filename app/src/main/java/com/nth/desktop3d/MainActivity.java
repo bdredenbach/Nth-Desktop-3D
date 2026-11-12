@@ -537,57 +537,91 @@ public final class MainActivity extends Activity implements MotionController.Lis
         action(body,"Set default Home",this::requestHome);
     }
     private void showWidgets(){
-        LinearLayout body=scrollBody(openPanel("Widgets"));
-        paragraph(body,"Choose an Android widget to add to the current desktop. Widgets remain live and are restored when you reopen the launcher.");
-        action(body,"Choose Android widget",()->{
-            try{
-                pendingWidgetId=widgetHost.allocateAppWidgetId();pendingWidgetProvider=null;
-                Intent pick=new Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_PICK);
-                pick.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,pendingWidgetId);
-                startActivityForResult(pick,3047);
-            }catch(RuntimeException e){releasePendingWidget();toast("Widget picker unavailable on this device.");}
-        });
+        // Use Android's native picker immediately; no intermediary launcher panel.
+        try{
+            pendingWidgetId=widgetHost.allocateAppWidgetId();
+            pendingWidgetProvider=null;
+            Intent pick=new Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_PICK);
+            pick.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,pendingWidgetId);
+            startActivityForResult(pick,3047);
+        }catch(RuntimeException e){
+            releasePendingWidget();
+            toast("Widget picker unavailable on this device.");
+        }
     }
     private void releasePendingWidget(){
-        if(pendingWidgetId>=0){widgetHost.deleteAppWidgetId(pendingWidgetId);pendingWidgetId=-1;}pendingWidgetProvider=null;
+        if(pendingWidgetId>=0){
+            widgetHost.deleteAppWidgetId(pendingWidgetId);
+            pendingWidgetId=-1;
+        }
+        pendingWidgetProvider=null;
+    }
+    private android.appwidget.AppWidgetProviderInfo resolveWidget(int id,Intent data){
+        android.appwidget.AppWidgetProviderInfo info=widgetManager.getAppWidgetInfo(id);
+        if(info!=null)return info;
+        android.content.ComponentName provider=pendingWidgetProvider;
+        if(data!=null){
+            android.content.ComponentName returned=data.getParcelableExtra(
+                android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_PROVIDER);
+            if(returned!=null)provider=returned;
+        }
+        if(provider!=null){
+            for(android.appwidget.AppWidgetProviderInfo candidate:widgetManager.getInstalledProviders()){
+                if(provider.equals(candidate.provider))return candidate;
+            }
+        }
+        return null;
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);
         if(request!=3047&&request!=3048&&request!=3049)return;
         if(result!=RESULT_OK){releasePendingWidget();return;}
-        int id=data==null?pendingWidgetId:data.getIntExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,pendingWidgetId);
+        int id=data==null?pendingWidgetId:data.getIntExtra(
+            android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,pendingWidgetId);
         if(id<0){releasePendingWidget();return;}
         pendingWidgetId=id;
-        android.appwidget.AppWidgetProviderInfo info=widgetManager.getAppWidgetInfo(id);
-        if(info==null&&data!=null){
-            android.content.ComponentName provider=data.getParcelableExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_PROVIDER);
-            if(provider==null)provider=pendingWidgetProvider;
-            if(provider!=null)for(android.appwidget.AppWidgetProviderInfo candidate:widgetManager.getInstalledProviders()){
-                if(provider.equals(candidate.provider)){info=candidate;break;}
+        android.appwidget.AppWidgetProviderInfo info=resolveWidget(id,data);
+        if(info==null){releasePendingWidget();toast("Widget provider unavailable.");return;}
+        pendingWidgetProvider=info.provider;
+        if(request==3047){
+            boolean bound=widgetManager.getAppWidgetInfo(id)!=null;
+            if(!bound)bound=widgetManager.bindAppWidgetIdIfAllowed(id,info.provider);
+            if(!bound){
+                try{
+                    Intent bind=new Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_BIND);
+                    bind.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,id);
+                    bind.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_PROVIDER,info.provider);
+                    startActivityForResult(bind,3048);
+                }catch(RuntimeException e){
+                    releasePendingWidget();toast("Could not request widget permission.");
+                }
+                return;
             }
         }
-        if(info==null){releasePendingWidget();toast("Widget could not be loaded. Please try another widget.");return;}
-        if(request==3047&&!widgetManager.bindAppWidgetIdIfAllowed(id,info.provider)){
-            pendingWidgetProvider=info.provider;
-            try{
-                Intent bind=new Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_BIND);
-                bind.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,id);
-                bind.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_PROVIDER,info.provider);
-                startActivityForResult(bind,3048);return;
-            }catch(RuntimeException e){releasePendingWidget();toast("Widget permission unavailable.");return;}
+        // A successful permission result must resolve to a genuinely bound widget.
+        if(request==3048&&widgetManager.getAppWidgetInfo(id)==null){
+            releasePendingWidget();toast("Widget permission was not applied. Please try again.");
+            return;
         }
         if(request!=3049&&info.configure!=null){
             try{
                 Intent configure=new Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_CONFIGURE);
                 configure.setComponent(info.configure);
                 configure.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,id);
-                startActivityForResult(configure,3049);return;
-            }catch(RuntimeException e){toast("Widget configuration unavailable; adding default widget.");}
+                startActivityForResult(configure,3049);
+                return;
+            }catch(RuntimeException e){
+                toast("Widget configuration unavailable; adding default widget.");
+            }
         }
         String key="widget_ids_page_"+store.page;
         String previous=store.preferences.getString(key,"");
-        store.preferences.edit().putString(key,previous.isEmpty()?String.valueOf(id):previous+","+id).apply();
-        pendingWidgetId=-1;pendingWidgetProvider=null;closePanel();desktop.rebuild();toast("Widget added to desktop");
+        store.preferences.edit().putString(key,
+            previous.isEmpty()?String.valueOf(id):previous+","+id).apply();
+        pendingWidgetId=-1;
+        pendingWidgetProvider=null;
+        closePanel();desktop.rebuild();
+        toast("Widget added to desktop");
     }
     private void newFolder(){EditText edit=new EditText(this);edit.setSingleLine(true);edit.setHint("Folder name");Ui.pad(edit,16);new AlertDialog.Builder(this).setTitle("New folder").setView(edit).setNegativeButton("Cancel",null).setPositiveButton("Create",(d,w)->{String name=edit.getText().toString().trim();if(!name.isEmpty()&&store.pages.get(store.page).size()<60){store.pages.get(store.page).add(new LauncherStore.Item("folder",name));store.save();desktop.rebuild();pageChanged();closePanel();}}).show();}
 
