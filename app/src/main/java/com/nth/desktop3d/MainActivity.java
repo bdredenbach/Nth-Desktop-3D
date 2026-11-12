@@ -277,8 +277,13 @@ public final class MainActivity extends Activity implements MotionController.Lis
                 float proximity=Math.max(0,1-Math.abs(center-focus)/Math.max(1,scroll.getHeight()*.65f));
                 if(crystal.menuAnimation()==4)proximity=0;
                 child.animate().cancel();
-                child.animate().translationZ(dp(7)*proximity).scaleX(1+.025f*proximity)
-                    .scaleY(1+.025f*proximity).setDuration(130).start();
+                float lift=crystal.menuAnimation()==3?dp(13):dp(9);
+                child.setPivotX(child.getWidth()*.5f);
+                child.setPivotY(child.getHeight()*.5f);
+                child.animate().translationZ(lift*proximity).scaleX(1+.045f*proximity)
+                    .scaleY(1+.045f*proximity).rotationX(-4f*proximity)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                    .setDuration(160).start();
             }
         });return body;
     }
@@ -292,7 +297,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
             if(event.getActionMasked()==MotionEvent.ACTION_DOWN){
                 v.animate().cancel();v.animate().translationZ(dp(crystal.lighting()==0?6:14)).scaleX(1.035f).scaleY(1.035f).setDuration(120).start();
             }else if(event.getActionMasked()==MotionEvent.ACTION_UP||event.getActionMasked()==MotionEvent.ACTION_CANCEL){
-                v.animate().translationZ(0).scaleX(1).scaleY(1).setDuration(180).start();
+                v.animate().translationZ(0).scaleX(1).scaleY(1).rotationX(0)
+                    .setInterpolator(new android.view.animation.OvershootInterpolator(.7f)).setDuration(260).start();
             }
             return false;
         });
