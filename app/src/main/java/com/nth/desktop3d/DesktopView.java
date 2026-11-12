@@ -19,6 +19,8 @@ final class DesktopView extends FrameLayout {
     interface Host { void open(LauncherStore.Item item);void menu(LauncherStore.Item item);void backgroundMenu();void pageChanged();void ripple(float x,float y);void startMenu();void feed(); }
     private final LauncherStore store;
     private final AppCatalog catalog;
+    private final android.appwidget.AppWidgetHost widgetHost;
+    private final android.appwidget.AppWidgetManager widgetManager;
     private final Host host;
     private final FrameLayout stage;
     private final List<Body> bodies=new ArrayList<>();
@@ -35,8 +37,8 @@ final class DesktopView extends FrameLayout {
         float x,y,vx,vy,rotation;
         Body(IconTile tile,LauncherStore.Item item){this.tile=tile;this.item=item;}
     }
-    DesktopView(Context c,LauncherStore store,AppCatalog catalog,Host host) {
-        super(c);gestureSlop=Ui.dp(c,55);this.store=store;this.catalog=catalog;this.host=host;setClipChildren(false);setClipToPadding(false);
+    DesktopView(Context c,LauncherStore store,AppCatalog catalog,Host host,android.appwidget.AppWidgetHost widgetHost,android.appwidget.AppWidgetManager widgetManager) {
+        super(c);gestureSlop=Ui.dp(c,55);this.store=store;this.catalog=catalog;this.host=host;this.widgetHost=widgetHost;this.widgetManager=widgetManager;setClipChildren(false);setClipToPadding(false);
         backgroundHold=()->{if(!swiping&&!verticalGesture&&touching&&!modal){held=true;this.host.backgroundMenu();}};
         stage=new FrameLayout(c);stage.setClipChildren(false);stage.setClipToPadding(false);stage.setCameraDistance(Ui.dp(c,2200));
         addView(stage,new LayoutParams(-1,-1));setFocusable(false);
@@ -65,7 +67,29 @@ final class DesktopView extends FrameLayout {
             if(gravity){tile.physicsStyle();stage.addView(tile,new LayoutParams(Ui.dp(getContext(),78),physicsTileHeight()));installDrag(body);}
             else grid.addView(tile);
         }
+        addWidgets();
         updateLayout();post(this::updateLayout);
+    }
+    private void addWidgets(){
+        String ids=store.preferences.getString("widget_ids_page_"+store.page,"");
+        if(ids.isEmpty())return;
+        int position=0;
+        for(String raw:ids.split(",")){
+            try{
+                int id=Integer.parseInt(raw);
+                android.appwidget.AppWidgetProviderInfo info=widgetManager.getAppWidgetInfo(id);
+                if(info==null)continue;
+                android.appwidget.AppWidgetHostView widget=widgetHost.createView(getContext(),id,info);
+                widget.setAppWidget(id,info);
+                int width=Ui.dp(getContext(),Math.min(300,Math.max(160,info.minWidth)));
+                int height=Ui.dp(getContext(),Math.min(260,Math.max(100,info.minHeight)));
+                FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(width,height);
+                lp.gravity=android.view.Gravity.TOP|android.view.Gravity.CENTER_HORIZONTAL;
+                lp.topMargin=Ui.dp(getContext(),16+position*24);
+                stage.addView(widget,lp);widget.setElevation(Ui.dp(getContext(),14));
+                position++;
+            }catch(RuntimeException ignored){}
+        }
     }
     private int physicsTileHeight(){return Ui.dp(getContext(),98+Math.max(0,getResources().getConfiguration().fontScale-1)*30);}
     private void installDrag(Body body){
