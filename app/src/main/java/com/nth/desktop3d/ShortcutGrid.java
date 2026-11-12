@@ -34,5 +34,12 @@ final class ShortcutGrid extends ViewGroup {
             child.layout(left,top,right,top+cellHeight);
         }
     }
+    int indexForPoint(float x,float y){
+        int available=Math.max(1,getWidth()-getPaddingLeft()-getPaddingRight());
+        int column=Math.max(0,Math.min(columns-1,(int)((x-getPaddingLeft())*columns/available)));
+        if(getLayoutDirection()==LAYOUT_DIRECTION_RTL)column=columns-1-column;
+        int row=Math.max(0,(int)((y-getPaddingTop())/Math.max(1,cellHeight)));
+        return row*columns+column;
+    }
     @Override protected LayoutParams generateDefaultLayoutParams(){return new LayoutParams(-2,-2);}
 }
