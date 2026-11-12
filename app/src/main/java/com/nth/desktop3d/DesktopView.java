@@ -184,7 +184,7 @@ final class DesktopView extends FrameLayout {
             case MotionEvent.ACTION_DOWN:downX=e.getX();downY=e.getY();touching=true;swiping=false;postDelayed(backgroundHold,ViewConfiguration.getLongPressTimeout());host.ripple(e.getX(),e.getY());return true;
             case MotionEvent.ACTION_MOVE:float dx=e.getX()-downX,dy=e.getY()-downY;
                 if(Math.hypot(dx,dy)>ViewConfiguration.get(getContext()).getScaledTouchSlop()){removeCallbacks(backgroundHold);if(Math.abs(dy)>Math.abs(dx))verticalGesture=true;if(!verticalGesture&&Math.abs(dx)>Math.abs(dy)*1.4f)swiping=true;}return true;
-            case MotionEvent.ACTION_UP:removeCallbacks(backgroundHold);if(!held&&!verticalGesture){
+            case MotionEvent.ACTION_UP:removeCallbacks(backgroundHold);if(!held){
                 float dx=e.getX()-downX,dy=e.getY()-downY;
                 if(Math.abs(dy)>gestureSlop&&Math.abs(dy)>Math.abs(dx)*1.4f&&dy<0){host.startMenu();}
                 else if(swiping&&Math.abs(dx)>gestureSlop){
