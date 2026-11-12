@@ -22,6 +22,7 @@ final class CrystalGlassDrawable extends Drawable {
     private final Path clip = new Path();
     private final float radius, density;
     private final int top, bottom;
+    private final CrystalPreferences crystal;
     private final int material,lighting;
     private int alpha = 255;
 
@@ -30,6 +31,7 @@ final class CrystalGlassDrawable extends Drawable {
         radius = radiusDp * density;
         this.top = top;
         this.bottom = bottom;
+        crystal = new CrystalPreferences(context);
         CrystalPreferences preferences=new CrystalPreferences(context);
         material=preferences.material();lighting=preferences.lighting();
     }
@@ -52,14 +54,14 @@ final class CrystalGlassDrawable extends Drawable {
 
         // Thin, angled specular reflection: concentrated at the upper edge.
         paint.setShader(new LinearGradient(rect.left,rect.top,rect.left,rect.top+h*.54f,
-                new int[]{modulate(0x65FFFFFF),modulate(0x14A8F3FF),0x00000000},
+                new int[]{modulate(0x65FFFFFF),modulate(crystal.lighting()==0?0x0DA8F3FF:0x28A8F3FF),0x00000000},
                 null,Shader.TileMode.CLAMP));
         canvas.drawRect(rect.left,rect.top,rect.right,rect.top+h*.54f,paint);
         paint.setShader(null);
 
         // A narrow light streak gives a sense of curved glass without obscuring labels.
         paint.setShader(new LinearGradient(rect.left,rect.top,rect.left+w*.55f,rect.top+h*.6f,
-                new int[]{0x00000000,modulate(0x26C8F8FF),0x00000000},
+                new int[]{0x00000000,modulate(crystal.lighting()==2?0x5ED9A7FF:0x26C8F8FF),0x00000000},
                 new float[]{0f,.48f,1f},Shader.TileMode.CLAMP));
         canvas.drawRect(rect,paint); paint.setShader(null);
         if(material==2){
@@ -89,6 +91,30 @@ final class CrystalGlassDrawable extends Drawable {
         paint.setStyle(Paint.Style.FILL);
     }
 
+    private int highlight(){
+        switch(crystal.material()){
+            case 1:return 0xB9E2F4F8;
+            case 2:return 0xB8C4F5FF;
+            case 3:return 0x8D6BA7CF;
+            default:return 0xA8B4F5FF;
+        }
+    }
+    private int materialTop(){
+        switch(crystal.material()){
+            case 1:return 0xB5A9C7D7;
+            case 2:return 0xA858BDF0;
+            case 3:return 0xD122537B;
+            default:return top;
+        }
+    }
+    private int materialBottom(){
+        switch(crystal.material()){
+            case 1:return 0xC055748C;
+            case 2:return 0xC63C317E;
+            case 3:return 0xE0081838;
+            default:return bottom;
+        }
+    }
     private int modulate(int color) {
         return (color & 0x00FFFFFF) | ((Color.alpha(color)*alpha/255)<<24);
     }
