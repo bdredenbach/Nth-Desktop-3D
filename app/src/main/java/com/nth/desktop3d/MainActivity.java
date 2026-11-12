@@ -169,7 +169,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         }
         if(panel!=null){
             int alpha=Math.max(175,Math.min(245,255-crystal.transparency()*2/3));
-            panel.setBackground(Ui.satin(this,(alpha<<24)|0x00335C76,0xF20B1A30,26));
+            panel.setBackground(flyoutPanel?new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT):Ui.satin(this,(alpha<<24)|0x00335C76,0xF20B1A30,26));
         }
     }
     private void updateClock(){
@@ -233,8 +233,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private LinearLayout openPanel(String title,boolean flyout){
         closePanel();desktop.setModal(true);startButton.setSelected(true);panelKind=2;
         flyoutPanel=flyout;
-        overlay=new FrameLayout(this);overlay.setBackgroundColor(flyout?0x44030A17:0xAA030A17);overlay.setOnClickListener(v->closePanel());root.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
-        panel=Ui.column(this);panel.setBackground(flyout?new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT):Ui.satin(this,0xE3335C76,0xF20B1A30,26));panel.setElevation(dp(34));panel.setPadding(dp(20),dp(12),dp(20),dp(16));panel.setOnClickListener(v->{});panel.setCameraDistance(dp(2400));
+        overlay=new FrameLayout(this);overlay.setBackgroundColor(flyout?0x00000000:0xAA030A17);overlay.setOnClickListener(v->closePanel());root.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
+        panel=Ui.column(this);panel.setBackground(flyout?new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT):Ui.satin(this,0xE3335C76,0xF20B1A30,26));panel.setElevation(flyout?0:dp(34));panel.setPadding(dp(flyout?12:20),dp(12),dp(flyout?12:20),dp(16));panel.setOnClickListener(v->{});panel.setCameraDistance(dp(2400));
         overlay.addView(panel);layoutPanel();applyCrystalAppearance();
         LinearLayout heading=Ui.row(this);TextView label=Ui.text(this,title,20,Ui.TEXT);label.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));heading.addView(label,new LinearLayout.LayoutParams(0,dp(46),1));
         Button close=Ui.icon(this,"close","Close "+title,this::closePanel);heading.addView(close,new LinearLayout.LayoutParams(dp(46),dp(46)));panel.addView(heading);
@@ -257,7 +257,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void layoutPanel(){
         if(panel==null)return;
         int bottom=Math.max(insetBottom,imeBottom);
-        PanelGeometry.Bounds bounds=PanelGeometry.place(root.getWidth(),root.getHeight(),insetLeft,insetTop,insetRight,bottom,dp(flyoutPanel?520:720),dp(flyoutPanel?520:820),dp(12),flyoutPanel&&imeBottom==0?dp(84):0);
+        PanelGeometry.Bounds bounds=PanelGeometry.place(root.getWidth(),root.getHeight(),insetLeft,insetTop,insetRight,bottom,dp(flyoutPanel?380:720),dp(flyoutPanel?300:820),dp(12),flyoutPanel&&imeBottom==0?dp(84):0);
         FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(bounds.width,bounds.height);
         // Center inside the safe rectangle. FrameLayout's CENTER gravity applies
         // unequal margins as offsets, which can put a keyboard-resized panel offscreen.
@@ -266,31 +266,76 @@ public final class MainActivity extends Activity implements MotionController.Lis
         panel.setLayoutParams(p);
     }
     private LinearLayout scrollBody(LinearLayout parent){
-        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);parent.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));LinearLayout body=Ui.column(this);body.setPadding(0,dp(10),0,dp(8));scroll.addView(body,new ScrollView.LayoutParams(-1,-2));
+        ScrollView scroll=new ScrollView(this){
+            float downX,downY;Button active;
+            private Button at(float y){
+                if(getChildCount()==0)return null;
+                ViewGroup body=(ViewGroup)getChildAt(0);
+                float target=y+getScrollY();
+                for(int i=0;i<body.getChildCount();i++){
+                    View child=body.getChildAt(i);
+                    if(child instanceof Button&&target>=child.getTop()&&target<child.getBottom())return (Button)child;
+                }
+                return null;
+            }
+            private void focus(Button next){
+                if(active==next)return;
+                if(active!=null)raise(active,false);
+                active=next;
+                if(active!=null)raise(active,true);
+            }
+            @Override public boolean dispatchTouchEvent(MotionEvent e){
+                int type=e.getActionMasked();
+                if(type==MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();focus(at(e.getY()));}
+                else if(type==MotionEvent.ACTION_MOVE){focus(at(e.getY()));}
+                else if(type==MotionEvent.ACTION_UP||type==MotionEvent.ACTION_CANCEL){
+                    Button target=active;
+                    boolean slide=type==MotionEvent.ACTION_UP&&target!=null
+                        &&Math.abs(e.getX()-downX)>dp(20)&&Math.abs(e.getY()-downY)<dp(45);
+                    focus(null);
+                    if(slide){target.performClick();return true;}
+                }
+                return super.dispatchTouchEvent(e);
+            }
+        };
+        scroll.setFillViewport(false);
+        scroll.setClipToPadding(false);
+        scroll.setVerticalScrollBarEnabled(false);
+        parent.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout body=Ui.column(this);body.setPadding(dp(3),dp(6),dp(3),dp(8));
+        scroll.addView(body,new ScrollView.LayoutParams(-1,-2));
         scroll.setOnScrollChangeListener((View.OnScrollChangeListener)(v,x,y,oldX,oldY)->{
             if(store.reducedMotion||systemReduced)return;
             float focus=y+scroll.getHeight()*.5f;
             for(int i=0;i<body.getChildCount();i++){
                 View child=body.getChildAt(i);
-                if(!(child instanceof Button))continue;
+                if(!(child instanceof Button)||child.isPressed())continue;
                 float center=child.getTop()+child.getHeight()*.5f;
                 float proximity=Math.max(0,1-Math.abs(center-focus)/Math.max(1,scroll.getHeight()*.65f));
                 if(crystal.menuAnimation()==4)proximity=0;
                 child.animate().cancel();
-                float lift=crystal.menuAnimation()==3?dp(13):dp(9);
-                child.setPivotX(child.getWidth()*.5f);
-                child.setPivotY(child.getHeight()*.5f);
-                child.animate().translationZ(lift*proximity).scaleX(1+.045f*proximity)
-                    .scaleY(1+.045f*proximity).rotationX(-4f*proximity)
-                    .setInterpolator(new android.view.animation.DecelerateInterpolator())
-                    .setDuration(160).start();
+                child.animate().translationZ(dp(9)*proximity).scaleX(1+.025f*proximity)
+                    .scaleY(1+.025f*proximity).rotationX(-3f*proximity)
+                    .setDuration(150).start();
             }
-        });return body;
+        });
+        return body;
+    }
+    private void raise(View v,boolean raised){
+        v.animate().cancel();
+        if(store.reducedMotion||systemReduced){
+            v.setTranslationZ(raised?dp(8):0);return;
+        }
+        v.animate().translationZ(raised?dp(16):0).scaleX(raised?1.055f:1f)
+            .scaleY(raised?1.055f:1f).rotationX(raised?-5f:0)
+            .setInterpolator(raised?new android.view.animation.DecelerateInterpolator():
+                new android.view.animation.OvershootInterpolator(.65f))
+            .setDuration(raised?120:220).start();
     }
     private void paragraph(LinearLayout body,String text){TextView p=Ui.text(this,text,14,Ui.MUTED);p.setPadding(0,dp(8),0,dp(14));p.setLineSpacing(dp(3),1);body.addView(p,new LinearLayout.LayoutParams(-1,-2));}
     private void action(LinearLayout body,String text,Runnable action){
         Button b=Ui.button(this,text,action);
-        b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);
+        b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);b.setTextSize(13);b.setPadding(dp(12),0,dp(12),0);
         b.setElevation(dp(crystal.lighting()==0?3:7));
         b.setCameraDistance(dp(1600));
         b.setOnTouchListener((v,event)->{
@@ -302,7 +347,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
             }
             return false;
         });
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(52));p.bottomMargin=dp(8);body.addView(b,p);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(44));p.bottomMargin=dp(6);body.addView(b,p);
     }
     private void section(LinearLayout body,String name){TextView h=Ui.text(this,name,16,Ui.TEXT);h.setTypeface(null,Typeface.BOLD);h.setPadding(0,dp(16),0,dp(8));body.addView(h);}
     private void toast(String text){Toast.makeText(this,text,Toast.LENGTH_SHORT).show();}
