@@ -317,7 +317,16 @@ public final class MainActivity extends Activity implements MotionController.Lis
         new AlertDialog.Builder(this).setTitle("Add to folder").setItems(names,(d,w)->{LauncherStore.Item folder=folders.get(w);for(LauncherStore.Item c:folder.children)if(c.key.equals(key)){toast("Already in this folder.");return;}if(folder.children.size()>=100){toast("This folder is full.");return;}folder.children.add(new LauncherStore.Item(key,label));store.save();toast("Added to "+folder.label);closePanel();}).show();
     }
     private void showFolder(LauncherStore.Item folder){
-        LinearLayout body=scrollBody(openPanel(folder.label));
+        LinearLayout folderPanel=openPanel(folder.label);
+        // Folder surfaces emerge from the desktop plane rather than appearing as a list.
+        if(!store.reducedMotion&&!systemReduced){
+            folderPanel.setPivotX(folderPanel.getWidth()*.5f);
+            folderPanel.setPivotY(folderPanel.getHeight()*.65f);
+            folderPanel.setScaleX(.88f);folderPanel.setScaleY(.88f);
+            folderPanel.animate().scaleX(1f).scaleY(1f).setDuration(320)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+        }
+        LinearLayout body=scrollBody(folderPanel);
         if(folder.children.isEmpty())paragraph(body,"Hold an app in Start and choose Add to folder to put it here.");
         android.widget.GridLayout shelf=new android.widget.GridLayout(this);
         shelf.setColumnCount(compact()?5:3);shelf.setClipChildren(false);
