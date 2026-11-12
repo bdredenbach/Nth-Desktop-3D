@@ -23,7 +23,8 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
     private final float[] touchData = {0,0,-100, 0,0,-100, 0,0,-100, 0,0,-100};
     private int touchIndex;
     private volatile int sceneMode, count = 5;
-    private volatile float tiltX, tiltY, strength = .5f, speed = .6f;
+    private volatile float tiltX, tiltY, strength = .5f, speed = .6f, crystalDepth = .60f, crystalMotion = .35f;
+    private volatile boolean crystalParallax = true, crystalShadows = true;
     private volatile boolean ambient = true, reduced, ripple = true, shadows = true;
     private int aPosition, uResolution, uTilt, uTime, uMotion, uMode, uCount, uSpeed, uRipple, uShadow, uTouches;
     private int mPosition, mNormal, mMatrix, mNormalMatrix;
@@ -58,6 +59,10 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
         reduced=store.reducedMotion || systemReduced; ambient=store.ambient && !powerSave && !reduced;
         ripple=store.ripples && !reduced; shadows=store.shadows;
     }
+    public void configureCrystal(CrystalPreferences prefs) {
+        crystalDepth=prefs.depth()/100f; crystalMotion=prefs.motion()/100f;
+        crystalParallax=prefs.parallax(); crystalShadows=prefs.shadows();
+    }
     public void tilt(float x,float y) { tiltX=x;tiltY=y; }
     public void ripple(float x,float y) { synchronized(touchData) { int i=(touchIndex++%4)*3;touchData[i]=x;touchData[i+1]=1-y;touchData[i+2]=(SystemClock.uptimeMillis()-start)/1000f; } requestRender(); }
     private static int shader(int type,String source) {
@@ -88,14 +93,14 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
         float t=(SystemClock.uptimeMillis()-start)/1000f;
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glDisable(GLES20.GL_DEPTH_TEST);
         GLES20.glUseProgram(program);quad.position(0);GLES20.glEnableVertexAttribArray(aPosition);GLES20.glVertexAttribPointer(aPosition,2,GLES20.GL_FLOAT,false,0,quad);
-        GLES20.glUniform2f(uResolution,width,height);GLES20.glUniform2f(uTilt,reduced?0:tiltX*strength,reduced?0:tiltY*strength);
+        GLES20.glUniform2f(uResolution,width,height);GLES20.glUniform2f(uTilt,reduced||!crystalParallax?0:tiltX*strength*crystalDepth*2f*crystalMotion/0.35f,reduced||!crystalParallax?0:tiltY*strength*crystalDepth*2f*crystalMotion/0.35f);
         GLES20.glUniform1f(uTime,t);GLES20.glUniform1f(uMotion,ambient?1:0);GLES20.glUniform1f(uMode,sceneMode);GLES20.glUniform1f(uCount,count);
-        GLES20.glUniform1f(uSpeed,speed);GLES20.glUniform1f(uRipple,ripple?1:0);GLES20.glUniform1f(uShadow,shadows?1:0);
+        GLES20.glUniform1f(uSpeed,speed);GLES20.glUniform1f(uRipple,ripple?1:0);GLES20.glUniform1f(uShadow,shadows&&crystalShadows?1:0);
         synchronized(touchData){GLES20.glUniform3fv(uTouches,4,touchData,0);}
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP,0,4);GLES20.glDisableVertexAttribArray(aPosition);
         if(sceneMode<2) {
             GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glUseProgram(meshProgram);
-            Matrix.setLookAtM(view,0,tiltX*strength*.14f,tiltY*strength*.14f,5,0,0,0,0,1,0);
+            Matrix.setLookAtM(view,0,(crystalParallax?tiltX:0)*strength*crystalDepth*.28f,(crystalParallax?tiltY:0)*strength*crystalDepth*.28f,5,0,0,0,0,1,0);
             Matrix.setIdentityM(model,0);Matrix.translateM(model,0,.48f,-.35f,0);
             Matrix.rotateM(model,0,ambient?t*7:22,0,1,0);Matrix.rotateM(model,0,20,1,0,0);Matrix.scaleM(model,0,.20f,.29f,.20f);
             Matrix.invertM(inverse,0,model,0);Matrix.transposeM(normalMatrix,0,inverse,0);GLES20.glUniformMatrix4fv(mNormalMatrix,1,false,normalMatrix,0);
