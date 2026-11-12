@@ -258,13 +258,19 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void layoutPanel(){
         if(panel==null)return;
         int bottom=Math.max(insetBottom,imeBottom);
-        PanelGeometry.Bounds bounds=PanelGeometry.place(root.getWidth(),root.getHeight(),insetLeft,insetTop,insetRight,bottom,dp(flyoutPanel?350:720),dp(flyoutPanel?540:820),dp(flyoutPanel?18:12),flyoutPanel&&imeBottom==0?dp(84):0);
+        PanelGeometry.Bounds bounds=PanelGeometry.place(root.getWidth(),root.getHeight(),insetLeft,insetTop,insetRight,bottom,dp(flyoutPanel?420:720),dp(flyoutPanel?540:820),dp(flyoutPanel?10:12),flyoutPanel&&imeBottom==0?dp(84):0);
         FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(bounds.width,bounds.height);
         // Center inside the safe rectangle. FrameLayout's CENTER gravity applies
         // unequal margins as offsets, which can put a keyboard-resized panel offscreen.
         p.gravity=Gravity.TOP|Gravity.LEFT;
-        p.leftMargin=bounds.left;p.topMargin=bounds.top;
+        p.leftMargin=bounds.left;p.topMargin=flyoutPanel?flyoutTop(bounds.height):bounds.top;
         panel.setLayoutParams(p);
+    }
+    private int flyoutTop(int panelHeight){
+        int bottom=Math.max(insetBottom,imeBottom);
+        int usable=Math.max(1,root.getHeight()-bottom-insetTop);
+        int desired=root.getHeight()-bottom-dp(90)-panelHeight;
+        return Math.max(insetTop+dp(16),Math.min(desired,insetTop+usable-panelHeight-dp(8)));
     }
     private LinearLayout scrollBody(LinearLayout parent){
         ScrollView scroll=new ScrollView(this){
@@ -334,7 +340,11 @@ public final class MainActivity extends Activity implements MotionController.Lis
                     int maximum=Math.max(dp(180),root.getHeight()-insetTop-Math.max(insetBottom,imeBottom)-dp(36));
                     FrameLayout.LayoutParams params=(FrameLayout.LayoutParams)panel.getLayoutParams();
                     int adjusted=Math.max(dp(120),Math.min(maximum,wanted));
-                    if(params.height!=adjusted){params.height=adjusted;panel.setLayoutParams(params);}
+                    if(params.height!=adjusted||params.topMargin!=flyoutTop(adjusted)){
+                        params.height=adjusted;
+                        params.topMargin=flyoutTop(adjusted);
+                        panel.setLayoutParams(params);
+                    }
                 }
             });
         }
