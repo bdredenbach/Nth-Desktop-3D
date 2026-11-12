@@ -234,7 +234,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         closePanel();desktop.setModal(true);startButton.setSelected(true);panelKind=2;
         flyoutPanel=flyout;
         overlay=new FrameLayout(this);overlay.setBackgroundColor(flyout?0x00000000:0xAA030A17);overlay.setOnClickListener(v->closePanel());root.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
-        panel=Ui.column(this);panel.setBackground(flyout?new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT):Ui.satin(this,0xE3335C76,0xF20B1A30,26));panel.setElevation(flyout?0:dp(34));panel.setPadding(dp(flyout?12:20),dp(12),dp(flyout?12:20),dp(16));panel.setOnClickListener(v->{});panel.setCameraDistance(dp(2400));
+        panel=Ui.column(this);panel.setBackground(flyout?new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT):Ui.satin(this,0xE3335C76,0xF20B1A30,26));panel.setClipChildren(false);panel.setClipToPadding(false);panel.setElevation(flyout?0:dp(34));panel.setPadding(dp(flyout?12:20),dp(12),dp(flyout?12:20),dp(16));panel.setOnClickListener(v->{});panel.setCameraDistance(dp(2400));
         overlay.addView(panel);layoutPanel();applyCrystalAppearance();
         LinearLayout heading=Ui.row(this);TextView label=Ui.text(this,title,20,Ui.TEXT);label.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));heading.addView(label,new LinearLayout.LayoutParams(0,dp(46),1));
         Button close=Ui.icon(this,"close","Close "+title,this::closePanel);heading.addView(close,new LinearLayout.LayoutParams(dp(46),dp(46)));
@@ -268,9 +268,12 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private int flyoutTop(int panelHeight){
         int bottom=Math.max(insetBottom,imeBottom);
-        int usable=Math.max(1,root.getHeight()-bottom-insetTop);
-        int desired=root.getHeight()-bottom-dp(90)-panelHeight;
-        return Math.max(insetTop+dp(16),Math.min(desired,insetTop+usable-panelHeight-dp(8)));
+        int safeTop=insetTop+dp(16);
+        int safeBottom=Math.max(safeTop,root.getHeight()-bottom-dp(16));
+        // Place short menus below the shortcut grid, not against the navigation bar.
+        int available=Math.max(0,safeBottom-safeTop-panelHeight);
+        int desired=safeTop+Math.round(available*.52f);
+        return Math.max(safeTop,Math.min(desired,safeBottom-panelHeight));
     }
     private LinearLayout scrollBody(LinearLayout parent){
         ScrollView scroll=new ScrollView(this){
@@ -322,10 +325,12 @@ public final class MainActivity extends Activity implements MotionController.Lis
             }
         };
         scroll.setFillViewport(false);
-        scroll.setClipToPadding(false);
+        scroll.setClipToPadding(false);scroll.setClipChildren(false);
         scroll.setVerticalScrollBarEnabled(false);
         parent.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-        LinearLayout body=Ui.column(this);body.setPadding(dp(3),dp(6),dp(3),dp(8));
+        LinearLayout body=Ui.column(this);
+        body.setClipChildren(false);body.setClipToPadding(false);
+        body.setPadding(dp(10),dp(12),dp(10),dp(14));
         scroll.addView(body,new ScrollView.LayoutParams(-1,-2));
         if(flyoutPanel){
             body.getViewTreeObserver().addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener(){
@@ -335,7 +340,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
                     int content=body.getHeight();
                     if(content<=0||content==previous)return;
                     previous=content;
-                    int header=panel.getChildCount()>0?panel.getChildAt(0).getHeight():0;
+                    int header=panel.getChildCount()>0&&panel.getChildAt(0)!=scroll
+                        ?panel.getChildAt(0).getHeight():0;
                     int wanted=content+header+panel.getPaddingTop()+panel.getPaddingBottom()+dp(6);
                     int maximum=Math.max(dp(180),root.getHeight()-insetTop-Math.max(insetBottom,imeBottom)-dp(36));
                     FrameLayout.LayoutParams params=(FrameLayout.LayoutParams)panel.getLayoutParams();
@@ -392,7 +398,9 @@ public final class MainActivity extends Activity implements MotionController.Lis
             }
             return false;
         });
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(44));p.bottomMargin=dp(6);body.addView(b,p);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(44));
+        p.topMargin=dp(5);p.bottomMargin=dp(9);
+        body.addView(b,p);
     }
     private void section(LinearLayout body,String name){TextView h=Ui.text(this,name,16,Ui.TEXT);h.setTypeface(null,Typeface.BOLD);h.setPadding(0,dp(16),0,dp(8));body.addView(h);}
     private void toast(String text){Toast.makeText(this,text,Toast.LENGTH_SHORT).show();}
