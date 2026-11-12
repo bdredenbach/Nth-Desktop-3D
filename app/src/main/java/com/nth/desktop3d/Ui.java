@@ -21,9 +21,8 @@ final class Ui {
     static GradientDrawable surface(int color,float radius,Context c) {
         GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(c,radius));d.setStroke(dp(c,1),0x1FFFFFFF);return d;
     }
-    static GradientDrawable satin(Context c,int top,int bottom,int radius){
-        GradientDrawable d=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{0xB0B7F4FF,top,bottom,0xA0081A30});
-        d.setCornerRadius(dp(c,radius));d.setStroke(dp(c,1),0xA0A9F3FF);return d;
+    static Drawable satin(Context c,int top,int bottom,int radius){
+        return new CrystalGlassDrawable(c,top,bottom,radius);
     }
     static Drawable touch(Context c,Drawable base,int radius){return new RippleDrawable(ColorStateList.valueOf(0x25B6D5FF),base,surface(0xFFFFFFFF,radius,c));}
     static TextView text(Context c,String s,int sp,int color) {
