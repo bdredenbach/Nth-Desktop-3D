@@ -237,7 +237,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
         panel=Ui.column(this);panel.setBackground(flyout?new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT):Ui.satin(this,0xE3335C76,0xF20B1A30,26));panel.setElevation(flyout?0:dp(34));panel.setPadding(dp(flyout?12:20),dp(12),dp(flyout?12:20),dp(16));panel.setOnClickListener(v->{});panel.setCameraDistance(dp(2400));
         overlay.addView(panel);layoutPanel();applyCrystalAppearance();
         LinearLayout heading=Ui.row(this);TextView label=Ui.text(this,title,20,Ui.TEXT);label.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));heading.addView(label,new LinearLayout.LayoutParams(0,dp(46),1));
-        Button close=Ui.icon(this,"close","Close "+title,this::closePanel);heading.addView(close,new LinearLayout.LayoutParams(dp(46),dp(46)));panel.addView(heading);
+        Button close=Ui.icon(this,"close","Close "+title,this::closePanel);heading.addView(close,new LinearLayout.LayoutParams(dp(46),dp(46)));
+        if(" ".equals(title)){heading.setVisibility(View.GONE);}else panel.addView(heading);
         if(!store.reducedMotion&&!systemReduced){
             LinearLayout opening=panel;
             opening.setAlpha(0);opening.setTranslationY(dp(20));
@@ -257,7 +258,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void layoutPanel(){
         if(panel==null)return;
         int bottom=Math.max(insetBottom,imeBottom);
-        PanelGeometry.Bounds bounds=PanelGeometry.place(root.getWidth(),root.getHeight(),insetLeft,insetTop,insetRight,bottom,dp(flyoutPanel?380:720),dp(flyoutPanel?300:820),dp(12),flyoutPanel&&imeBottom==0?dp(84):0);
+        PanelGeometry.Bounds bounds=PanelGeometry.place(root.getWidth(),root.getHeight(),insetLeft,insetTop,insetRight,bottom,dp(flyoutPanel?330:720),dp(flyoutPanel?280:820),dp(flyoutPanel?24:12),flyoutPanel&&imeBottom==0?dp(84):0);
         FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(bounds.width,bounds.height);
         // Center inside the safe rectangle. FrameLayout's CENTER gravity applies
         // unequal margins as offsets, which can put a keyboard-resized panel offscreen.
@@ -458,6 +459,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     @Override public void feed(){
         if(!crystal.feedEnabled()||crystal.feedProvider()==3)return;
         if(crystal.feedProvider()==2){toast("Nth Feed is not available yet.");return;}
+        if(crystal.feedProvider()==1){openGoogleFeed();return;}
         showDiscoverEntry();
     }
     private void showDiscoverEntry(){
@@ -647,9 +649,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private void welcome(){
         if(destroyed||!resumed)return;
-        LinearLayout body=scrollBody(openPanel("Welcome to Nth Desktop 3D",true));
-        section(body,"Your desktop. Another dimension.");
-        paragraph(body,"Tilt to explore Crystal Glass depth. Swipe up for apps, long-press the desktop for Settings and Widgets, and swipe between desktop pages.");
+        LinearLayout body=scrollBody(openPanel(" ",true));
         action(body,"Set as Home app",this::requestHome);
         action(body,"Explore desktop",()->{store.preferences.edit().putBoolean("welcomed",true).apply();closePanel();});
         action(body,"Choose a 3D scene",()->{store.preferences.edit().putBoolean("welcomed",true).apply();showModes();});
