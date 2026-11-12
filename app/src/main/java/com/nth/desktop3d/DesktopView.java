@@ -125,7 +125,8 @@ final class DesktopView extends FrameLayout {
                 int height=store.preferences.getInt("widget_height_"+id,Ui.dp(getContext(),Math.min(260,Math.max(100,info.minHeight))));
                 FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(width,height);
                 lp.gravity=android.view.Gravity.TOP|android.view.Gravity.CENTER_HORIZONTAL;
-                lp.topMargin=Ui.dp(getContext(),16+position*24);
+                lp.topMargin=store.preferences.getInt("widget_top_"+id,Ui.dp(getContext(),16+position*24));
+                widget.setTranslationX(store.preferences.getInt("widget_x_"+id,0));
                 stage.addView(widget,lp);widget.setElevation(Ui.dp(getContext(),14));
                 widget.setOnLongClickListener(v->{selectWidget(widget,id,info);return true;});
                 position++;
@@ -143,6 +144,10 @@ final class DesktopView extends FrameLayout {
         android.widget.LinearLayout tools=new android.widget.LinearLayout(getContext());
         tools.setBackground(Ui.satin(getContext(),0xEE245775,0xEE0B1B30,16));
         tools.setPadding(Ui.dp(getContext(),8),Ui.dp(getContext(),4),Ui.dp(getContext(),8),Ui.dp(getContext(),4));
+        addWidgetAction(tools,"←",()->moveWidget(widget,id,-1,0));
+        addWidgetAction(tools,"↑",()->moveWidget(widget,id,0,-1));
+        addWidgetAction(tools,"↓",()->moveWidget(widget,id,0,1));
+        addWidgetAction(tools,"→",()->moveWidget(widget,id,1,0));
         addWidgetAction(tools,"−",()->resizeWidget(widget,id,info,-1));
         addWidgetAction(tools,"+",()->resizeWidget(widget,id,info,1));
         addWidgetAction(tools,"Remove",()->{
@@ -168,6 +173,20 @@ final class DesktopView extends FrameLayout {
         button.setPadding(Ui.dp(getContext(),14),0,Ui.dp(getContext(),14),0);
         parent.addView(button,new android.widget.LinearLayout.LayoutParams(-2,-1));
         button.setOnClickListener(v->action.run());
+    }
+    private void moveWidget(android.appwidget.AppWidgetHostView widget,int id,int dx,int dy){
+        FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)widget.getLayoutParams();
+        float x=SceneMath.clamp(widget.getTranslationX()+Ui.dp(getContext(),32)*dx,
+            -Math.max(0,(getWidth()-widget.getWidth())/2f),Math.max(0,(getWidth()-widget.getWidth())/2f));
+        int top=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),
+            p.topMargin+Ui.dp(getContext(),32)*dy));
+        widget.setTranslationX(x);p.topMargin=top;widget.setLayoutParams(p);
+        store.preferences.edit().putInt("widget_x_"+id,Math.round(x)).putInt("widget_top_"+id,top).apply();
+        if(widgetToolbar!=null){
+            FrameLayout.LayoutParams toolbar=(FrameLayout.LayoutParams)widgetToolbar.getLayoutParams();
+            toolbar.topMargin=Math.max(0,top-Ui.dp(getContext(),46));
+            widgetToolbar.setTranslationX(x);widgetToolbar.setLayoutParams(toolbar);
+        }
     }
     private void resizeWidget(android.appwidget.AppWidgetHostView widget,int id,android.appwidget.AppWidgetProviderInfo info,int direction){
         FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)widget.getLayoutParams();
