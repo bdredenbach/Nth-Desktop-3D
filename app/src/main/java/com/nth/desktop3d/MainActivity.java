@@ -460,7 +460,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         if(!crystal.feedEnabled()||crystal.feedProvider()==3)return;
         if(crystal.feedProvider()==2){toast("Nth Feed is not available yet.");return;}
         if(crystal.feedProvider()==1){openGoogleFeed();return;}
-        showDiscoverEntry();
+        openGoogleFeed();
     }
     private void showDiscoverEntry(){
         LinearLayout body=scrollBody(openPanel("Google Discover",true));
@@ -613,7 +613,11 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void openGoogleFeed(){
         Intent intent=getPackageManager().getLaunchIntentForPackage("com.google.android.googlequicksearchbox");
         if(intent==null){toast("Google app unavailable. Install or enable Google to use the fallback.");return;}
-        try{startActivity(intent);}catch(RuntimeException e){toast("Could not open Google app.");}
+        try{
+            android.app.ActivityOptions transition=android.app.ActivityOptions.makeCustomAnimation(this,
+                android.R.anim.slide_in_left,android.R.anim.fade_out);
+            startActivity(intent,transition.toBundle());
+        }catch(RuntimeException e){toast("Could not open Google app.");}
     }
     private interface BoolAction{void set(boolean v);}private interface IntAction{void set(int v);}
     private void changed(boolean rebuild){store.save();applySettings(rebuild);}
