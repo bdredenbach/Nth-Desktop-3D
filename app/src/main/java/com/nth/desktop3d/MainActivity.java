@@ -53,6 +53,9 @@ import java.util.concurrent.Executors;
 public final class MainActivity extends Activity implements MotionController.Listener, DesktopView.Host {
     private LauncherStore store;
     private CrystalPreferences crystal;
+    private android.appwidget.AppWidgetHost widgetHost;
+    private android.appwidget.AppWidgetManager widgetManager;
+    private int pendingWidgetId=-1;
     private AppCatalog catalog;
     private MotionController motion;
     private SceneSurface scene;
@@ -102,12 +105,14 @@ public final class MainActivity extends Activity implements MotionController.Lis
         super.onCreate(state);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
         getWindow().setStatusBarColor(Color.TRANSPARENT);getWindow().setNavigationBarColor(0xE60A1428);
-        store=new LauncherStore(this);crystal=new CrystalPreferences(this);catalog=new AppCatalog(this);motion=new MotionController(this,this);
+        store=new LauncherStore(this);crystal=new CrystalPreferences(this);
+        widgetHost=new android.appwidget.AppWidgetHost(this,3047);
+        widgetManager=android.appwidget.AppWidgetManager.getInstance(this);catalog=new AppCatalog(this);motion=new MotionController(this,this);
         root=new FrameLayout(this);root.setBackgroundColor(0xFF061326);setContentView(root);
         scene=new SceneSurface(this);root.addView(scene,new FrameLayout.LayoutParams(-1,-1));
         shell=Ui.column(this);shell.setClipChildren(false);shell.setClipToPadding(false);root.addView(shell,new FrameLayout.LayoutParams(-1,-1));
         buildHeader();
-        desktop=new DesktopView(this,store,catalog,this);shell.addView(desktop,new LinearLayout.LayoutParams(-1,0,1));
+        desktop=new DesktopView(this,store,catalog,this,widgetHost,widgetManager);shell.addView(desktop,new LinearLayout.LayoutParams(-1,0,1));
         buildTaskbar();
         // Immersive home: gestures replace persistent desktop chrome.
         header.setVisibility(View.GONE);bar.setVisibility(View.GONE);
@@ -172,8 +177,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
         date.setText(new SimpleDateFormat("EEEE, MMMM d",Locale.getDefault()).format(now));
         clockButton.setText(time+"\n"+new SimpleDateFormat("MMM d",Locale.getDefault()).format(now));clockButton.setTextSize(11);
     }
-    @Override protected void onResume(){super.onResume();resumed=true;previousFrame=lastRender=0;scene.onResume();applySettings(false);Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);handler.removeCallbacks(clockTick);clockTick.run();if(loaded)reloadApps();}
-    @Override protected void onPause(){resumed=false;Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();super.onPause();}
+    @Override protected void onResume(){super.onResume();try{widgetHost.startListening();}catch(RuntimeException ignored){}resumed=true;previousFrame=lastRender=0;scene.onResume();applySettings(false);Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);handler.removeCallbacks(clockTick);clockTick.run();if(loaded)reloadApps();}
+    @Override protected void onPause(){resumed=false;Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();widgetHost.stopListening();desktop.savePositions();store.save();savePanel();super.onPause();}
     @Override protected void onDestroy(){destroyed=true;handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();super.onDestroy();}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);closePanel();motion.recenter();}
     @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);closePanel();motion.recenter();clock.setTextSize(compact()?30:54);desktop.rebuild();root.requestApplyInsets();}
@@ -362,8 +367,40 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private void showWidgets(){
         LinearLayout body=scrollBody(openPanel("Widgets"));
-        paragraph(body,"Android widgets require a widget host and binding permission. This selection screen is the first step; widget placement is not enabled yet.");
-        action(body,"Android widget settings",()->toast("Widget hosting is being implemented."));
+        paragraph(body,"Choose an Android widget to add to the current desktop. Widgets remain live and are restored when you reopen the launcher.");
+        action(body,"Choose Android widget",()->{
+            try{
+                pendingWidgetId=widgetHost.allocateAppWidgetId();
+                Intent pick=new Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_PICK);
+                pick.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,pendingWidgetId);
+                startActivityForResult(pick,3047);
+            }catch(RuntimeException e){releasePendingWidget();toast("Widget picker unavailable on this device.");}
+        });
+    }
+    private void releasePendingWidget(){
+        if(pendingWidgetId>=0){widgetHost.deleteAppWidgetId(pendingWidgetId);pendingWidgetId=-1;}
+    }
+    @Override protected void onActivityResult(int request,int result,Intent data){
+        super.onActivityResult(request,result,data);
+        if(request!=3047&&request!=3048)return;
+        if(result!=RESULT_OK){releasePendingWidget();return;}
+        int id=data==null?pendingWidgetId:data.getIntExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,pendingWidgetId);
+        if(id<0){releasePendingWidget();return;}
+        pendingWidgetId=id;
+        android.appwidget.AppWidgetProviderInfo info=widgetManager.getAppWidgetInfo(id);
+        if(info==null){releasePendingWidget();toast("Widget could not be loaded.");return;}
+        if(request==3047&&!widgetManager.bindAppWidgetIdIfAllowed(id,info.provider)){
+            try{
+                Intent bind=new Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_BIND);
+                bind.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,id);
+                bind.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_PROVIDER,info.provider);
+                startActivityForResult(bind,3048);return;
+            }catch(RuntimeException e){releasePendingWidget();toast("Widget permission unavailable.");return;}
+        }
+        String key="widget_ids_page_"+store.page;
+        String previous=store.preferences.getString(key,"");
+        store.preferences.edit().putString(key,previous.isEmpty()?String.valueOf(id):previous+","+id).apply();
+        pendingWidgetId=-1;closePanel();desktop.rebuild();toast("Widget added to desktop");
     }
     private void newFolder(){EditText edit=new EditText(this);edit.setSingleLine(true);edit.setHint("Folder name");Ui.pad(edit,16);new AlertDialog.Builder(this).setTitle("New folder").setView(edit).setNegativeButton("Cancel",null).setPositiveButton("Create",(d,w)->{String name=edit.getText().toString().trim();if(!name.isEmpty()&&store.pages.get(store.page).size()<60){store.pages.get(store.page).add(new LauncherStore.Item("folder",name));store.save();desktop.rebuild();pageChanged();closePanel();}}).show();}
 
