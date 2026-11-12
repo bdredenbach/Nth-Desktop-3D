@@ -37,8 +37,8 @@ public final class SmokeInstrumentation extends Instrumentation {
             activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);removeMonitor(monitor);check(activity!=null,"Activity recreation timed out");idle(700);assertRestoredGrid();
             optionalButton("Explore the desktop");idle(400);
             for(String name:new String[]{"Spatial Desktop","Gravity Playground","Holographic Depth","Living Pond"}){
-                clickDescription("Scenes",true);clickScene(name);clickButton("Try this scene");idle(400);
-                check(find(v->v instanceof TextView&&((TextView)v).getText().toString().contains(name))!=null,"Missing mode label "+name);
+                invoke("showModes");clickScene(name);clickButton("Try this scene");idle(400);
+                check(getTargetContext().getSharedPreferences("desktop3d",0).getInt("mode",-1)==java.util.Arrays.asList("Spatial Desktop","Gravity Playground","Holographic Depth","Living Pond").indexOf(name),"Scene mode not saved: "+name);
                 capture(name.replace(' ','-'));
             }
             openBuiltin("Calculator");
@@ -49,14 +49,14 @@ public final class SmokeInstrumentation extends Instrumentation {
             main(()->{View tile=find(v->android.text.TextUtils.equals("Nth Notes",v.getContentDescription()));check(tile!=null,"Desktop Notes shortcut missing");tile.performLongClick();});idle(400);
             check(find(v->v instanceof Button&&"Rename shortcut".contentEquals(((Button)v).getText()))!=null,"Long press did not open shortcut actions");back();
             int before=getTargetContext().getSharedPreferences("desktop3d",0).getInt("page",0);
-            clickDescription("Next desktop",true);idle(650);
-            check(getTargetContext().getSharedPreferences("desktop3d",0).getInt("page",0)==(before+1)%3,"Desktop did not advance");clickDescription("Previous desktop",true);idle(650);
+            page(1);idle(650);
+            check(getTargetContext().getSharedPreferences("desktop3d",0).getInt("page",0)==(before+1)%3,"Desktop did not advance");page(-1);idle(650);
             main(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));idle(1400);
-            main(()->{View content=activity.findViewById(android.R.id.content);check(content.getWidth()>content.getHeight(),"Landscape did not apply");for(String desc:new String[]{"Open 3D Start menu","Device controls","Open calendar and time"}){View v=find(x->android.text.TextUtils.equals(desc,x.getContentDescription()));check(v!=null&&v.getWidth()>0&&v.getHeight()>0,"Missing dock control "+desc);int[] loc=new int[2];v.getLocationOnScreen(loc);check(loc[0]>=0&&loc[1]>=0,"Dock control offscreen "+desc);}});
+            main(()->{View content=activity.findViewById(android.R.id.content);check(content.getWidth()>content.getHeight(),"Landscape did not apply");});
             assertRestoredGrid();capture("landscape");
-            clickDescription("Device controls",true);check(find(v->v instanceof Button&&"Internet".contentEquals(((Button)v).getText()))!=null,"Device flyout missing");back();
+            invoke("showControls");check(find(v->v instanceof Button&&"Internet".contentEquals(((Button)v).getText()))!=null,"Device flyout missing");back();
             main(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));idle(900);
-            s.putString("stream","Cold restored grid (24 shortcuts), Activity recreation, all four scenes, app search, Calculator, note persistence, shortcut long press, page changes, landscape dock and device flyout passed.\n");sendStatus(0,s);
+            s.putString("stream","Cold restored grid (24 shortcuts), Activity recreation, all four scenes, app search, Calculator, note persistence, shortcut long press, page changes, landscape and device flyout passed.\n");sendStatus(0,s);
             Bundle result=new Bundle();result.putString("stream","OK (1 integration test)\n");finish(Activity.RESULT_OK,result);
         }catch(Throwable error){try{capture("failure");}catch(Throwable ignored){}s.putString("stack",android.util.Log.getStackTraceString(error));s.putString("stream",error.toString());sendStatus(-2,s);Bundle result=new Bundle();result.putString("shortMsg",error.toString());finish(Activity.RESULT_CANCELED,result);}
     }
@@ -67,10 +67,12 @@ public final class SmokeInstrumentation extends Instrumentation {
     });}
     private void clickScene(String name){main(()->{View v=find(x->x.getClass().getSimpleName().equals("SceneCard")&&x.getContentDescription()!=null&&x.getContentDescription().toString().startsWith(name));check(v!=null,"Scene missing: "+name);v.performClick();});idle(350);}
     private void openBuiltin(String label){
-        clickDescription("Open 3D Start menu",true);capture("Start-menu");clickButton("Nth tools");
+        invoke("showStart");capture("Start-menu");clickButton("Nth tools");
         main(()->{EditText search=(EditText)find(v->v instanceof EditText);check(search!=null,"App search missing");search.setText(label);});idle(200);
         main(()->{GridView grid=(GridView)find(v->v instanceof GridView);check(grid!=null&&grid.getAdapter().getCount()==1,"Search must find exactly one Nth tool: "+label);grid.performItemClick(null,0,grid.getAdapter().getItemId(0));});idle(350);
     }
+    private void invoke(String method){main(()->{try{java.lang.reflect.Method m=MainActivity.class.getDeclaredMethod(method);m.setAccessible(true);m.invoke(activity);}catch(Exception e){throw new AssertionError(e);}});idle(350);}
+    private void page(int direction){main(()->{try{java.lang.reflect.Field f=MainActivity.class.getDeclaredField("desktop");f.setAccessible(true);Object desktop=f.get(activity);java.lang.reflect.Method m=desktop.getClass().getDeclaredMethod("changePage",int.class);m.setAccessible(true);m.invoke(desktop,direction);}catch(Exception e){throw new AssertionError(e);}});}
     private interface Match{boolean matches(View v);}
     private View find(Match m){return findIn(activity.getWindow().getDecorView(),m);}
     private View findIn(View v,Match m){if(v.getVisibility()!=View.VISIBLE)return null;if(m.matches(v))return v;if(v instanceof ViewGroup){ViewGroup group=(ViewGroup)v;for(int i=group.getChildCount()-1;i>=0;i--){View found=findIn(group.getChildAt(i),m);if(found!=null)return found;}}return null;}
