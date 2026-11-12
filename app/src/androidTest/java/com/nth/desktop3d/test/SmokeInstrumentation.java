@@ -61,10 +61,23 @@ public final class SmokeInstrumentation extends Instrumentation {
         }catch(Throwable error){try{capture("failure");}catch(Throwable ignored){}s.putString("stack",android.util.Log.getStackTraceString(error));s.putString("stream",error.toString());sendStatus(-2,s);Bundle result=new Bundle();result.putString("shortMsg",error.toString());finish(Activity.RESULT_CANCELED,result);}
     }
     private void assertRestoredGrid(){main(()->{
-        ViewGroup grid=(ViewGroup)find(v->v.getClass().getSimpleName().equals("ShortcutGrid"));
-        check(grid!=null&&grid.getChildCount()==24,"Restored desktop lost shortcuts");
-        for(int i=0;i<grid.getChildCount();i++){View tile=grid.getChildAt(i);check(tile.getWidth()>0&&tile.getHeight()>0,"Shortcut has no bounds");check(tile.getLeft()>=0&&tile.getRight()<=grid.getWidth(),"Shortcut exceeds grid width");}
+        ViewGroup stage=(ViewGroup)find(v->v.getClass().getSimpleName().equals("DesktopView"));
+        check(stage!=null,"Desktop view missing");
+        java.util.ArrayList<View> shortcuts=new java.util.ArrayList<>();
+        collectShortcuts(stage,shortcuts);
+        check(shortcuts.size()==24,"Restored desktop lost shortcuts: "+shortcuts.size());
+        for(View tile:shortcuts){
+            check(tile.getWidth()>0&&tile.getHeight()>0,"Shortcut has no bounds");
+            check(tile.getTranslationX()>=0&&tile.getTranslationY()>=0,"Shortcut has negative position");
+        }
     });}
+    private void collectShortcuts(View view,java.util.List<View> result){
+        if(view.getClass().getSimpleName().equals("IconTile"))result.add(view);
+        if(view instanceof ViewGroup){
+            ViewGroup group=(ViewGroup)view;
+            for(int i=0;i<group.getChildCount();i++)collectShortcuts(group.getChildAt(i),result);
+        }
+    }
     private void clickScene(String name){main(()->{View v=find(x->x.getClass().getSimpleName().equals("SceneCard")&&x.getContentDescription()!=null&&x.getContentDescription().toString().startsWith(name));check(v!=null,"Scene missing: "+name);v.performClick();});idle(350);}
     private void openBuiltin(String label){
         invoke("showStart");capture("Start-menu");clickButton("Nth tools");
