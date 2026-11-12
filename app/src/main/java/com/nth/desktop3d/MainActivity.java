@@ -277,7 +277,21 @@ public final class MainActivity extends Activity implements MotionController.Lis
         Button all=Ui.button(this,"All apps",()->{if(appsAdapter!=null){appsAdapter.onlyBuiltins=false;appsAdapter.filter(appSearch.getText().toString());}});
         Button nth=Ui.button(this,"Nth tools",()->{if(appsAdapter!=null){appsAdapter.onlyBuiltins=true;appsAdapter.filter(appSearch.getText().toString());}});
         shortcuts.addView(all,new LinearLayout.LayoutParams(0,dp(44),1));LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(0,dp(44),1);np.leftMargin=dp(8);shortcuts.addView(nth,np);p.addView(shortcuts);
-        GridView grid=new GridView(this);grid.setNumColumns(compact()?6:3);grid.setVerticalSpacing(dp(10));grid.setHorizontalSpacing(dp(8));grid.setPadding(0,dp(16),0,dp(10));grid.setClipToPadding(false);grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);grid.setSelector(android.R.color.transparent);
+        GridView grid=new GridView(this);
+        grid.setOnTouchListener(new View.OnTouchListener(){
+            float startY,startX;boolean dismissing;
+            @Override public boolean onTouch(View v,MotionEvent e){
+                if(e.getActionMasked()==MotionEvent.ACTION_DOWN){
+                    startY=e.getY();startX=e.getX();dismissing=grid.getFirstVisiblePosition()==0;return false;
+                }
+                if(e.getActionMasked()==MotionEvent.ACTION_UP&&dismissing
+                    &&e.getY()-startY>dp(90)&&Math.abs(e.getX()-startX)<dp(110)){
+                    closePanel();return true;
+                }
+                return false;
+            }
+        });
+        grid.setNumColumns(compact()?6:3);grid.setVerticalSpacing(dp(10));grid.setHorizontalSpacing(dp(8));grid.setPadding(0,dp(16),0,dp(10));grid.setClipToPadding(false);grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);grid.setSelector(android.R.color.transparent);
         appsAdapter=new AppsAdapter();grid.setAdapter(appsAdapter);p.addView(grid,new LinearLayout.LayoutParams(-1,0,1));appsAdapter.filter("");
         grid.setOnItemClickListener((a,v,pos,id)->launch(appsAdapter.items.get(pos).key));
         grid.setOnItemLongClickListener((a,v,pos,id)->{appMenu(appsAdapter.items.get(pos),null);return true;});
@@ -364,7 +378,19 @@ public final class MainActivity extends Activity implements MotionController.Lis
         openGoogleFeed();
     }
     @Override public void backgroundMenu(){
-        LinearLayout body=scrollBody(openPanel("Desktop",true));action(body,"Scene studio",this::showModes);action(body,"3D settings",this::showSettings);action(body,"Widgets",this::showWidgets);action(body,"New folder",this::newFolder);action(body,"Arrange shortcuts",()->{desktop.arrange();closePanel();});action(body,"All desktop shortcuts",this::showDesktopOverview);action(body,"Recenter tilt",()->{motion.recenter();closePanel();toast("Tilt centered");});action(body,"Set default Home",this::requestHome);
+        LinearLayout body=scrollBody(openPanel("Desktop",true));
+        paragraph(body,"Customize your Crystal Glass desktop");
+        action(body,"⚙  Settings",this::showDesktopActions);
+        action(body,"▦  Widgets",this::showWidgets);
+    }
+    private void showDesktopActions(){
+        LinearLayout body=scrollBody(openPanel("Desktop settings",true));
+        action(body,"3D settings",this::showSettings);
+        action(body,"Scene studio",this::showModes);
+        action(body,"New folder",this::newFolder);
+        action(body,"Arrange shortcuts",()->{desktop.arrange();closePanel();});
+        action(body,"All shortcuts",this::showDesktopOverview);
+        action(body,"Set default Home",this::requestHome);
     }
     private void showWidgets(){
         LinearLayout body=scrollBody(openPanel("Widgets"));
