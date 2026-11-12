@@ -121,19 +121,67 @@ final class DesktopView extends FrameLayout {
                 if(info==null)continue;
                 android.appwidget.AppWidgetHostView widget=widgetHost.createView(getContext(),id,info);
                 widget.setAppWidget(id,info);
-                int width=Ui.dp(getContext(),Math.min(300,Math.max(160,info.minWidth)));
-                int height=Ui.dp(getContext(),Math.min(260,Math.max(100,info.minHeight)));
+                int width=store.preferences.getInt("widget_width_"+id,Ui.dp(getContext(),Math.min(300,Math.max(160,info.minWidth))));
+                int height=store.preferences.getInt("widget_height_"+id,Ui.dp(getContext(),Math.min(260,Math.max(100,info.minHeight))));
                 FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(width,height);
                 lp.gravity=android.view.Gravity.TOP|android.view.Gravity.CENTER_HORIZONTAL;
                 lp.topMargin=Ui.dp(getContext(),16+position*24);
                 stage.addView(widget,lp);widget.setElevation(Ui.dp(getContext(),14));
+                widget.setOnLongClickListener(v->{selectWidget(widget,id,info);return true;});
                 position++;
             }catch(RuntimeException ignored){}
         }
     }
     private IconTile selectedTile;
+    private android.appwidget.AppWidgetHostView selectedWidget;
+    private android.widget.LinearLayout widgetToolbar;
     private Runnable delayedMenu;
+    private void selectWidget(android.appwidget.AppWidgetHostView widget,int id,android.appwidget.AppWidgetProviderInfo info){
+        clearSelection();selectedWidget=widget;
+        widget.setBackground(Ui.satin(getContext(),0x6645D9F5,0x88203454,18));
+        widget.setElevation(Ui.dp(getContext(),22));
+        android.widget.LinearLayout tools=new android.widget.LinearLayout(getContext());
+        tools.setBackground(Ui.satin(getContext(),0xEE245775,0xEE0B1B30,16));
+        tools.setPadding(Ui.dp(getContext(),8),Ui.dp(getContext(),4),Ui.dp(getContext(),8),Ui.dp(getContext(),4));
+        addWidgetAction(tools,"−",()->resizeWidget(widget,id,info,-1));
+        addWidgetAction(tools,"+",()->resizeWidget(widget,id,info,1));
+        addWidgetAction(tools,"Remove",()->{
+            String key="widget_ids_page_"+store.page;
+            StringBuilder kept=new StringBuilder();
+            for(String raw:store.preferences.getString(key,"").split(",")){
+                if(raw.isEmpty()||raw.equals(String.valueOf(id)))continue;
+                if(kept.length()>0)kept.append(",");
+                kept.append(raw);
+            }
+            store.preferences.edit().putString(key,kept.toString()).apply();
+            widgetHost.deleteAppWidgetId(id);clearSelection();rebuild();
+        });
+        FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(-2,Ui.dp(getContext(),44));
+        p.gravity=android.view.Gravity.TOP|android.view.Gravity.CENTER_HORIZONTAL;
+        p.topMargin=Math.max(0,((FrameLayout.LayoutParams)widget.getLayoutParams()).topMargin-Ui.dp(getContext(),46));
+        stage.addView(tools,p);widgetToolbar=tools;
+    }
+    private void addWidgetAction(android.widget.LinearLayout parent,String label,Runnable action){
+        android.widget.TextView button=new android.widget.TextView(getContext());
+        button.setText(label);button.setTextColor(android.graphics.Color.WHITE);
+        button.setGravity(android.view.Gravity.CENTER);button.setTextSize(15);
+        button.setPadding(Ui.dp(getContext(),14),0,Ui.dp(getContext(),14),0);
+        parent.addView(button,new android.widget.LinearLayout.LayoutParams(-2,-1));
+        button.setOnClickListener(v->action.run());
+    }
+    private void resizeWidget(android.appwidget.AppWidgetHostView widget,int id,android.appwidget.AppWidgetProviderInfo info,int direction){
+        FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)widget.getLayoutParams();
+        int minW=Ui.dp(getContext(),Math.max(100,info.minResizeWidth>0?info.minResizeWidth:info.minWidth));
+        int minH=Ui.dp(getContext(),Math.max(80,info.minResizeHeight>0?info.minResizeHeight:info.minHeight));
+        p.width=Math.max(minW,Math.min(getWidth(),p.width+Ui.dp(getContext(),48)*direction));
+        p.height=Math.max(minH,Math.min(getHeight(),p.height+Ui.dp(getContext(),48)*direction));
+        widget.setLayoutParams(p);
+        widget.updateAppWidgetSize(null,p.width,p.height,p.width,p.height);
+        store.preferences.edit().putInt("widget_width_"+id,p.width).putInt("widget_height_"+id,p.height).apply();
+    }
     private void clearSelection(){
+        if(widgetToolbar!=null){stage.removeView(widgetToolbar);widgetToolbar=null;}
+        if(selectedWidget!=null){selectedWidget.setBackground(null);selectedWidget.setElevation(Ui.dp(getContext(),14));selectedWidget=null;}
         if(selectedTile!=null){
             selectedTile.animate().cancel();
             selectedTile.setBackground(Ui.touch(getContext(),null,18));
