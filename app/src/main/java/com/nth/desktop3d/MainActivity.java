@@ -388,6 +388,12 @@ public final class MainActivity extends Activity implements MotionController.Lis
         if(id<0){releasePendingWidget();return;}
         pendingWidgetId=id;
         android.appwidget.AppWidgetProviderInfo info=widgetManager.getAppWidgetInfo(id);
+        if(info==null&&data!=null){
+            android.content.ComponentName provider=data.getParcelableExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_PROVIDER);
+            if(provider!=null)for(android.appwidget.AppWidgetProviderInfo candidate:widgetManager.getInstalledProviders()){
+                if(provider.equals(candidate.provider)){info=candidate;break;}
+            }
+        }
         if(info==null){releasePendingWidget();toast("Widget could not be loaded.");return;}
         if(request==3047&&!widgetManager.bindAppWidgetIdIfAllowed(id,info.provider)){
             try{
