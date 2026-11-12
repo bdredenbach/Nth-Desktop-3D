@@ -233,8 +233,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private LinearLayout openPanel(String title,boolean flyout){
         closePanel();desktop.setModal(true);startButton.setSelected(true);panelKind=2;
         flyoutPanel=flyout;
-        overlay=new FrameLayout(this);overlay.setBackgroundColor(0xAA030A17);overlay.setOnClickListener(v->closePanel());root.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
-        panel=Ui.column(this);panel.setBackground(Ui.satin(this,0xE3335C76,0xF20B1A30,26));panel.setElevation(dp(34));panel.setPadding(dp(20),dp(12),dp(20),dp(16));panel.setOnClickListener(v->{});panel.setCameraDistance(dp(2400));
+        overlay=new FrameLayout(this);overlay.setBackgroundColor(flyout?0x44030A17:0xAA030A17);overlay.setOnClickListener(v->closePanel());root.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
+        panel=Ui.column(this);panel.setBackground(flyout?new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT):Ui.satin(this,0xE3335C76,0xF20B1A30,26));panel.setElevation(dp(34));panel.setPadding(dp(20),dp(12),dp(20),dp(16));panel.setOnClickListener(v->{});panel.setCameraDistance(dp(2400));
         overlay.addView(panel);layoutPanel();applyCrystalAppearance();
         LinearLayout heading=Ui.row(this);TextView label=Ui.text(this,title,20,Ui.TEXT);label.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));heading.addView(label,new LinearLayout.LayoutParams(0,dp(46),1));
         Button close=Ui.icon(this,"close","Close "+title,this::closePanel);heading.addView(close,new LinearLayout.LayoutParams(dp(46),dp(46)));panel.addView(heading);
@@ -262,10 +262,37 @@ public final class MainActivity extends Activity implements MotionController.Lis
         panel.setLayoutParams(p);
     }
     private LinearLayout scrollBody(LinearLayout parent){
-        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);parent.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));LinearLayout body=Ui.column(this);body.setPadding(0,dp(10),0,dp(8));scroll.addView(body,new ScrollView.LayoutParams(-1,-2));return body;
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);parent.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));LinearLayout body=Ui.column(this);body.setPadding(0,dp(10),0,dp(8));scroll.addView(body,new ScrollView.LayoutParams(-1,-2));
+        scroll.setOnScrollChangeListener((View.OnScrollChangeListener)(v,x,y,oldX,oldY)->{
+            if(store.reducedMotion||systemReduced)return;
+            float focus=y+scroll.getHeight()*.5f;
+            for(int i=0;i<body.getChildCount();i++){
+                View child=body.getChildAt(i);
+                if(!(child instanceof Button))continue;
+                float center=child.getTop()+child.getHeight()*.5f;
+                float proximity=Math.max(0,1-Math.abs(center-focus)/Math.max(1,scroll.getHeight()*.65f));
+                child.animate().cancel();
+                child.animate().translationZ(dp(7)*proximity).scaleX(1+.025f*proximity)
+                    .scaleY(1+.025f*proximity).setDuration(130).start();
+            }
+        });return body;
     }
     private void paragraph(LinearLayout body,String text){TextView p=Ui.text(this,text,14,Ui.MUTED);p.setPadding(0,dp(8),0,dp(14));p.setLineSpacing(dp(3),1);body.addView(p,new LinearLayout.LayoutParams(-1,-2));}
-    private void action(LinearLayout body,String text,Runnable action){Button b=Ui.quiet(this,text,action);b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=dp(2);body.addView(b,p);}
+    private void action(LinearLayout body,String text,Runnable action){
+        Button b=Ui.button(this,text,action);
+        b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);
+        b.setElevation(dp(5));
+        b.setCameraDistance(dp(1600));
+        b.setOnTouchListener((v,event)->{
+            if(event.getActionMasked()==MotionEvent.ACTION_DOWN){
+                v.animate().cancel();v.animate().translationZ(dp(12)).scaleX(1.035f).scaleY(1.035f).setDuration(120).start();
+            }else if(event.getActionMasked()==MotionEvent.ACTION_UP||event.getActionMasked()==MotionEvent.ACTION_CANCEL){
+                v.animate().translationZ(0).scaleX(1).scaleY(1).setDuration(180).start();
+            }
+            return false;
+        });
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(52));p.bottomMargin=dp(8);body.addView(b,p);
+    }
     private void section(LinearLayout body,String name){TextView h=Ui.text(this,name,16,Ui.TEXT);h.setTypeface(null,Typeface.BOLD);h.setPadding(0,dp(16),0,dp(8));body.addView(h);}
     private void toast(String text){Toast.makeText(this,text,Toast.LENGTH_SHORT).show();}
 
