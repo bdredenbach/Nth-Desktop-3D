@@ -16,14 +16,14 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 final class Ui {
-    static final int TEXT=0xFFF1F4FA, MUTED=0xFFA6B2C8, ACCENT=0xFFB6D5FF, PANEL=0xFF111B2D;
+    static final int TEXT=0xFFF1FAFF, MUTED=0xFFB0C5D9, ACCENT=0xFF8FEAFF, PANEL=0xFF101F35;
     static int dp(Context c,float n){return Math.round(n*c.getResources().getDisplayMetrics().density);}
     static GradientDrawable surface(int color,float radius,Context c) {
         GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(c,radius));d.setStroke(dp(c,1),0x1FFFFFFF);return d;
     }
     static GradientDrawable satin(Context c,int top,int bottom,int radius){
-        GradientDrawable d=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{top,bottom});
-        d.setCornerRadius(dp(c,radius));d.setStroke(dp(c,1),0x24D9E7FF);return d;
+        GradientDrawable d=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{0xAA80E7FF,top,bottom});
+        d.setCornerRadius(dp(c,radius));d.setStroke(dp(c,1),0x7A9FEFFF);return d;
     }
     static Drawable touch(Context c,Drawable base,int radius){return new RippleDrawable(ColorStateList.valueOf(0x25B6D5FF),base,surface(0xFFFFFFFF,radius,c));}
     static TextView text(Context c,String s,int sp,int color) {
@@ -33,7 +33,7 @@ final class Ui {
     static Button button(Context c,String s,Runnable action) {
         Button b=new Button(c);b.setText(s);b.setTextSize(14);b.setTextColor(TEXT);b.setAllCaps(false);b.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
         b.setMinHeight(dp(c,48));b.setMinimumHeight(dp(c,48));b.setMinWidth(0);b.setMinimumWidth(0);b.setStateListAnimator(null);
-        b.setBackground(touch(c,surface(0xFF202D43,14,c),14));
+        b.setBackground(touch(c,satin(c,0xB52D5268,0xC016273E,14),14));
         b.setPadding(dp(c,16),dp(c,8),dp(c,16),dp(c,8));b.setOnClickListener(v->action.run());return b;
     }
     static Button quiet(Context c,String text,Runnable action){Button b=button(c,text,action);b.setBackground(touch(c,null,14));return b;}
