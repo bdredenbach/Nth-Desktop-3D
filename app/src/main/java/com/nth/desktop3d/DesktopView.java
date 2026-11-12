@@ -5,6 +5,8 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.view.MotionEvent;
+import android.view.DragEvent;
+import android.content.ClipData;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.animation.DecelerateInterpolator;
@@ -54,6 +56,21 @@ final class DesktopView extends FrameLayout {
             grid=new ShortcutGrid(getContext());grid.setPadding(0,Ui.dp(getContext(),24),0,Ui.dp(getContext(),12));
             grid.setOnTouchListener((v,e)->{if(e.getActionMasked()==MotionEvent.ACTION_DOWN)host.ripple(e.getX(),e.getY()-scroller.getScrollY());return false;});
             grid.setOnLongClickListener(v->{held=true;host.backgroundMenu();return true;});
+            grid.setOnDragListener((v,event)->{
+                if(event.getAction()==DragEvent.ACTION_DRAG_STARTED)return event.getLocalState() instanceof LauncherStore.Item;
+                if(event.getAction()==DragEvent.ACTION_DROP){
+                    LauncherStore.Item dragged=(LauncherStore.Item)event.getLocalState();
+                    java.util.List<LauncherStore.Item> items=store.pages.get(store.page);
+                    int old=items.indexOf(dragged);
+                    if(old<0)return false;
+                    int target=grid.indexForPoint(event.getX(),event.getY());
+                    target=Math.max(0,Math.min(items.size()-1,target));
+                    items.remove(old);items.add(target,dragged);
+                    store.save();rebuild();host.pageChanged();return true;
+                }
+                if(event.getAction()==DragEvent.ACTION_DRAG_ENDED){clearSelection();return true;}
+                return true;
+            });
             scroller.addView(grid,new ScrollView.LayoutParams(-1,-2));stage.addView(scroller,new LayoutParams(-1,-1));
         }else {scroller=null;grid=null;}
         List<LauncherStore.Item> items=store.pages.get(store.page);
@@ -65,7 +82,30 @@ final class DesktopView extends FrameLayout {
             tile.setOnClickListener(v->host.open(item));tile.setOnLongClickListener(v->{selectTile(tile,item);return true;});
             Body body=new Body(tile,item);bodies.add(body);
             if(gravity){tile.physicsStyle();stage.addView(tile,new LayoutParams(Ui.dp(getContext(),78),physicsTileHeight()));installDrag(body);}
-            else grid.addView(tile);
+            else{
+                grid.addView(tile);
+                tile.setOnTouchListener(new View.OnTouchListener(){
+                    float x,y;boolean dragging;
+                    @Override public boolean onTouch(View v,MotionEvent e){
+                        if(e.getActionMasked()==MotionEvent.ACTION_DOWN){
+                            x=e.getX();y=e.getY();dragging=false;return false;
+                        }
+                        if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&selectedTile==tile&&!dragging
+                                &&Math.hypot(e.getX()-x,e.getY()-y)>Ui.dp(getContext(),12)){
+                            dragging=true;
+                            if(delayedMenu!=null){removeCallbacks(delayedMenu);delayedMenu=null;}
+                            tile.startDragAndDrop(ClipData.newPlainText("Nth shortcut",item.label),
+                                new View.DragShadowBuilder(tile),item,0);
+                            tile.setAlpha(.45f);
+                            return true;
+                        }
+                        if(e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL){
+                            tile.setAlpha(1f);dragging=false;
+                        }
+                        return false;
+                    }
+                });
+            }
         }
         addWidgets();
         updateLayout();post(this::updateLayout);
@@ -97,7 +137,7 @@ final class DesktopView extends FrameLayout {
         if(selectedTile!=null){
             selectedTile.animate().cancel();
             selectedTile.setBackground(Ui.touch(getContext(),null,18));
-            selectedTile.setScaleX(1f);selectedTile.setScaleY(1f);
+            selectedTile.setScaleX(1f);selectedTile.setScaleY(1f);selectedTile.setAlpha(1f);
             selectedTile=null;
         }
         if(delayedMenu!=null){removeCallbacks(delayedMenu);delayedMenu=null;}
