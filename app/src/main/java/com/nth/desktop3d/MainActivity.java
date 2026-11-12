@@ -293,7 +293,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
 
     @Override public void menu(LauncherStore.Item item){
         if(!item.folder()){appMenu(catalog.find(item.key),item);return;}
-        LinearLayout body=scrollBody(openPanel(item.label));action(body,"Open folder",()->showFolder(item));action(body,"Rename folder",()->rename(item));
+        LinearLayout body=scrollBody(openPanel(item.label,true));action(body,"Open folder",()->showFolder(item));action(body,"Rename folder",()->rename(item));
         action(body,"Move to another desktop",()->move(item));action(body,"Remove folder…",()->confirmRemove(item));
     }
     private void appMenu(AppCatalog.Entry entry,LauncherStore.Item shortcut){
