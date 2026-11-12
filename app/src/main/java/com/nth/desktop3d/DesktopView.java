@@ -203,14 +203,14 @@ final class DesktopView extends FrameLayout {
             case MotionEvent.ACTION_MOVE:float dx=e.getX()-downX,dy=e.getY()-downY;
                 if(Math.hypot(dx,dy)>ViewConfiguration.get(getContext()).getScaledTouchSlop()){removeCallbacks(backgroundHold);if(Math.abs(dy)>Math.abs(dx))verticalGesture=true;if(!verticalGesture&&Math.abs(dx)>Math.abs(dy)*1.4f)swiping=true;}return true;
             case MotionEvent.ACTION_UP:removeCallbacks(backgroundHold);if(!held){
-                float dx=e.getX()-downX,dy=e.getY()-downY;
-                if(Math.abs(dy)>gestureSlop&&Math.abs(dy)>Math.abs(dx)*1.4f&&dy<0){host.startMenu();}
-                else if(swiping&&Math.abs(dx)>gestureSlop){
-                    if(dx<0&&store.page==0&&downX<Ui.dp(getContext(),45)){host.feed();}
-                    else if((dx>0&&store.page==0)||(dx<0&&store.page==LauncherStore.PAGE_COUNT-1)){
-                        float tilt=dx>0?12f:-12f;
+                float endDx=e.getX()-downX,endDy=e.getY()-downY;
+                if(Math.abs(endDy)>gestureSlop&&Math.abs(endDy)>Math.abs(endDx)*1.4f&&endDy<0){host.startMenu();}
+                else if(swiping&&Math.abs(endDx)>gestureSlop){
+                    if(endDx<0&&store.page==0&&downX<Ui.dp(getContext(),45)){host.feed();}
+                    else if((endDx>0&&store.page==0)||(endDx<0&&store.page==LauncherStore.PAGE_COUNT-1)){
+                        float tilt=endDx>0?12f:-12f;
                         stage.animate().rotationY(tilt).setDuration(110).withEndAction(()->stage.animate().rotationY(0).setDuration(240).start()).start();
-                    }else changePage(dx<0?1:-1);
+                    }else changePage(endDx<0?1:-1);
                 }else if(!swiping&&!verticalGesture)performClick();
             }return true;
             case MotionEvent.ACTION_CANCEL:removeCallbacks(backgroundHold);return true;
