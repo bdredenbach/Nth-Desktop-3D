@@ -320,11 +320,14 @@ public final class MainActivity extends Activity implements MotionController.Lis
         LinearLayout folderPanel=openPanel(folder.label);
         // Folder surfaces emerge from the desktop plane rather than appearing as a list.
         if(!store.reducedMotion&&!systemReduced){
-            folderPanel.setPivotX(folderPanel.getWidth()*.5f);
-            folderPanel.setPivotY(folderPanel.getHeight()*.65f);
             folderPanel.setScaleX(.88f);folderPanel.setScaleY(.88f);
-            folderPanel.animate().scaleX(1f).scaleY(1f).setDuration(320)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+            folderPanel.post(()->{
+                if(panel!=folderPanel)return;
+                folderPanel.setPivotX(folderPanel.getWidth()*.5f);
+                folderPanel.setPivotY(folderPanel.getHeight()*.65f);
+                folderPanel.animate().scaleX(1f).scaleY(1f).setDuration(320)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+            });
         }
         LinearLayout body=scrollBody(folderPanel);
         if(folder.children.isEmpty())paragraph(body,"Hold an app in Start and choose Add to folder to put it here.");
