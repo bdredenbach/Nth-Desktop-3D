@@ -288,7 +288,15 @@ public final class MainActivity extends Activity implements MotionController.Lis
             @Override public boolean dispatchTouchEvent(MotionEvent e){
                 int type=e.getActionMasked();
                 if(type==MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();focus(at(e.getY()));}
-                else if(type==MotionEvent.ACTION_MOVE){focus(at(e.getY()));}
+                else if(type==MotionEvent.ACTION_MOVE){
+                    focus(at(e.getY()));
+                    if(active!=null&&!store.reducedMotion&&!systemReduced){
+                        float horizontal=Math.max(-1f,Math.min(1f,(e.getX()-getWidth()*.5f)/Math.max(1,getWidth()*.5f)));
+                        active.setCameraDistance(dp(1600));
+                        active.animate().rotationY(horizontal*9f).translationX(horizontal*dp(5))
+                            .setDuration(90).start();
+                    }
+                }
                 else if(type==MotionEvent.ACTION_UP||type==MotionEvent.ACTION_CANCEL){
                     Button target=active;
                     boolean slide=type==MotionEvent.ACTION_UP&&target!=null
@@ -329,6 +337,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         }
         v.animate().translationZ(raised?dp(16):0).scaleX(raised?1.055f:1f)
             .scaleY(raised?1.055f:1f).rotationX(raised?-5f:0)
+            .rotationY(0).translationX(0)
             .setInterpolator(raised?new android.view.animation.DecelerateInterpolator():
                 new android.view.animation.OvershootInterpolator(.65f))
             .setDuration(raised?120:220).start();
