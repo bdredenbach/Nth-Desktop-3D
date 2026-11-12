@@ -109,6 +109,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
         buildHeader();
         desktop=new DesktopView(this,store,catalog,this);shell.addView(desktop,new LinearLayout.LayoutParams(-1,0,1));
         buildTaskbar();
+        // Immersive home: gestures replace persistent desktop chrome.
+        header.setVisibility(View.GONE);bar.setVisibility(View.GONE);
         root.setOnApplyWindowInsetsListener((v,insets)->{
             if(Build.VERSION.SDK_INT>=30){android.graphics.Insets s=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());insetLeft=s.left;insetTop=s.top;insetRight=s.right;insetBottom=s.bottom;}
             else{insetLeft=insets.getSystemWindowInsetLeft();insetTop=insets.getSystemWindowInsetTop();insetRight=insets.getSystemWindowInsetRight();insetBottom=insets.getSystemWindowInsetBottom();}
@@ -349,8 +351,19 @@ public final class MainActivity extends Activity implements MotionController.Lis
         LinearLayout body=scrollBody(openPanel("Desktop shortcuts"));
         for(int i=0;i<LauncherStore.PAGE_COUNT;i++){section(body,"Desktop "+(i+1));if(store.pages.get(i).isEmpty())paragraph(body,"No shortcuts yet.");for(LauncherStore.Item item:store.pages.get(i)){Button b=Ui.button(this,item.label,()->open(item));b.setOnLongClickListener(v->{menu(item);return true;});LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(48));p.bottomMargin=dp(6);body.addView(b,p);}}
     }
+    @Override public void startMenu(){showStart();}
+    @Override public void feed(){
+        if(!crystal.feedEnabled()||crystal.feedProvider()==3)return;
+        if(crystal.feedProvider()==2){toast("Nth Feed is not available yet.");return;}
+        openGoogleFeed();
+    }
     @Override public void backgroundMenu(){
-        LinearLayout body=scrollBody(openPanel("Desktop",true));action(body,"Scene studio",this::showModes);action(body,"3D settings",this::showSettings);action(body,"New folder",this::newFolder);action(body,"Arrange shortcuts",()->{desktop.arrange();closePanel();});action(body,"All desktop shortcuts",this::showDesktopOverview);action(body,"Recenter tilt",()->{motion.recenter();closePanel();toast("Tilt centered");});action(body,"Set default Home",this::requestHome);
+        LinearLayout body=scrollBody(openPanel("Desktop",true));action(body,"Scene studio",this::showModes);action(body,"3D settings",this::showSettings);action(body,"Widgets",this::showWidgets);action(body,"New folder",this::newFolder);action(body,"Arrange shortcuts",()->{desktop.arrange();closePanel();});action(body,"All desktop shortcuts",this::showDesktopOverview);action(body,"Recenter tilt",()->{motion.recenter();closePanel();toast("Tilt centered");});action(body,"Set default Home",this::requestHome);
+    }
+    private void showWidgets(){
+        LinearLayout body=scrollBody(openPanel("Widgets"));
+        paragraph(body,"Android widgets require a widget host and binding permission. This selection screen is the first step; widget placement is not enabled yet.");
+        action(body,"Android widget settings",()->toast("Widget hosting is being implemented."));
     }
     private void newFolder(){EditText edit=new EditText(this);edit.setSingleLine(true);edit.setHint("Folder name");Ui.pad(edit,16);new AlertDialog.Builder(this).setTitle("New folder").setView(edit).setNegativeButton("Cancel",null).setPositiveButton("Create",(d,w)->{String name=edit.getText().toString().trim();if(!name.isEmpty()&&store.pages.get(store.page).size()<60){store.pages.get(store.page).add(new LauncherStore.Item("folder",name));store.save();desktop.rebuild();pageChanged();closePanel();}}).show();}
 
