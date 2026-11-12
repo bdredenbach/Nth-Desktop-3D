@@ -244,8 +244,12 @@ public final class MainActivity extends Activity implements MotionController.Lis
             opening.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener(){
                 @Override public boolean onPreDraw(){opening.getViewTreeObserver().removeOnPreDrawListener(this);if(panel!=opening)return true;
                     opening.setPivotX(opening.getWidth()*.5f);opening.setPivotY(opening.getHeight()*(store.menuStyle==2?1:.65f));
-                    if(store.menuStyle==1)opening.setRotationY(-18);else opening.setRotationX(store.menuStyle==2?-28:-9);
-                    opening.animate().alpha(1).translationY(0).rotationX(0).rotationY(0).setInterpolator(new android.view.animation.DecelerateInterpolator()).setDuration(240).start();return true;}
+                    if(crystal.menuAnimation()==0){opening.setTranslationY(dp(32));opening.setRotationX(-13);}
+                    else if(crystal.menuAnimation()==1){opening.setRotationY(-32);}
+                    else if(crystal.menuAnimation()==2){opening.setScaleX(.85f);opening.setScaleY(.85f);}
+                    else if(crystal.menuAnimation()==3){opening.setRotationX(-28);}
+                    else opening.setRotationX(-4);
+                    opening.animate().alpha(1).translationY(0).rotationX(0).rotationY(0).scaleX(1).scaleY(1).setInterpolator(new android.view.animation.DecelerateInterpolator()).setDuration(240).start();return true;}
             });
         }
         return panel;
@@ -281,11 +285,11 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void action(LinearLayout body,String text,Runnable action){
         Button b=Ui.button(this,text,action);
         b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);
-        b.setElevation(dp(5));
+        b.setElevation(dp(crystal.lighting()==0?3:7));
         b.setCameraDistance(dp(1600));
         b.setOnTouchListener((v,event)->{
             if(event.getActionMasked()==MotionEvent.ACTION_DOWN){
-                v.animate().cancel();v.animate().translationZ(dp(12)).scaleX(1.035f).scaleY(1.035f).setDuration(120).start();
+                v.animate().cancel();v.animate().translationZ(dp(crystal.lighting()==0?6:14)).scaleX(1.035f).scaleY(1.035f).setDuration(120).start();
             }else if(event.getActionMasked()==MotionEvent.ACTION_UP||event.getActionMasked()==MotionEvent.ACTION_CANCEL){
                 v.animate().translationZ(0).scaleX(1).scaleY(1).setDuration(180).start();
             }
@@ -506,6 +510,19 @@ public final class MainActivity extends Activity implements MotionController.Lis
         section(body,"Start menu and flyouts");choice(body,LauncherStore.MENUS,store.menuStyle,v->{store.menuStyle=v;changed(false);showSettings();});
         section(body,"Living Pond");slider(body,"Fish count",store.fishCount,3,7,v->{store.fishCount=v;changed(false);});slider(body,"Fish speed",Math.round(store.fishSpeed*100),20,150,v->{store.fishSpeed=v/100f;changed(false);});
         toggle(body,"Water ripples",store.ripples,v->{store.ripples=v;changed(false);});toggle(body,"Fish and leaf shadows",store.shadows,v->{store.shadows=v;changed(false);});
+        section(body,"Crystal Studio");
+        action(body,"Material: "+CrystalPreferences.MATERIALS[crystal.material()],()->new AlertDialog.Builder(this).setTitle("Crystal material")
+            .setSingleChoiceItems(CrystalPreferences.MATERIALS,crystal.material(),(d,which)->{
+                crystal.setMaterial(which);d.dismiss();showSettings();
+            }).setNegativeButton("Cancel",null).show());
+        action(body,"Menu animation: "+CrystalPreferences.MENU_ANIMATIONS[crystal.menuAnimation()],()->new AlertDialog.Builder(this).setTitle("Menu animation")
+            .setSingleChoiceItems(CrystalPreferences.MENU_ANIMATIONS,crystal.menuAnimation(),(d,which)->{
+                crystal.setMenuAnimation(which);d.dismiss();showSettings();
+            }).setNegativeButton("Cancel",null).show());
+        action(body,"Lighting: "+CrystalPreferences.LIGHTING[crystal.lighting()],()->new AlertDialog.Builder(this).setTitle("Crystal lighting")
+            .setSingleChoiceItems(CrystalPreferences.LIGHTING,crystal.lighting(),(d,which)->{
+                crystal.setLighting(which);d.dismiss();showSettings();
+            }).setNegativeButton("Cancel",null).show());
         section(body,"Crystal Glass · visual defaults");
         slider(body,"Glass transparency",crystal.transparency(),0,100,v->{crystal.setTransparency(v);applyCrystalAppearance();});
         slider(body,"Crystal depth",crystal.depth(),0,100,v->{crystal.setDepth(v);applySettings(false);});
