@@ -646,6 +646,26 @@ public final class MainActivity extends Activity implements MotionController.Lis
         toggle(body,"Reduced motion",store.reducedMotion,v->{store.reducedMotion=v;changed(true);});
         paragraph(body,motion.sensorName()+(powerSave?" · battery saver pauses tilt and physics":"")+(systemReduced?" · Android animations are disabled":""));
         action(body,"Recenter tilt",()->{motion.recenter();toast("Hold the phone comfortably; tilt is centered.");});
+        section(body,"Desktop placement grid");
+        action(body,"Grid columns: "+store.preferences.getInt("grid_columns",4),()->{
+            String[] options={"3 columns","4 columns","5 columns","6 columns","7 columns","8 columns"};
+            new AlertDialog.Builder(this).setTitle("Desktop grid columns")
+                .setSingleChoiceItems(options,store.preferences.getInt("grid_columns",4)-3,(dialog,which)->{
+                    store.preferences.edit().putInt("grid_columns",which+3).apply();
+                    dialog.dismiss();desktop.rebuild();showSettings();
+                }).setNegativeButton("Cancel",null).show();
+        });
+        action(body,"Grid row height: "+store.preferences.getInt("grid_row_dp",112)+" dp",()->{
+            String[] options={"88 dp · Compact","100 dp","112 dp · Default","128 dp","144 dp · Spacious"};
+            int[] values={88,100,112,128,144};
+            int selected=2;for(int i=0;i<values.length;i++)if(values[i]==store.preferences.getInt("grid_row_dp",112))selected=i;
+            new AlertDialog.Builder(this).setTitle("Desktop grid row spacing")
+                .setSingleChoiceItems(options,selected,(dialog,which)->{
+                    store.preferences.edit().putInt("grid_row_dp",values[which]).apply();
+                    dialog.dismiss();desktop.rebuild();showSettings();
+                }).setNegativeButton("Cancel",null).show();
+        });
+        paragraph(body,"Apps, folders and widgets snap to the chosen grid. Gravity Playground keeps its physics movement.");
         section(body,"Desktop transition");choice(body,LauncherStore.TRANSITIONS,store.transition,v->{store.transition=v;changed(false);showSettings();});
         section(body,"Start menu and flyouts");choice(body,LauncherStore.MENUS,store.menuStyle,v->{store.menuStyle=v;changed(false);showSettings();});
         section(body,"Living Pond");slider(body,"Fish count",store.fishCount,3,7,v->{store.fishCount=v;changed(false);});slider(body,"Fish speed",Math.round(store.fishSpeed*100),20,150,v->{store.fishSpeed=v/100f;changed(false);});
