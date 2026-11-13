@@ -189,8 +189,12 @@ final class WidgetSmoke {
     private boolean clickNode(AccessibilityNodeInfo node,String text){
         if(node==null)return false;
         if((node.getText()!=null&&text.equalsIgnoreCase(node.getText().toString().trim()))||(node.getContentDescription()!=null&&text.equalsIgnoreCase(node.getContentDescription().toString().trim()))){
+            if(!node.refresh())return false;
             Rect bounds=new Rect();node.getBoundsInScreen(bounds);
-            if(node.isVisibleToUser()&&!bounds.isEmpty()){long start=SystemClock.uptimeMillis();pointer(start,MotionEvent.ACTION_DOWN,bounds.exactCenterX(),bounds.exactCenterY());pointer(start,MotionEvent.ACTION_UP,bounds.exactCenterX(),bounds.exactCenterY());return true;}
+            android.util.DisplayMetrics metrics=instrumentation.getTargetContext().getResources().getDisplayMetrics();
+            // A newly opened Activity can briefly expose coordinates from its
+            // previous orientation/transition. Wait for a real on-screen target.
+            if(node.isVisibleToUser()&&bounds.intersect(0,0,metrics.widthPixels,metrics.heightPixels)&&!bounds.isEmpty()){long start=SystemClock.uptimeMillis();pointer(start,MotionEvent.ACTION_DOWN,bounds.exactCenterX(),bounds.exactCenterY());pointer(start,MotionEvent.ACTION_UP,bounds.exactCenterX(),bounds.exactCenterY());return true;}
         }
         for(int i=0;i<node.getChildCount();i++)if(clickNode(node.getChild(i),text))return true;
         return false;
