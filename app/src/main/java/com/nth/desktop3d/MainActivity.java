@@ -60,6 +60,11 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private boolean widgetListening;
     private android.content.ComponentName pendingWidgetProvider;
     private AppCatalog catalog;
+    private SettingsModel settingsModel;
+    private SettingsStudio settingsStudio;
+    private AdaptiveMenuDrawable menuGlass;
+    private long lastGlassUpdate;
+    private final java.util.Set<String> newlyInstalled=new java.util.HashSet<>();
     private PinnedShortcuts shortcuts;
     private MotionController motion;
     private SceneSurface scene;
@@ -86,7 +91,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         @Override public void doFrame(long time){
             if(!resumed||destroyed)return;
             float dt=previousFrame==0?1/60f:Math.min(.05f,(time-previousFrame)/1_000_000_000f);previousFrame=time;
-            desktop.frame(dt);
+            desktop.frame(dt);updateMenuGlass();
             // Cap GPU work at 60 fps (30 in battery saver), independently of screen refresh.
             // Rendering tiers govern GPU submission cadence; Android power saver always wins.
             long interval=(powerSave||crystal.qualityIndex()==0)?33_000_000L:16_000_000L;
@@ -100,7 +105,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private final LauncherApps.Callback packageCallback=new LauncherApps.Callback(){
         @Override public void onShortcutsChanged(String p,List<android.content.pm.ShortcutInfo> items,UserHandle user){if(shortcuts!=null)shortcuts.refresh(p,items);}
         @Override public void onPackageRemoved(String p,UserHandle u){reloadApps();}
-        @Override public void onPackageAdded(String p,UserHandle u){reloadApps();}
+        @Override public void onPackageAdded(String p,UserHandle u){if(store.preferences.getBoolean("auto_add_apps",false))newlyInstalled.add(p);reloadApps();}
         @Override public void onPackageChanged(String p,UserHandle u){reloadApps();}
         @Override public void onPackagesAvailable(String[] p,UserHandle u,boolean r){reloadApps();}
         @Override public void onPackagesUnavailable(String[] p,UserHandle u,boolean r){reloadApps();}
@@ -133,7 +138,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
             else{insetLeft=insets.getSystemWindowInsetLeft();insetTop=insets.getSystemWindowInsetTop();insetRight=insets.getSystemWindowInsetRight();insetBottom=insets.getSystemWindowInsetBottom();}
             // IME remains inside the safe panel and does not move the taskbar sideways.
             imeBottom=Build.VERSION.SDK_INT>=30&&insets.isVisible(WindowInsets.Type.ime())?insets.getInsets(WindowInsets.Type.ime()).bottom:0;
-            shell.setPadding(insetLeft+dp(compact()?16:20),insetTop+dp(8),insetRight+dp(compact()?16:20),insetBottom+dp(8));
+            applyDesktopChrome();
             int chromeWidth=Math.min(dp(560),Math.max(1,(root.getWidth()>0?root.getWidth():getResources().getDisplayMetrics().widthPixels)-insetLeft-insetRight-dp(compact()?32:40)));
             for(View chrome:new View[]{dock,paging}){LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(chromeWidth,-2);cp.gravity=Gravity.CENTER_HORIZONTAL;chrome.setLayoutParams(cp);}
             layoutPanel();return insets;
@@ -142,6 +147,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         registerReceiver(powerReceiver,new IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED));
         applySettings(true);applyCrystalAppearance();reloadApps();
         if(!shortcuts.handle(getIntent())&&!store.preferences.getBoolean("welcomed",false))handler.postDelayed(this::welcome,450);
+        if(state!=null&&state.getString("settings_page")!=null&&!LauncherApps.ACTION_CONFIRM_PIN_SHORTCUT.equals(getIntent().getAction()))handler.post(()->showSettings(state.getString("settings_page")));
     }
     private int dp(float n){return Ui.dp(this,n);}
     private boolean compact(){return getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE;}
@@ -172,16 +178,25 @@ public final class MainActivity extends Activity implements MotionController.Lis
         clockButton=Ui.quiet(this,"",this::showCalendar);clockButton.setPadding(0,0,0,0);clockButton.setContentDescription("Open calendar and time");dock.addView(clockButton,new LinearLayout.LayoutParams(dp(65),dp(48)));
         dock.setOnLongClickListener(v->{backgroundMenu();return true;});bar.addView(dock);shell.addView(bar,new LinearLayout.LayoutParams(-1,-2));updateClock();
     }
+    private void applyDesktopChrome(){
+        int padding=Math.max(0,Math.min(24,store.preferences.getInt("desktop_padding",0)));
+        shell.setPadding(insetLeft+dp((compact()?16:20)+padding),insetTop+dp(8),insetRight+dp((compact()?16:20)+padding),insetBottom+dp(8));
+        bar.setVisibility(store.preferences.getBoolean("show_dock",false)?View.VISIBLE:View.GONE);
+        clockButton.setVisibility(store.preferences.getBoolean("dock_clock",true)?View.VISIBLE:View.GONE);
+        int p=Math.max(4,Math.min(14,store.preferences.getInt("dock_padding",7)));dock.setPadding(dp(8),dp(p),dp(8),dp(p));
+    }
     private void applyCrystalAppearance(){
-        if(dock!=null){
-            int opacity=Math.max(50,Math.min(235,255*(100-crystal.transparency())/100+80));
-            dock.setBackground(Ui.satin(this,(opacity<<24)|0x0044819C,0xCF0B1E36,24));
-            dock.invalidate();
-        }
+        if(dock!=null){int opacity=Math.max(50,Math.min(235,255*(100-crystal.transparency())/100+80));dock.setBackground(store.preferences.getBoolean("dock_background",true)?Ui.satin(this,(opacity<<24)|0x0044819C,0xCF0B1E36,store.preferences.getInt("dock_radius",24)):new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));}
         if(panel!=null){
-            int alpha=Math.max(175,Math.min(245,255-crystal.transparency()*2/3));
-            panel.setBackground(flyoutPanel?new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT):Ui.satin(this,(alpha<<24)|0x00335C76,0xF20B1A30,26));
+            boolean adaptive=store.preferences.getBoolean("adaptive_glass",true);
+            overlay.setBackgroundColor(adaptive||flyoutPanel?Color.TRANSPARENT:0xAA030A17);
+            if(adaptive){if(!(panel.getBackground() instanceof AdaptiveMenuDrawable)){menuGlass=new AdaptiveMenuDrawable(getResources().getDisplayMetrics().density);panel.setBackground(menuGlass);}menuGlass.radius("folder".equals(panel.getTag())?store.preferences.getInt("folder_radius",26):26);}
+            else{menuGlass=null;int alpha=Math.max(175,Math.min(245,255-crystal.transparency()*2/3));panel.setBackground(flyoutPanel?new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT):Ui.satin(this,(alpha<<24)|0x00335C76,0xF20B1A30,26));}
         }
+    }
+    private void updateMenuGlass(){
+        if(menuGlass==null||panel==null)return;long now=System.nanoTime();if(now-lastGlassUpdate<33_000_000L)return;float dt=lastGlassUpdate==0?.05f:Math.min(.1f,(now-lastGlassUpdate)/1_000_000_000f);lastGlassUpdate=now;
+        menuGlass.update(desktop.backdropRects(panel),store.preferences.getInt("glass_strength",70),store.preferences.getInt("glass_feather",40),store.preferences.getInt("glass_empty",0),store.reducedMotion||systemReduced,dt);
     }
     private void updateClock(){
         Date now=new Date();String pattern=android.text.format.DateFormat.is24HourFormat(this)?"HH:mm":"h:mm";
@@ -192,19 +207,20 @@ public final class MainActivity extends Activity implements MotionController.Lis
     @Override protected void onStart(){super.onStart();try{widgetHost.startListening();widgetListening=true;}catch(RuntimeException error){android.util.Log.e("NthWidgets","Could not listen for widget updates",error);}}
     @Override protected void onStop(){if(widgetListening){widgetHost.stopListening();widgetListening=false;}super.onStop();}
     @Override protected void onResume(){super.onResume();resumed=true;previousFrame=lastRender=0;scene.onResume();applySettings(false);Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);handler.removeCallbacks(clockTick);clockTick.run();if(loaded)reloadApps();}
-    @Override protected void onPause(){resumed=false;Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();super.onPause();}
-    @Override protected void onDestroy(){destroyed=true;handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();widgetHost.releaseViews();if(shortcuts!=null)shortcuts.destroy();super.onDestroy();}
+    @Override protected void onPause(){resumed=false;Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();if(settingsStudio!=null)settingsStudio.pause();super.onPause();}
+    @Override protected void onDestroy(){destroyed=true;handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();widgetHost.releaseViews();if(shortcuts!=null)shortcuts.destroy();if(settingsStudio!=null)settingsStudio.dispose();super.onDestroy();}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);closePanel();motion.recenter();shortcuts.handle(intent);}
-    @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);closePanel();motion.recenter();clock.setTextSize(compact()?30:54);desktop.rebuild();root.requestApplyInsets();}
-    @Override public void onBackPressed(){if(overlay!=null)closePanel();else if(store.page!=0){store.page=0;desktop.rebuild();pageChanged();store.save();}}
+    @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);String page=settingsStudio==null?null:settingsStudio.page();closePanel();motion.recenter();clock.setTextSize(compact()?30:54);desktop.rebuild();root.requestApplyInsets();if(page!=null)handler.post(()->showSettings(page));}
+    @Override protected void onSaveInstanceState(Bundle state){if(settingsStudio!=null)state.putString("settings_page",settingsStudio.page());super.onSaveInstanceState(state);}
+    @Override public void onBackPressed(){if(settingsStudio!=null&&settingsStudio.back())return;if(overlay!=null)closePanel();else if(store.page!=0){store.page=0;desktop.rebuild();pageChanged();store.save();}}
     @Override public int displayRotation(){return getWindowManager().getDefaultDisplay().getRotation();}
-    @Override public void onTilt(float x,float y){if(Math.abs(x-currentX)>.002f||Math.abs(y-currentY)>.002f)sceneDirty=true;currentX=x;currentY=y;if(scene!=null)scene.tilt(x,y);if(desktop!=null)desktop.tilt(x,y);}
+    @Override public void onTilt(float x,float y){if(Math.abs(x-currentX)>.002f||Math.abs(y-currentY)>.002f)sceneDirty=true;currentX=x;currentY=y;if(scene!=null)scene.tilt(x,y);if(desktop!=null)desktop.tilt(x,y);if(settingsStudio!=null)settingsStudio.tilt(x,y);}
     private void applySettings(boolean rebuild){
         powerSave=getSystemService(PowerManager.class).isPowerSaveMode();
         systemReduced=Settings.Global.getFloat(getContentResolver(),Settings.Global.ANIMATOR_DURATION_SCALE,1)==0;
         boolean reduced=store.reducedMotion||systemReduced;
         scene.configure(store,powerSave,systemReduced);scene.configureCrystal(crystal);desktop.configure(reduced,powerSave);modeLabel.setText(LauncherStore.MODES[store.mode]+(reduced?" · reduced motion":""));
-        if(resumed)motion.resume(store.tilt&&crystal.parallax()&&!reduced&&!powerSave);if(rebuild)desktop.rebuild();sceneDirty=true;scene.requestRender();pageChanged();
+        if(resumed)motion.resume(store.tilt&&crystal.parallax()&&!reduced&&!powerSave);if(rebuild)desktop.rebuild();sceneDirty=true;scene.requestRender();pageChanged();applyDesktopChrome();
     }
     private void reloadApps(){
         if(loading||destroyed)return;loading=true;
@@ -217,7 +233,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
                     int added=0;for(AppCatalog.Entry e:result)if(e.component!=null&&added<5){store.add(0,e.key,e.label);added++;}
                     if(added>0)store.preferences.edit().putBoolean("appsSeeded",true).apply();
                 }
-                desktop.rebuild();pageChanged();if(panelKind==1&&appsAdapter!=null)appsAdapter.filter(appSearch==null?"":appSearch.getText().toString());
+                if(!newlyInstalled.isEmpty()){for(AppCatalog.Entry entry:result)if(entry.component!=null&&newlyInstalled.contains(entry.component.getPackageName()))store.add(store.page,entry.key,entry.label);newlyInstalled.clear();}
+                desktop.rebuild();pageChanged();if(settingsStudio!=null)settingsStudio.refreshPreview();if(panelKind==1&&appsAdapter!=null)appsAdapter.filter(appSearch==null?"":appSearch.getText().toString());
             });
         });
     }
@@ -231,14 +248,14 @@ public final class MainActivity extends Activity implements MotionController.Lis
     @Override public void open(LauncherStore.Item item){if(item.folder())showFolder(item);else if(PinnedShortcuts.isShortcut(item)){closePanel();shortcuts.open(item);}else launch(item.key);}
     private void launch(String key){
         if(key.startsWith("builtin:")){
-            switch(key.substring(8)){case "notes":showNotes();break;case "calculator":showCalculator();break;case "calendar":showCalendar();break;case "settings":showSettings();break;case "modes":showModes();break;default:showAbout();}return;
+            switch(key.substring(8)){case "notes":showNotes();break;case "nota":showSettings("nota");break;case "calculator":showCalculator();break;case "calendar":showCalendar();break;case "settings":showSettings();break;case "modes":showModes();break;default:showAbout();}return;
         }
         AppCatalog.Entry e=catalog.find(key);if(e==null){toast("This app is unavailable. Hold its shortcut to remove it.");return;}
         try{closePanel();catalog.launcher.startMainActivity(e.component,e.user,null,null);}catch(SecurityException|IllegalStateException|android.content.ActivityNotFoundException ex){toast("Android could not open this app. Check its profile or App info.");}
     }
     private void savePanel(){if(onPanelClose!=null)onPanelClose.run();}
     private void closePanel(){
-        savePanel();onPanelClose=null;panelKind=0;appsAdapter=null;appSearch=null;
+        savePanel();if(settingsStudio!=null){settingsStudio.dispose();settingsStudio=null;}menuGlass=null;lastGlassUpdate=0;onPanelClose=null;panelKind=0;appsAdapter=null;appSearch=null;
         if(overlay!=null){((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(overlay.getWindowToken(),0);root.removeView(overlay);overlay=null;panel=null;}
         desktop.setModal(false);startButton.setSelected(false);scene.requestRender();
     }
@@ -398,7 +415,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private void paragraph(LinearLayout body,String text){TextView p=Ui.text(this,text,14,Ui.MUTED);p.setPadding(0,dp(8),0,dp(14));p.setLineSpacing(dp(3),1);body.addView(p,new LinearLayout.LayoutParams(-1,-2));}
     private void action(LinearLayout body,String text,Runnable action){
-        Button b=Ui.button(this,text,action);
+        Button b=Ui.quiet(this,text,action);
         b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);b.setTextSize(13);b.setPadding(dp(12),0,dp(12),0);
         b.setElevation(dp(crystal.lighting()==0?3:7));
         b.setCameraDistance(dp(1600));
@@ -440,19 +457,20 @@ public final class MainActivity extends Activity implements MotionController.Lis
                 return false;
             }
         });
-        grid.setNumColumns(compact()?6:3);grid.setVerticalSpacing(dp(10));grid.setHorizontalSpacing(dp(8));grid.setPadding(0,dp(16),0,dp(10));grid.setClipToPadding(false);grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);grid.setSelector(android.R.color.transparent);
+        grid.setNumColumns(Math.min(8,store.preferences.getInt("drawer_columns",3)+(compact()?2:0)));grid.setVerticalSpacing(dp(10));grid.setHorizontalSpacing(dp(8));grid.setPadding(0,dp(16),0,dp(10));grid.setClipToPadding(false);grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);grid.setSelector(android.R.color.transparent);
         appsAdapter=new AppsAdapter();grid.setAdapter(appsAdapter);p.addView(grid,new LinearLayout.LayoutParams(-1,0,1));appsAdapter.filter("");
-        grid.setOnItemClickListener((a,v,pos,id)->launch(appsAdapter.items.get(pos).key));
-        grid.setOnItemLongClickListener((a,v,pos,id)->{appMenu(appsAdapter.items.get(pos),null);return true;});
+        grid.setOnItemClickListener((a,v,pos,id)->openDrawerItem(pos,false));
+        grid.setOnItemLongClickListener((a,v,pos,id)->{openDrawerItem(pos,true);return true;});
         appSearch.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int count,int after){}public void onTextChanged(CharSequence s,int st,int before,int count){if(appsAdapter!=null)appsAdapter.filter(s.toString());}public void afterTextChanged(Editable e){}});
-        appSearch.setOnEditorActionListener((v,action,event)->{if(appsAdapter!=null&&appsAdapter.items.size()==1){launch(appsAdapter.items.get(0).key);return true;}return false;});
-        TextView tip=Ui.text(this,"Hold an app for shortcuts, App info, or uninstall.",12,Ui.MUTED);tip.setPadding(0,dp(6),0,0);p.addView(tip);p.setFocusableInTouchMode(true);p.requestFocus();
+        appSearch.setOnEditorActionListener((v,action,event)->{if(appsAdapter!=null&&appsAdapter.getCount()==1){openDrawerItem(0,false);return true;}return false;});
+        TextView tip=Ui.text(this,"Hold an app for shortcuts, App info, or uninstall.",12,Ui.MUTED);tip.setPadding(0,dp(6),0,0);p.addView(tip);p.setFocusableInTouchMode(true);p.requestFocus();if(store.preferences.getBoolean("search_keyboard",false)){EditText field=appSearch;handler.postDelayed(()->{if(appSearch==field&&overlay!=null){field.requestFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(field,InputMethodManager.SHOW_IMPLICIT);}},280);}
     }
+    private void openDrawerItem(int position,boolean held){if(position<appsAdapter.items.size()){AppCatalog.Entry entry=appsAdapter.items.get(position);if(held)appMenu(entry,null);else launch(entry.key);}else{LauncherStore.Item folder=appsAdapter.folders.get(position-appsAdapter.items.size());if(held)menu(folder);else showFolder(folder);}}
     private final class AppsAdapter extends BaseAdapter {
-        final List<AppCatalog.Entry> items=new ArrayList<>();boolean onlyBuiltins;
-        void filter(String q){items.clear();items.addAll(catalog.filter(q,onlyBuiltins));notifyDataSetChanged();}
-        @Override public int getCount(){return items.size();}@Override public Object getItem(int n){return items.get(n);}@Override public long getItemId(int n){return items.get(n).key.hashCode();}
-        @Override public View getView(int n,View old,ViewGroup parent){AppCatalog.Entry e=items.get(n);IconTile tile=new IconTile(MainActivity.this,e.label,e.icon,e.key);tile.setFocusable(false);tile.setClickable(false);tile.setLongClickable(false);tile.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1,dp(114)));return tile;}
+        final List<AppCatalog.Entry> items=new ArrayList<>();final List<LauncherStore.Item> folders=new ArrayList<>();boolean onlyBuiltins;
+        void filter(String q){items.clear();items.addAll(catalog.filter(q,onlyBuiltins));folders.clear();if(!onlyBuiltins&&store.preferences.getBoolean("search_folders",true)&&!q.trim().isEmpty())for(LauncherStore.Item folder:store.folders())if(folder.label.toLowerCase(Locale.ROOT).contains(q.toLowerCase(Locale.ROOT).trim()))folders.add(folder);notifyDataSetChanged();}
+        @Override public int getCount(){return items.size()+folders.size();}@Override public Object getItem(int n){return n<items.size()?items.get(n):folders.get(n-items.size());}@Override public long getItemId(int n){return n;}
+        @Override public View getView(int n,View old,ViewGroup parent){AppCatalog.Entry e=n<items.size()?items.get(n):null;LauncherStore.Item folder=e==null?folders.get(n-items.size()):null;IconTile tile=new IconTile(MainActivity.this,e==null?folder.label:e.label,e==null?null:e.icon,e==null?"folder":e.key);tile.appearance(store.preferences,"drawer");tile.fitCell(Math.max(dp(30),(root.getWidth()-dp(64))/Math.min(8,store.preferences.getInt("drawer_columns",3)+(compact()?2:0))),dp(132));tile.setFocusable(false);tile.setClickable(false);tile.setLongClickable(false);tile.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1,dp(132)));return tile;}
     }
 
     @Override public void menu(LauncherStore.Item item){
@@ -490,7 +508,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         new AlertDialog.Builder(this).setTitle("Add to folder").setItems(names,(d,w)->{LauncherStore.Item folder=folders.get(w);for(LauncherStore.Item c:folder.children)if(c.key.equals(key)){toast("Already in this folder.");return;}if(folder.children.size()>=100){toast("This folder is full.");return;}folder.children.add(source.copy());store.save();toast("Added to "+folder.label);closePanel();}).show();
     }
     private void showFolder(LauncherStore.Item folder){
-        LinearLayout folderPanel=openPanel(folder.label);
+        LinearLayout folderPanel=openPanel(store.preferences.getBoolean("folder_title",true)?folder.label:"Folder");folderPanel.setTag("folder");applyCrystalAppearance();
         // Folder surfaces emerge from the desktop plane rather than appearing as a list.
         if(!store.reducedMotion&&!systemReduced){
             folderPanel.setScaleX(.88f);folderPanel.setScaleY(.88f);
@@ -505,14 +523,14 @@ public final class MainActivity extends Activity implements MotionController.Lis
         LinearLayout body=scrollBody(folderPanel);
         if(folder.children.isEmpty())paragraph(body,"Hold an app in Start and choose Add to folder to put it here.");
         android.widget.GridLayout shelf=new android.widget.GridLayout(this);
-        shelf.setColumnCount(compact()?5:3);shelf.setClipChildren(false);
+        int folderColumns=Math.max(2,Math.min(6,store.preferences.getInt("folder_columns",3)));shelf.setColumnCount(folderColumns);shelf.setClipChildren(false);
         for(LauncherStore.Item item:folder.children){
             AppCatalog.Entry entry=catalog.find(item.key);
-            IconTile tile=new IconTile(this,item.label,catalog.icon(item),item.key);
+            IconTile tile=new IconTile(this,item.label,catalog.icon(item),item.key);tile.appearance(store.preferences,"folder");tile.fitCell(Math.max(dp(30),(folderPanel.getLayoutParams().width-dp(56))/folderColumns),dp(132));
             tile.setOnClickListener(v->open(item));
             tile.setOnLongClickListener(v->{menu(item);return true;});
             android.widget.GridLayout.LayoutParams lp=new android.widget.GridLayout.LayoutParams();
-            lp.width=dp(compact()?94:100);lp.height=dp(112);
+            lp.width=0;lp.columnSpec=android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED,1f);lp.height=dp(132);
             lp.setMargins(dp(4),dp(6),dp(4),dp(8));shelf.addView(tile,lp);
         }
         body.addView(shelf,new LinearLayout.LayoutParams(-1,-2));
@@ -524,7 +542,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     @Override public void startMenu(){showStart();}
     @Override public void feed(){
-        if(!crystal.feedEnabled()||crystal.feedProvider()==3)return;
+        if(!crystal.feedEnabled()||!crystal.feedEdgeSwipe()||crystal.feedProvider()==3)return;
         if(crystal.feedProvider()==2){toast("Nth Feed is not available yet.");return;}
         if(crystal.feedProvider()==1){openGoogleFeed();return;}
         openGoogleFeed();
@@ -539,7 +557,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     @Override public void backgroundMenu(){
         LinearLayout body=scrollBody(openPanel("Desktop",true));
         paragraph(body,"Customize your Crystal Glass desktop");
-        action(body,"⚙  Settings",this::showDesktopActions);
+        action(body,"⚙  Settings",this::showSettings);
         action(body,"▦  Widgets",this::showWidgets);
         action(body,"Add apps",this::showStart);
     }
@@ -590,6 +608,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);
+        if(request==3071||request==3072){settingsDocumentResult(request,result,data);return;}
         if(request==3050){desktop.rebuild();return;}
         if(request!=3047&&request!=3048&&request!=3049)return;
         if(pendingWidgetId<0||request!=pendingWidgetRequest)return;
@@ -640,92 +659,34 @@ public final class MainActivity extends Activity implements MotionController.Lis
         Button tryScene=Ui.primary(this,"Try this scene",this::closePanel);LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,dp(52));tp.topMargin=dp(10);p.addView(tryScene,tp);
         Button mix=Ui.quiet(this,"Menus and transitions",this::showSettings);p.addView(mix,new LinearLayout.LayoutParams(-1,dp(48)));
     }
-    private void showSettings(){
-        LinearLayout body=scrollBody(openPanel("3D settings"));
-        section(body,"Scene and movement");action(body,"Scene: "+LauncherStore.MODES[store.mode],this::showModes);
-        toggle(body,"Tilt parallax",store.tilt,v->{store.tilt=v;changed(false);});
-        slider(body,"Depth strength",Math.round(store.strength*100),0,100,v->{store.strength=v/100f;changed(false);});
-        toggle(body,"Ambient scene animation",store.ambient,v->{store.ambient=v;changed(false);});
-        toggle(body,"Reduced motion",store.reducedMotion,v->{store.reducedMotion=v;changed(true);});
-        paragraph(body,motion.sensorName()+(powerSave?" · battery saver pauses tilt and physics":"")+(systemReduced?" · Android animations are disabled":""));
-        action(body,"Recenter tilt",()->{motion.recenter();toast("Hold the phone comfortably; tilt is centered.");});
-        section(body,"Desktop placement grid");
-        action(body,"Grid columns: "+store.preferences.getInt("grid_columns",4),()->{
-            String[] options={"3 columns","4 columns","5 columns","6 columns","7 columns","8 columns"};
-            new AlertDialog.Builder(this).setTitle("Desktop grid columns")
-                .setSingleChoiceItems(options,store.preferences.getInt("grid_columns",4)-3,(dialog,which)->{
-                    store.preferences.edit().putInt("grid_columns",which+3).apply();
-                    dialog.dismiss();desktop.rebuild();showSettings();
-                }).setNegativeButton("Cancel",null).show();
-        });
-        action(body,"Grid row height: "+store.preferences.getInt("grid_row_dp",112)+" dp",()->{
-            String[] options={"88 dp · Compact","100 dp","112 dp · Default","128 dp","144 dp · Spacious"};
-            int[] values={88,100,112,128,144};
-            int selected=2;for(int i=0;i<values.length;i++)if(values[i]==store.preferences.getInt("grid_row_dp",112))selected=i;
-            new AlertDialog.Builder(this).setTitle("Desktop grid row spacing")
-                .setSingleChoiceItems(options,selected,(dialog,which)->{
-                    store.preferences.edit().putInt("grid_row_dp",values[which]).apply();
-                    dialog.dismiss();desktop.rebuild();showSettings();
-                }).setNegativeButton("Cancel",null).show();
-        });
-        paragraph(body,"Apps, folders and widgets snap to the chosen grid. Gravity Playground keeps its physics movement.");
-        section(body,"Desktop transition");choice(body,LauncherStore.TRANSITIONS,store.transition,v->{store.transition=v;changed(false);showSettings();});
-        section(body,"Start menu and flyouts");choice(body,LauncherStore.MENUS,store.menuStyle,v->{store.menuStyle=v;changed(false);showSettings();});
-        section(body,"Living Pond");slider(body,"Fish count",store.fishCount,3,7,v->{store.fishCount=v;changed(false);});slider(body,"Fish speed",Math.round(store.fishSpeed*100),20,150,v->{store.fishSpeed=v/100f;changed(false);});
-        toggle(body,"Water ripples",store.ripples,v->{store.ripples=v;changed(false);});toggle(body,"Fish and leaf shadows",store.shadows,v->{store.shadows=v;changed(false);});
-        section(body,"Crystal Studio");
-        action(body,"Material: "+CrystalPreferences.MATERIALS[crystal.material()],()->new AlertDialog.Builder(this).setTitle("Crystal material")
-            .setSingleChoiceItems(CrystalPreferences.MATERIALS,crystal.material(),(d,which)->{
-                crystal.setMaterial(which);d.dismiss();showSettings();
-            }).setNegativeButton("Cancel",null).show());
-        action(body,"Menu animation: "+CrystalPreferences.MENU_ANIMATIONS[crystal.menuAnimation()],()->new AlertDialog.Builder(this).setTitle("Menu animation")
-            .setSingleChoiceItems(CrystalPreferences.MENU_ANIMATIONS,crystal.menuAnimation(),(d,which)->{
-                crystal.setMenuAnimation(which);d.dismiss();showSettings();
-            }).setNegativeButton("Cancel",null).show());
-        action(body,"Lighting: "+CrystalPreferences.LIGHTING[crystal.lighting()],()->new AlertDialog.Builder(this).setTitle("Crystal lighting")
-            .setSingleChoiceItems(CrystalPreferences.LIGHTING,crystal.lighting(),(d,which)->{
-                crystal.setLighting(which);d.dismiss();showSettings();
-            }).setNegativeButton("Cancel",null).show());
-        section(body,"Crystal Studio");
-        action(body,"Material: "+CrystalPreferences.MATERIALS[crystal.material()],()->
-            new AlertDialog.Builder(this).setTitle("Crystal material")
-                .setSingleChoiceItems(CrystalPreferences.MATERIALS,crystal.material(),(dialog,index)->{
-                    crystal.setMaterial(index);dialog.dismiss();applyCrystalAppearance();showSettings();
-                }).setNegativeButton("Cancel",null).show());
-        action(body,"Menu animation: "+CrystalPreferences.MENU_ANIMATIONS[crystal.menuAnimation()],()->
-            new AlertDialog.Builder(this).setTitle("Menu animation")
-                .setSingleChoiceItems(CrystalPreferences.MENU_ANIMATIONS,crystal.menuAnimation(),(dialog,index)->{
-                    crystal.setMenuAnimation(index);dialog.dismiss();showSettings();
-                }).setNegativeButton("Cancel",null).show());
-        action(body,"Lighting: "+CrystalPreferences.LIGHTING[crystal.lighting()],()->
-            new AlertDialog.Builder(this).setTitle("Crystal lighting")
-                .setSingleChoiceItems(CrystalPreferences.LIGHTING,crystal.lighting(),(dialog,index)->{
-                    crystal.setLighting(index);dialog.dismiss();applyCrystalAppearance();showSettings();
-                }).setNegativeButton("Cancel",null).show());
-        section(body,"Crystal Glass · visual defaults");
-        slider(body,"Glass transparency",crystal.transparency(),0,100,v->{crystal.setTransparency(v);applyCrystalAppearance();});
-        slider(body,"Crystal depth",crystal.depth(),0,100,v->{crystal.setDepth(v);applySettings(false);});
-        slider(body,"Crystal motion",crystal.motion(),0,100,v->{crystal.setMotion(v);applySettings(false);});
-        toggle(body,"Crystal parallax",crystal.parallax(),v->{crystal.setParallax(v);applySettings(false);});
-        toggle(body,"Crystal dynamic shadows",crystal.shadows(),v->{crystal.setShadows(v);applySettings(false);});
-        action(body,"Rendering: "+crystal.quality(),()->new AlertDialog.Builder(this).setTitle("Rendering quality").setSingleChoiceItems(new String[]{"Performance","Balanced","Cinematic"},crystal.qualityIndex(),(d,which)->{crystal.setQuality(which);applySettings(false);d.dismiss();showSettings();}).setNegativeButton("Cancel",null).show());
-        paragraph(body,"Depth, motion, parallax and shadows now affect the scene. Glass transparency updates the dock and panels; advanced refraction is planned.");
-        section(body,"Feed Page");
-        toggle(body,"Enable feed",crystal.feedEnabled(),v->crystal.setFeedEnabled(v));
-        action(body,"Feed provider: "+crystal.feedProviderLabel(),()->new AlertDialog.Builder(this).setTitle("Feed provider").setSingleChoiceItems(new String[]{"Google Discover (preferred)","Google App","Nth Feed (coming later)","Off"},crystal.feedProvider(),(d,which)->{crystal.setFeedProvider(which);d.dismiss();showSettings();}).setNegativeButton("Cancel",null).show());
-        toggle(body,"Edge swipe",crystal.feedEdgeSwipe(),v->crystal.setFeedEdgeSwipe(v));
-        toggle(body,"Feed 3D transition",crystal.feed3dTransition(),v->crystal.setFeed3dTransition(v));
-        action(body,"Google Discover",this::showDiscoverEntry);
-        paragraph(body,"Discover companion compatibility is experimental and not yet integrated. Google App fallback opens the installed Google app.");
-        section(body,"Launcher");action(body,"Set default Home",this::requestHome);action(body,"Arrange current desktop",()->{desktop.arrange();toast("Shortcuts arranged");});action(body,"About Nth Desktop 3D",this::showAbout);
+    private SettingsModel settingsModel(){if(settingsModel==null)settingsModel=new SettingsModel(store,crystal,rebuild->{changed(rebuild);applyCrystalAppearance();});return settingsModel;}
+    private void showSettings(){showSettings("root");}
+    private void showSettings(String page){
+        LinearLayout p=openPanel("3D settings");settingsStudio=new SettingsStudio(this,settingsModel(),catalog,new SettingsStudio.Host(){
+            public void home(){requestHome();}public void arrange(){desktop.arrange();toast("Desktop arranged");}public void recenter(){motion.recenter();toast("Tilt centered");}public void feed(){openGoogleFeed();}public void widgets(){showWidgets();}public void folder(){newFolder();}public void overview(){showDesktopOverview();}public void apps(){showStart();}public void about(){showAbout();}public void backup(boolean restore){settingsDocument(restore);}
+            public boolean openApp(String query){List<AppCatalog.Entry> matches=catalog.filter(query,false);if(matches.size()==1){launch(matches.get(0).key);return true;}if(matches.size()>1){showStart();appSearch.setText(query);toast("Choose an app from the matching shortcuts.");return true;}return false;}
+        },page);p.addView(settingsStudio,new LinearLayout.LayoutParams(-1,0,1));
     }
+    private void settingsDocument(boolean restore){
+        Intent intent=new Intent(restore?Intent.ACTION_OPEN_DOCUMENT:Intent.ACTION_CREATE_DOCUMENT).setType(restore?"*/*":"application/json").addCategory(Intent.CATEGORY_OPENABLE);
+        if(!restore)intent.putExtra(Intent.EXTRA_TITLE,"Nth-Desktop-3D-Settings.nth3dsettings");
+        try{startActivityForResult(intent,restore?3072:3071);}catch(RuntimeException unavailable){toast("Android file picker unavailable.");}
+    }
+    private void settingsDocumentResult(int request,int result,Intent data){
+        if(result!=RESULT_OK||data==null||data.getData()==null)return;
+        try{
+            if(request==3071){try(java.io.OutputStream stream=getContentResolver().openOutputStream(data.getData(),"wt")){if(stream==null)throw new java.io.IOException();stream.write(settingsModel().exportSettings().toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));}toast("Settings backup saved");}
+            else{java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();try(java.io.InputStream stream=getContentResolver().openInputStream(data.getData())){if(stream==null)throw new java.io.IOException();byte[] chunk=new byte[4096];int n;while((n=stream.read(chunk))!=-1){if(bytes.size()+n>65536)throw new java.io.IOException("Settings file too large");bytes.write(chunk,0,n);}}settingsModel().importSettings(new org.json.JSONObject(bytes.toString("UTF-8")));if(settingsStudio==null)showSettings("backup");else settingsStudio.restored();toast("Settings restored. Undo is available in Nth Nota.");}
+        }catch(Exception error){toast("Could not "+(request==3071?"save settings.":"restore this settings file. No unsupported settings were applied."));}
+    }
+    @Override public void gesture(int action){switch(action){case 0:showStart();break;case 1:showSettings();break;case 2:showSettings("nota");break;case 3:showControls();break;default:break;}}
     private void openGoogleFeed(){
         Intent intent=getPackageManager().getLaunchIntentForPackage("com.google.android.googlequicksearchbox");
         if(intent==null){toast("Google app unavailable. Install or enable Google to use the fallback.");return;}
         try{
             android.app.ActivityOptions transition=android.app.ActivityOptions.makeCustomAnimation(this,
                 android.R.anim.slide_in_left,android.R.anim.fade_out);
-            startActivity(intent,transition.toBundle());
+            if(crystal.feed3dTransition()&&!store.reducedMotion)startActivity(intent,transition.toBundle());else startActivity(intent);
         }catch(RuntimeException e){toast("Could not open Google app.");}
     }
     private interface BoolAction{void set(boolean v);}private interface IntAction{void set(int v);}

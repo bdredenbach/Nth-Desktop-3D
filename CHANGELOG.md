@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 — 2026-11-13
+
+- Replace the long settings list and duplicate Crystal sections with searchable categories and a live, draggable 3D preview. Preserve the page and values across recreation and rotation.
+- Render launcher menu material only over the visible desktop icons, folders and widgets beneath it, with animated feathering into transparent empty space. Provide opacity, fade width and empty-area controls plus a fixed-glass fallback.
+- Add real icon size/label/color, folder/drawer grid, dock visibility/appearance, layout lock, new-app placement, infinite paging and empty-space gesture settings. Keep widgets and shortcuts in the existing occupancy grid.
+- Integrate Nth Nota with bounded offline setting commands, settings navigation, app opening, exact grid-layout Undo and an optional consent-based connection to the existing Nth Nota cloud gateway. Cloud prose never executes settings.
+- Add versioned settings-only export/restore using Android document contracts; validate imports before applying and exclude notes, desktop data, widget bindings, signing keys and cloud consent.
+- Keep the R2 signing identity; versionCode increases to 10080 for an in-place update.
+
 ## 0.3.2 — 2026-11-13
 
 - Replace the system widget list with a searchable gallery grouped by app, with provider preview layouts/images and the actual desktop grid size before selection. Browse/cancel without allocating a widget ID. Render preview rows on demand with a bounded cache.

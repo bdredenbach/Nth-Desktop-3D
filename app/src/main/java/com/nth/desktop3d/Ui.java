@@ -27,7 +27,7 @@ final class Ui {
     static Drawable touch(Context c,Drawable base,int radius){return new RippleDrawable(ColorStateList.valueOf(0x25B6D5FF),base,surface(0xFFFFFFFF,radius,c));}
     static TextView text(Context c,String s,int sp,int color) {
         TextView t=new TextView(c);t.setText(s);t.setTextSize(sp);t.setTextColor(color);t.setGravity(Gravity.CENTER_VERTICAL);
-        t.setFontFeatureSettings("kern");return t;
+        t.setShadowLayer(dp(c,1.5f),0,dp(c,1),0xB0000000);t.setFontFeatureSettings("kern");return t;
     }
     static Button button(Context c,String s,Runnable action) {
         Button b=new Button(c);b.setText(s);b.setTextSize(14);b.setTextColor(TEXT);b.setAllCaps(false);b.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));

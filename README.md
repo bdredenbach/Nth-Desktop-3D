@@ -1,7 +1,7 @@
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and four original GPU scenes. Current test release: **0.3.2**.
+animated Start menus and four original GPU scenes. Current test release: **0.4.0**.
 
 Install the supplied signed release APK for continued updates. Version 0.3.2
 uses the owner's replacement **R2** signing certificate. Moving from the lost
@@ -12,6 +12,8 @@ R2 signing backup on your phone and reattach it for future builds. See
 Widgets now use Android's registered host views, share a placement grid with apps
 and folders, and support direct hold/drag plus cell-aligned resizing. See
 [widget placement](docs/widget-placement.md) for the interaction and validation scope.
+
+Settings now use searchable categories, a live 3D preview and content-aware fading menu backgrounds. Nth Nota supports offline setting commands with Undo and optional cloud explanations. See [immersive settings](docs/immersive-settings.md) for controls, privacy and the remaining reference-video scope.
 
 ## Included
 

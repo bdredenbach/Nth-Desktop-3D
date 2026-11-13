@@ -16,7 +16,7 @@ import java.util.List;
 /** Accessible shortcut planes, with bounded physics and native inverse-transform input. */
 @android.annotation.SuppressLint("ViewConstructor") // Requires the canonical layout and launcher action host.
 final class DesktopView extends FrameLayout {
-    interface Host { void open(LauncherStore.Item item);void menu(LauncherStore.Item item);void backgroundMenu();void pageChanged();void ripple(float x,float y);void startMenu();void feed();void configureWidget(int id); }
+    interface Host { void open(LauncherStore.Item item);void menu(LauncherStore.Item item);void backgroundMenu();void pageChanged();void ripple(float x,float y);void startMenu();void feed();void configureWidget(int id);void gesture(int action); }
     private final LauncherStore store;
     private final AppCatalog catalog;
     private final LauncherWidgetHost widgetHost;
@@ -31,6 +31,7 @@ final class DesktopView extends FrameLayout {
     private java.util.List<DesktopGrid.Cell> cells=new ArrayList<>(),originalPlan,previewPlan;
     private DesktopGrid.Cell dragStart;
     private String dragId,pendingRevealItem;
+    private long lastBackgroundTap;
     private int columns,rows,visibleRows,cw,ch;
     private int renderedPage=-1,pendingRevealId=-1;
     private java.util.List<DesktopGrid.Cell> obstaclePlan;
@@ -57,6 +58,11 @@ final class DesktopView extends FrameLayout {
         stage=new FrameLayout(c);stage.setClipChildren(false);stage.setClipToPadding(false);stage.setCameraDistance(Ui.dp(c,2200));
         addView(stage,new LayoutParams(-1,-1));setFocusable(false);
     }
+    java.util.List<android.graphics.RectF> backdropRects(View target){
+        java.util.List<android.graphics.RectF> boxes=new ArrayList<>();android.graphics.Rect visible=new android.graphics.Rect();if(!getGlobalVisibleRect(visible))return boxes;int[] origin=new int[2];target.getLocationOnScreen(origin);float sx=Math.max(.1f,target.getScaleX()),sy=Math.max(.1f,target.getScaleY());
+        for(View view:cellViews.values()){if(view.getVisibility()!=View.VISIBLE||view.getAlpha()<.1f)continue;android.graphics.Rect rect=new android.graphics.Rect();if(view.getGlobalVisibleRect(rect)&&rect.intersect(visible))boxes.add(new android.graphics.RectF((rect.left-origin[0])/sx,(rect.top-origin[1])/sy,(rect.right-origin[0])/sx,(rect.bottom-origin[1])/sy));}
+        return boxes;
+    }
     void configure(boolean reduced,boolean powerSave){this.reduced=reduced;this.powerSave=powerSave;}
     void tilt(float x,float y){tiltX=x;tiltY=y;}
     void setModal(boolean v){modal=v;if(v){clearSelection();touching=false;removeCallbacks(backgroundHold);}}
@@ -76,7 +82,7 @@ final class DesktopView extends FrameLayout {
         for(LauncherStore.Item item:store.pages.get(store.page)){
             if(gravity()&&visible++>=18)break;
             AppCatalog.Entry entry=catalog.find(item.key);
-            IconTile tile=new IconTile(getContext(),item.label,catalog.icon(item),item.key);
+            IconTile tile=new IconTile(getContext(),item.label,catalog.icon(item),item.key);tile.appearance(store.preferences,"desktop");
             tile.setOnClickListener(v->host.open(item));tile.setOnLongClickListener(v->{host.menu(item);return true;});
             if(gravity())tile.physicsStyle();
             Body body=new Body(tile,item);bodies.add(body);cellViews.put(item.id,tile);
@@ -191,7 +197,7 @@ final class DesktopView extends FrameLayout {
         if(save){editor.apply();store.save();}
     }
     private void startDrag(String id){
-        if(cells.isEmpty())return;
+        if(cells.isEmpty()||store.preferences.getBoolean("lock_layout",false))return;
         workspace.select(null,null);dragId=id;dragStart=DesktopGrid.find(cells,id);originalPlan=new ArrayList<>(cells);previewPlan=new ArrayList<>(cells);
         View view=cellViews.get(id);if(view!=null){view.setElevation(Ui.dp(getContext(),24));view.setAlpha(.86f);}
         workspace.preview(dragStart==null?null:rectangle(dragStart),true);workspace.requestDisallowInterceptTouchEvent(true);
@@ -251,6 +257,7 @@ final class DesktopView extends FrameLayout {
         });popup.show();
     }
     private void beginResize(int id){
+        if(store.preferences.getBoolean("lock_layout",false))return;
         android.appwidget.AppWidgetProviderInfo info=providers.get(id);DesktopGrid.Cell selected=DesktopGrid.find(cells,widgetKey(id));
         if(info==null||selected==null||info.resizeMode==android.appwidget.AppWidgetProviderInfo.RESIZE_NONE)return;
         workspace.axes(info.resizeMode);workspace.select(rectangle(selected),new WorkspaceFrame.Resize(){
@@ -289,7 +296,7 @@ final class DesktopView extends FrameLayout {
                     case MotionEvent.ACTION_MOVE:
                         float dx=e.getRawX()-sx,dy=e.getRawY()-sy;
                         if(!held&&!gravity()&&Math.hypot(dx,dy)>ViewConfiguration.get(getContext()).getScaledTouchSlop()){cancelledTap=true;v.removeCallbacks(hold);return true;}
-                        if((held||gravity())&&Math.hypot(dx,dy)>Ui.dp(getContext(),8)){
+                        if(!store.preferences.getBoolean("lock_layout",false)&&(held||gravity())&&Math.hypot(dx,dy)>Ui.dp(getContext(),8)){
                             if(!moved){moved=true;if(!gravity())startDrag(body.item.id);}
                             if(!gravity())previewDrag(dx,dy);
                             else{body.x=SceneMath.clamp(bx+dx,0,Math.max(0,width-v.getWidth()));body.y=SceneMath.clamp(by+dy,0,Math.max(0,height-v.getHeight()));long dt=Math.max(1,e.getEventTime()-last);body.vx=(e.getRawX()-lastX)*1000/dt;body.vy=(e.getRawY()-lastY)*1000/dt;v.setTranslationX(body.x);v.setTranslationY(body.y);last=e.getEventTime();lastX=e.getRawX();lastY=e.getRawY();}
@@ -363,7 +370,7 @@ final class DesktopView extends FrameLayout {
     }
     void arrange(){for(LauncherStore.Item i:store.pages.get(store.page)){i.x=i.y=-1;i.cellX=i.cellY=-1;}rebuild();store.save();}
     void changePage(int direction){
-        if(animating||modal)return;savePositions();
+        if(animating||modal)return;if(!store.preferences.getBoolean("infinite_scroll",false)&&(store.page+direction<0||store.page+direction>=LauncherStore.PAGE_COUNT))return;savePositions();
         if(reduced){store.page=SceneMath.wrap(store.page+direction,LauncherStore.PAGE_COUNT);rebuild();store.save();host.pageChanged();return;}
         animating=true;int next=SceneMath.wrap(store.page+direction,LauncherStore.PAGE_COUNT);final boolean[] switched={false};
         animator=ValueAnimator.ofFloat(0,1);animator.setDuration(470);animator.setInterpolator(new DecelerateInterpolator());
@@ -415,14 +422,15 @@ final class DesktopView extends FrameLayout {
                 if(Math.hypot(dx,dy)>ViewConfiguration.get(getContext()).getScaledTouchSlop()){removeCallbacks(backgroundHold);if(Math.abs(dy)>Math.abs(dx))verticalGesture=true;if(!verticalGesture&&Math.abs(dx)>Math.abs(dy)*1.4f)swiping=true;}return true;
             case MotionEvent.ACTION_UP:removeCallbacks(backgroundHold);if(startedOnItem){startedOnItem=false;return true;}if(!held){
                 float endDx=e.getX()-downX,endDy=e.getY()-downY;
-                if(Math.abs(endDy)>gestureSlop&&Math.abs(endDy)>Math.abs(endDx)*1.4f&&endDy<0){host.startMenu();}
+                if(Math.abs(endDy)>gestureSlop&&Math.abs(endDy)>Math.abs(endDx)*1.4f&&endDy<0){host.gesture(store.preferences.getInt("gesture_up",0));}
+                else if(Math.abs(endDy)>gestureSlop&&Math.abs(endDy)>Math.abs(endDx)*1.4f&&endDy>0){host.gesture(store.preferences.getInt("gesture_down",3));}
                 else if(swiping&&Math.abs(endDx)>gestureSlop){
-                    if(endDx>0&&store.page==0){host.feed();}
-                    else if(endDx<0&&store.page==LauncherStore.PAGE_COUNT-1){
+                    if(endDx>0&&store.page==0&&!store.preferences.getBoolean("infinite_scroll",false)){host.feed();}
+                    else if(endDx<0&&store.page==LauncherStore.PAGE_COUNT-1&&!store.preferences.getBoolean("infinite_scroll",false)){
                         float tilt=endDx>0?12f:-12f;
                         stage.animate().rotationY(tilt).setDuration(110).withEndAction(()->stage.animate().rotationY(0).setDuration(240).start()).start();
                     }else changePage(endDx<0?1:-1);
-                }else if(!swiping&&!verticalGesture)performClick();
+                }else if(!swiping&&!verticalGesture){long now=android.os.SystemClock.uptimeMillis();if(now-lastBackgroundTap<320){lastBackgroundTap=0;host.gesture(store.preferences.getInt("gesture_double",4));}else lastBackgroundTap=now;performClick();}
             }return true;
             case MotionEvent.ACTION_CANCEL:removeCallbacks(backgroundHold);return true;
             default:return true;
