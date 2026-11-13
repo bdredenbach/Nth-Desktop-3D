@@ -7,12 +7,31 @@ android {
         applicationId 'com.nth.desktop3d'
         minSdk 26
         targetSdk 35
-        versionCode 2
-        versionName '0.2.0'
+        versionCode (System.getenv('GITHUB_RUN_NUMBER') ? 10000 + System.getenv('GITHUB_RUN_NUMBER').toInteger() : 2)
+        versionName (System.getenv('GITHUB_RUN_NUMBER') ? '0.2.' + System.getenv('GITHUB_RUN_NUMBER') : '0.2.0')
         testInstrumentationRunner 'com.nth.desktop3d.test.SmokeInstrumentation'
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-    buildTypes { release { minifyEnabled false } }
+    signingConfigs {
+        stable {
+            def path = System.getenv('NTH_SIGNING_STORE_FILE')
+            def storePass = System.getenv('NTH_SIGNING_STORE_PASSWORD')
+            def alias = System.getenv('NTH_SIGNING_KEY_ALIAS')
+            def keyPass = System.getenv('NTH_SIGNING_KEY_PASSWORD')
+            if (path && storePass && alias && keyPass) {
+                storeFile file(path)
+                storePassword storePass
+                keyAlias alias
+                keyPassword keyPass
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (System.getenv('NTH_SIGNING_STORE_FILE')) signingConfig signingConfigs.stable
+        }
+    }
     lint { abortOnError true }
 }
 
