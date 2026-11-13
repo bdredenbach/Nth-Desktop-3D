@@ -197,6 +197,63 @@ final class DesktopView extends FrameLayout {
                         }
                     }
                 });
+                // A permanent, small grip avoids relying on widget child views to forward long presses.
+                android.widget.TextView grip=new android.widget.TextView(getContext());
+                grip.setText("⋮⋮");grip.setTextColor(android.graphics.Color.WHITE);
+                grip.setTextSize(17);grip.setGravity(android.view.Gravity.CENTER);
+                grip.setContentDescription("Move or edit widget");
+                grip.setBackground(Ui.satin(getContext(),0xD9367996,0xD911263D,12));
+                FrameLayout.LayoutParams gp=new FrameLayout.LayoutParams(Ui.dp(getContext(),52),Ui.dp(getContext(),28));
+                gp.gravity=android.view.Gravity.TOP|android.view.Gravity.LEFT;
+                gp.leftMargin=lp.leftMargin+Math.max(0,(width-Ui.dp(getContext(),52))/2);
+                gp.topMargin=Math.max(0,lp.topMargin-Ui.dp(getContext(),14));
+                stage.addView(grip,gp);grip.setElevation(Ui.dp(getContext(),30));
+                grip.setOnClickListener(v->selectWidget(widget,id,info));
+                grip.setOnTouchListener(new View.OnTouchListener(){
+                    float sx,sy;int startLeft,startTop;boolean moved;
+                    @Override public boolean onTouch(View v,MotionEvent e){
+                        switch(e.getActionMasked()){
+                            case MotionEvent.ACTION_DOWN:
+                                sx=e.getRawX();sy=e.getRawY();moved=false;
+                                FrameLayout.LayoutParams wp=(FrameLayout.LayoutParams)widget.getLayoutParams();
+                                startLeft=wp.leftMargin;startTop=wp.topMargin;
+                                DesktopView.this.requestDisallowInterceptTouchEvent(true);
+                                return true;
+                            case MotionEvent.ACTION_MOVE:
+                                float dx=e.getRawX()-sx,dy=e.getRawY()-sy;
+                                if(Math.hypot(dx,dy)>Ui.dp(getContext(),6))moved=true;
+                                if(moved){
+                                    FrameLayout.LayoutParams wpMove=(FrameLayout.LayoutParams)widget.getLayoutParams();
+                                    wpMove.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),startLeft+Math.round(dx)));
+                                    wpMove.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),startTop+Math.round(dy)));
+                                    widget.setLayoutParams(wpMove);
+                                    FrameLayout.LayoutParams gripMove=(FrameLayout.LayoutParams)grip.getLayoutParams();
+                                    gripMove.leftMargin=wpMove.leftMargin+Math.max(0,(widget.getWidth()-grip.getWidth())/2);
+                                    gripMove.topMargin=Math.max(0,wpMove.topMargin-Ui.dp(getContext(),14));
+                                    grip.setLayoutParams(gripMove);
+                                }
+                                return true;
+                            case MotionEvent.ACTION_UP:
+                                if(moved){
+                                    FrameLayout.LayoutParams end=(FrameLayout.LayoutParams)widget.getLayoutParams();
+                                    int cw=Math.max(1,getWidth()/gridColumns());
+                                    end.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),snap(end.leftMargin,cw)));
+                                    end.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),Ui.dp(getContext(),24)+snap(end.topMargin-Ui.dp(getContext(),24),cellHeight())));
+                                    widget.setLayoutParams(end);
+                                    FrameLayout.LayoutParams gripEnd=(FrameLayout.LayoutParams)grip.getLayoutParams();
+                                    gripEnd.leftMargin=end.leftMargin+Math.max(0,(widget.getWidth()-grip.getWidth())/2);
+                                    gripEnd.topMargin=Math.max(0,end.topMargin-Ui.dp(getContext(),14));
+                                    grip.setLayoutParams(gripEnd);
+                                    store.preferences.edit().putInt("widget_left_"+id,end.leftMargin)
+                                        .putInt("widget_top_"+id,end.topMargin).apply();
+                                }else v.performClick();
+                                DesktopView.this.requestDisallowInterceptTouchEvent(false);return true;
+                            case MotionEvent.ACTION_CANCEL:
+                                DesktopView.this.requestDisallowInterceptTouchEvent(false);return true;
+                            default:return true;
+                        }
+                    }
+                });
                 position++;
             }catch(RuntimeException ignored){}
         }
