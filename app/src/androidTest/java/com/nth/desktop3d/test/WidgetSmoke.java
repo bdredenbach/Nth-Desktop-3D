@@ -96,8 +96,9 @@ final class WidgetSmoke {
     private void sendUpdate(int id,String label){instrumentation.getTargetContext().sendBroadcast(new Intent().setComponent(new ComponentName(FIXTURE,FIXTURE+".FixtureCommandReceiver")).putExtra("widgetId",id).putExtra("label",label));}
     private void moveWidget(int id,int x,int y){DesktopGrid.Cell start=cell("widget:"+id);dragView(widget(id),(x-start.x)*metric("cw"),(y-start.y)*metric("ch"));idle(250);}
     private void holdEmptyBackground(){
-        ensureGestureWindow();DesktopGrid.Cell empty=DesktopGrid.nearest(new DesktopGrid.Cell("empty",false,0,0,1,1),cells(),metric("columns"),metric("visibleRows"));check(empty!=null,"No empty background cell for hold test");
-        int[] p=position((View)field(desktop(),"workspace"));float x=p[0]+(empty.x+.5f)*metric("cw"),y=p[1]+24*activity.getResources().getDisplayMetrics().density+(empty.y+.5f)*metric("ch");
+        ensureGestureWindow();DesktopGrid.Cell empty=DesktopGrid.nearest(new DesktopGrid.Cell("empty",false,0,0,1,1),cells(),metric("columns"),metric("visibleRows"));
+        // A populated screen can have no wholly vacant cell; the icon's side gutter is still background.
+        int[] p=position((View)field(desktop(),"workspace"));float x=p[0]+(empty==null?1:(empty.x+.5f)*metric("cw")),y=p[1]+24*activity.getResources().getDisplayMetrics().density+(empty==null?.5f:empty.y+.5f)*metric("ch");
         long start=SystemClock.uptimeMillis();pointer(start,MotionEvent.ACTION_DOWN,x,y);idle(android.view.ViewConfiguration.getLongPressTimeout()+150);pointer(start,MotionEvent.ACTION_UP,x,y);idle(300);
     }
     private void dragView(View view,float dx,float dy){ensureGestureWindow();check(view!=null,"Gesture view missing");int[] p=position(view);drag(p[0]+view.getWidth()/2f,p[1]+view.getHeight()/3f,dx,dy,true);}
