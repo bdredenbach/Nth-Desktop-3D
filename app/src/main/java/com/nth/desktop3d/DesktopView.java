@@ -158,8 +158,8 @@ final class DesktopView extends FrameLayout {
                                     if(moving){
                                         DesktopView.this.requestDisallowInterceptTouchEvent(true);
                                         FrameLayout.LayoutParams move=(FrameLayout.LayoutParams)getLayoutParams();
-                                        move.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-getMeasuredWidth()),startLeft+Math.round(dx)));
-                                        move.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-getMeasuredHeight()),startTop+Math.round(dy)));
+                                        move.leftMargin=Math.max(0,Math.min(Math.max(0,DesktopView.this.getWidth()-getMeasuredWidth()),startLeft+Math.round(dx)));
+                                        move.topMargin=Math.max(0,Math.min(Math.max(0,DesktopView.this.getHeight()-getMeasuredHeight()),startTop+Math.round(dy)));
                                         setLayoutParams(move);
                                     }
                                     return true;
