@@ -32,6 +32,7 @@ final class DesktopView extends FrameLayout {
     private DesktopGrid.Cell dragStart;
     private String dragId;
     private int columns,rows,visibleRows,cw,ch;
+    private int renderedPage=-1,pendingRevealId=-1;
 
     private boolean gravity(){return store.mode==1&&!reduced;}
     private String widgetKey(int id){return "widget:"+id;}
@@ -58,10 +59,12 @@ final class DesktopView extends FrameLayout {
     void tilt(float x,float y){tiltX=x;tiltY=y;}
     void setModal(boolean v){modal=v;if(v){clearSelection();touching=false;removeCallbacks(backgroundHold);}}
     void rebuild(){
+        int previousScroll=renderedPage==store.page&&scroller!=null?scroller.getScrollY():0;renderedPage=store.page;
         clearSelection();if(animator!=null)animator.cancel();animating=false;stage.animate().cancel();resetTransform();
         stage.removeAllViews();bodies.clear();cellViews.clear();providers.clear();cells=new ArrayList<>();
         widgetHost.releaseViews();
         workspace=new WorkspaceFrame(getContext());
+        workspace.addOnLayoutChangeListener((v,l,t,r,b,oldL,oldT,oldR,oldB)->{if(pendingRevealId>=0)post(this::revealPendingWidget);});
         if(!gravity()){
             scroller=new ScrollView(getContext());scroller.setFillViewport(true);scroller.setClipToPadding(false);scroller.setVerticalScrollBarEnabled(false);
             scroller.addView(workspace,new ScrollView.LayoutParams(-1,-2));stage.addView(scroller,new LayoutParams(-1,-1));
@@ -93,11 +96,11 @@ final class DesktopView extends FrameLayout {
                 android.util.Log.e("NthWidgets","Cannot display widget "+id,error);
                 android.widget.TextView placeholder=Ui.text(getContext(),"Widget unavailable\nHold to retry or remove",14,0xFFEAF8FF);
                 placeholder.setGravity(android.view.Gravity.CENTER);placeholder.setBackground(Ui.satin(getContext(),0xB82B3A50,0xB8111D31,14));
-                placeholder.setOnLongClickListener(v->{showWidgetMenu(placeholder,id,info);return true;});view=placeholder;
+                placeholder.setOnLongClickListener(v->{showWidgetMenu(placeholder,id,null);return true;});view=placeholder;
             }
             view.setTag(widgetKey(id));cellViews.put(widgetKey(id),view);workspace.addView(view,new LayoutParams(1,1));
         }
-        updateLayout();post(this::updateLayout);
+        updateLayout();post(()->{updateLayout();if(scroller!=null&&pendingRevealId<0)scroller.scrollTo(0,previousScroll);revealPendingWidget();});
     }
     private java.util.List<Integer> widgetIds(){
         java.util.List<Integer> result=new ArrayList<>();
@@ -199,7 +202,13 @@ final class DesktopView extends FrameLayout {
     }
     boolean revealWidget(int id){
         View view=cellViews.get(widgetKey(id));if(!(view instanceof LauncherWidgetView))return false;
-        post(()->{updateLayout();View shown=cellViews.get(widgetKey(id));if(shown!=null){if(scroller!=null)scroller.smoothScrollTo(0,Math.max(0,Math.round(shown.getTranslationY())-top()));beginResize(id);}});return true;
+        pendingRevealId=id;post(this::revealPendingWidget);return true;
+    }
+    private void revealPendingWidget(){
+        if(pendingRevealId<0)return;View view=cellViews.get(widgetKey(pendingRevealId));
+        if(view==null||view.getWidth()<=0||view.getHeight()<=0||DesktopGrid.find(cells,widgetKey(pendingRevealId))==null)return;
+        int id=pendingRevealId;pendingRevealId=-1;
+        if(scroller!=null)scroller.scrollTo(0,Math.max(0,Math.round(view.getTranslationY())-top()));beginResize(id);
     }
     private void showWidgetMenu(View widget,int id,android.appwidget.AppWidgetProviderInfo info){
         android.widget.PopupMenu popup=new android.widget.PopupMenu(getContext(),widget);
@@ -349,7 +358,10 @@ final class DesktopView extends FrameLayout {
     private void resetTransform(){stage.setRotationX(0);stage.setRotationY(0);stage.setTranslationX(0);stage.setScaleX(1);stage.setScaleY(1);stage.setAlpha(1);}
     @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){super.onSizeChanged(w,h,oldw,oldh);post(this::updateLayout);}
     @Override public boolean dispatchTouchEvent(MotionEvent e){
-        if(e.getActionMasked()==MotionEvent.ACTION_DOWN){touching=true;held=false;verticalGesture=false;}
+        if(e.getActionMasked()==MotionEvent.ACTION_DOWN){
+            touching=true;held=false;verticalGesture=false;downX=e.getX();downY=e.getY();
+            if(!itemAt(downX,downY)&&(workspace==null||!workspace.resizing())){removeCallbacks(backgroundHold);postDelayed(backgroundHold,ViewConfiguration.getLongPressTimeout());host.ripple(downX,downY);}
+        }
         if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&Math.hypot(e.getX()-downX,e.getY()-downY)>ViewConfiguration.get(getContext()).getScaledTouchSlop())removeCallbacks(backgroundHold);
         boolean result=super.dispatchTouchEvent(e);
         if(e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL){touching=false;removeCallbacks(backgroundHold);}
@@ -369,6 +381,7 @@ final class DesktopView extends FrameLayout {
         if(startedOnItem||dragId!=null||(workspace!=null&&workspace.resizing()))return false;
         if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&(store.mode!=1||reduced)&&!held){float dx=e.getX()-downX,dy=e.getY()-downY;
             int slop=ViewConfiguration.get(getContext()).getScaledTouchSlop();
+            if(Math.abs(dy)>Math.abs(dx)&&scroller!=null&&scroller.canScrollVertically(dy<0?1:-1))return false;
             if(!swiping&&Math.abs(dy)>slop*2&&Math.abs(dy)>Math.abs(dx)*1.4f&&dy<0){return true;}
             if(!swiping&&Math.abs(dy)>slop&&Math.abs(dy)>Math.abs(dx))verticalGesture=true;
             if(!verticalGesture&&Math.abs(dx)>slop*2&&Math.abs(dx)>Math.abs(dy)*1.4f){swiping=true;return true;}}
@@ -376,7 +389,7 @@ final class DesktopView extends FrameLayout {
     }
     @Override public boolean onTouchEvent(MotionEvent e){
         switch(e.getActionMasked()){
-            case MotionEvent.ACTION_DOWN:downX=e.getX();downY=e.getY();touching=true;swiping=false;verticalGesture=false;startedOnItem=itemAt(downX,downY);postDelayed(backgroundHold,ViewConfiguration.getLongPressTimeout());host.ripple(e.getX(),e.getY());return true;
+            case MotionEvent.ACTION_DOWN:downX=e.getX();downY=e.getY();touching=true;swiping=false;verticalGesture=false;startedOnItem=itemAt(downX,downY);return true;
             case MotionEvent.ACTION_MOVE:float dx=e.getX()-downX,dy=e.getY()-downY;
                 if(Math.hypot(dx,dy)>ViewConfiguration.get(getContext()).getScaledTouchSlop()){removeCallbacks(backgroundHold);if(Math.abs(dy)>Math.abs(dx))verticalGesture=true;if(!verticalGesture&&Math.abs(dx)>Math.abs(dy)*1.4f)swiping=true;}return true;
             case MotionEvent.ACTION_UP:removeCallbacks(backgroundHold);if(startedOnItem){startedOnItem=false;return true;}if(!held){

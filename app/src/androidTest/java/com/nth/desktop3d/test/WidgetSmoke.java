@@ -38,10 +38,11 @@ final class WidgetSmoke {
         check(instrumentation.getTargetContext().getPackageManager().getApplicationInfo(FIXTURE,0).uid!=android.os.Process.myUid(),"Widget fixture must have a different UID");
         shell("appwidget grantbind --package com.nth.desktop3d --user 0");
         main(()->{LauncherStore store=store();store.mode=0;store.page=0;store.save();invokeDesktop("rebuild");});idle(700);
+        holdEmptyBackground();await(()->findIn(activity.getWindow().getDecorView(),v->v instanceof Button&&((Button)v).getText().toString().endsWith("Widgets"))!=null,"Desktop hold did not expose the widget picker action");main(()->activity.onBackPressed());idle(300);
         int first=addWidget(false);
         await(()->hasText("Hosted widget ready"),"Initial provider RemoteViews were not displayed");assertOccupancy();capture("widget-visible");
         sendUpdate(first,"Live widget update");await(()->hasText("Live widget update"),"Live RemoteViews update did not reach the registered host view");
-        moveWidget(first,1,2);assertOccupancy();check(cell("widget:"+first).x==1&&cell("widget:"+first).y==2,"Widget did not snap to requested grid cell");
+        moveWidget(first,1,2);assertOccupancy();check(cell("widget:"+first).x==1&&cell("widget:"+first).y==2,"Widget did not snap to requested grid cell; actual "+cell("widget:"+first).x+","+cell("widget:"+first).y);
         capture("widget-drag-and-icon-reflow");
         int second=addWidget(false);await(()->widget(second)!=null,"Second widget missing");assertOccupancy();
         DesktopGrid.Cell before=cell("widget:"+second);moveWidget(second,1,2);
@@ -94,7 +95,12 @@ final class WidgetSmoke {
     }
     private void sendUpdate(int id,String label){instrumentation.getTargetContext().sendBroadcast(new Intent().setComponent(new ComponentName(FIXTURE,FIXTURE+".FixtureCommandReceiver")).putExtra("widgetId",id).putExtra("label",label));}
     private void moveWidget(int id,int x,int y){DesktopGrid.Cell start=cell("widget:"+id);dragView(widget(id),(x-start.x)*metric("cw"),(y-start.y)*metric("ch"));idle(250);}
-    private void dragView(View view,float dx,float dy){check(view!=null,"Gesture view missing");int[] p=position(view);drag(p[0]+view.getWidth()/2f,p[1]+view.getHeight()/3f,dx,dy,true);}
+    private void holdEmptyBackground(){
+        ensureGestureWindow();DesktopGrid.Cell empty=DesktopGrid.nearest(new DesktopGrid.Cell("empty",false,0,0,1,1),cells(),metric("columns"),metric("visibleRows"));check(empty!=null,"No empty background cell for hold test");
+        int[] p=position((View)field(desktop(),"workspace"));float x=p[0]+(empty.x+.5f)*metric("cw"),y=p[1]+24*activity.getResources().getDisplayMetrics().density+(empty.y+.5f)*metric("ch");
+        long start=SystemClock.uptimeMillis();pointer(start,MotionEvent.ACTION_DOWN,x,y);idle(android.view.ViewConfiguration.getLongPressTimeout()+150);pointer(start,MotionEvent.ACTION_UP,x,y);idle(300);
+    }
+    private void dragView(View view,float dx,float dy){ensureGestureWindow();check(view!=null,"Gesture view missing");int[] p=position(view);drag(p[0]+view.getWidth()/2f,p[1]+view.getHeight()/3f,dx,dy,true);}
     private void hold(View view){check(view!=null,"Held widget missing");int[] p=position(view);float x=p[0]+view.getWidth()/2f,y=p[1]+view.getHeight()/3f;long start=SystemClock.uptimeMillis();pointer(start,MotionEvent.ACTION_DOWN,x,y);idle(android.view.ViewConfiguration.getLongPressTimeout()+150);pointer(start,MotionEvent.ACTION_UP,x,y);idle(250);}
     private void tap(View view){int[] p=position(view);long start=SystemClock.uptimeMillis();pointer(start,MotionEvent.ACTION_DOWN,p[0]+view.getWidth()/2f,p[1]+view.getHeight()/2f);pointer(start,MotionEvent.ACTION_UP,p[0]+view.getWidth()/2f,p[1]+view.getHeight()/2f);idle(200);}
     private void drag(float x,float y,float dx,float dy,boolean longHold){
@@ -103,9 +109,16 @@ final class WidgetSmoke {
         pointer(start,MotionEvent.ACTION_UP,x+dx,y+dy);idle(300);
     }
     private void pointer(long start,int action,float x,float y){MotionEvent event=MotionEvent.obtain(start,SystemClock.uptimeMillis(),action,x,y,0);event.setSource(InputDevice.SOURCE_TOUCHSCREEN);try{check(instrumentation.getUiAutomation().injectInputEvent(event,true),"Native touch injection failed");}finally{event.recycle();}}
+    private void ensureGestureWindow(){
+        AccessibilityNodeInfo root=instrumentation.getUiAutomation().getRootInActiveWindow();
+        if(root!=null&&!root.findAccessibilityNodeInfosByText("Quickstep isn't responding").isEmpty()){
+            clickSystemText("Close app");idle(400);root=instrumentation.getUiAutomation().getRootInActiveWindow();
+        }
+        check(root!=null&&android.text.TextUtils.equals("com.nth.desktop3d",root.getPackageName()),"Native widget gesture is blocked by another window");
+    }
     private void clickSystemText(String text){
         long end=SystemClock.uptimeMillis()+7000;
-        while(SystemClock.uptimeMillis()<end){AccessibilityNodeInfo root=instrumentation.getUiAutomation().getRootInActiveWindow();if(root!=null){List<AccessibilityNodeInfo> nodes=root.findAccessibilityNodeInfosByText(text);for(AccessibilityNodeInfo node:nodes){if(text.contentEquals(node.getText())&&(node.performAction(AccessibilityNodeInfo.ACTION_CLICK)||(node.getParent()!=null&&node.getParent().performAction(AccessibilityNodeInfo.ACTION_CLICK)))){idle(600);return;}}}idle(100);}
+        while(SystemClock.uptimeMillis()<end){AccessibilityNodeInfo root=instrumentation.getUiAutomation().getRootInActiveWindow();if(root!=null){List<AccessibilityNodeInfo> nodes=root.findAccessibilityNodeInfosByText(text);for(AccessibilityNodeInfo node:nodes){if(android.text.TextUtils.equals(text,node.getText())&&(node.performAction(AccessibilityNodeInfo.ACTION_CLICK)||(node.getParent()!=null&&node.getParent().performAction(AccessibilityNodeInfo.ACTION_CLICK)))){idle(600);return;}}}idle(100);}
         throw new AssertionError("External widget/config menu missing: "+text);
     }
     private boolean known(int id){return java.util.Arrays.asList(instrumentation.getTargetContext().getSharedPreferences("desktop3d",0).getString("widget_ids_page_0","").split(",")).contains(String.valueOf(id));}

@@ -24,6 +24,9 @@ public final class SmokeInstrumentation extends Instrumentation {
     @Override public void onStart(){
         Bundle s=status();sendStatus(1,s);
         try{
+            // Quickstep is not the app under test; keep it from owning Home/recents input.
+            shell("cmd package set-home-activity com.nth.desktop3d/.MainActivity");
+            shell("am force-stop com.android.launcher3");
             // Restore a populated desktop before the first Activity measure: this crashed in 0.1.0.
             com.nth.desktop3d.LauncherStore restored=new com.nth.desktop3d.LauncherStore(getTargetContext());
             restored.page=0;restored.mode=0;
@@ -99,6 +102,7 @@ public final class SmokeInstrumentation extends Instrumentation {
         directory.mkdirs();try(java.io.FileOutputStream stream=new java.io.FileOutputStream(new java.io.File(directory,name+".png"))){bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,stream);}catch(java.io.IOException e){throw new AssertionError(e);}finally{bitmap.recycle();}
     }
     private void back(){main(()->activity.onBackPressed());idle(300);}
+    private void shell(String command)throws java.io.IOException{try(android.os.ParcelFileDescriptor.AutoCloseInputStream input=new android.os.ParcelFileDescriptor.AutoCloseInputStream(getUiAutomation().executeShellCommand(command))){byte[] bytes=new byte[1024];while(input.read(bytes)!=-1){}}}
     // A live wallpaper/physics loop need not leave the message queue completely idle.
     // Use a bounded animation wait and a UI-thread barrier instead of waiting forever.
     private void idle(long ms){SystemClock.sleep(ms);runOnMainSync(()->{});}
