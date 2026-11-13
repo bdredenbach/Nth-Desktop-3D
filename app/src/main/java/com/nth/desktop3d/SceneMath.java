@@ -17,4 +17,22 @@ public final class SceneMath {
         return new float[]{x, y, vx, vy};
     }
     public static float tilt(float radians) { return clamp(radians / .45f, -1f, 1f); }
+    public static boolean overlapsObstacle(float x,float y,float w,float h,float[][] boxes){
+        for(float[] box:boxes)if(x<box[2]&&x+w>box[0]&&y<box[3]&&y+h>box[1])return true;
+        return false;
+    }
+    /** Project against all widget obstacles together; a push from one must not enter another. */
+    public static float[] vacantPosition(float x,float y,float w,float h,float width,float height,float[][] boxes){
+        if(w>width||h>height)return null;
+        x=clamp(x,0,width-w);y=clamp(y,0,height-h);
+        if(!overlapsObstacle(x,y,w,h,boxes))return new float[]{x,y};
+        float[] xs=new float[boxes.length*2+3],ys=new float[boxes.length*2+3];
+        xs[0]=x;xs[1]=0;xs[2]=width-w;ys[0]=y;ys[1]=0;ys[2]=height-h;
+        for(int i=0;i<boxes.length;i++){xs[3+i*2]=boxes[i][0]-w;xs[4+i*2]=boxes[i][2];ys[3+i*2]=boxes[i][1]-h;ys[4+i*2]=boxes[i][3];}
+        float best=Float.MAX_VALUE;float[] result=null;
+        for(float cx:xs)for(float cy:ys)if(cx>=0&&cy>=0&&cx+w<=width&&cy+h<=height&&!overlapsObstacle(cx,cy,w,h,boxes)){
+            float distance=(cx-x)*(cx-x)+(cy-y)*(cy-y);if(distance<best){best=distance;result=new float[]{cx,cy};}
+        }
+        return result;
+    }
 }

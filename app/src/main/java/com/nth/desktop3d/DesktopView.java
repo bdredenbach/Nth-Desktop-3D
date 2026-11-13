@@ -33,6 +33,8 @@ final class DesktopView extends FrameLayout {
     private String dragId;
     private int columns,rows,visibleRows,cw,ch;
     private int renderedPage=-1,pendingRevealId=-1;
+    private java.util.List<DesktopGrid.Cell> obstaclePlan;
+    private float[][] widgetObstacles=new float[0][];
 
     private boolean gravity(){return store.mode==1&&!reduced;}
     private String widgetKey(int id){return "widget:"+id;}
@@ -308,17 +310,17 @@ final class DesktopView extends FrameLayout {
         }
     }
     private void avoidWidgets(Body body){
-        float w=body.tile.getLayoutParams().width,h=body.tile.getLayoutParams().height;
-        for(DesktopGrid.Cell cell:cells)if(cell.widget){
-            android.graphics.RectF box=rectangle(cell);
-            if(body.x<box.right&&body.x+w>box.left&&body.y<box.bottom&&body.y+h>box.top){
-                float[] xs={box.left-w,box.right,body.x,body.x},ys={body.y,body.y,box.top-h,box.bottom};float best=Float.MAX_VALUE;int chosen=-1;
-                for(int i=0;i<4;i++)if(xs[i]>=0&&ys[i]>=0&&xs[i]+w<=width&&ys[i]+h<=height){
-                    float distance=Math.abs(xs[i]-body.x)+Math.abs(ys[i]-body.y);if(distance<best){best=distance;chosen=i;}
-                }
-                if(chosen>=0){body.x=xs[chosen];body.y=ys[chosen];body.vx*= -.35f;body.vy*= -.35f;}
-            }
+        if(obstaclePlan!=cells){
+            obstaclePlan=cells;java.util.List<float[]> boxes=new ArrayList<>();float padding=Ui.dp(getContext(),12);
+            for(DesktopGrid.Cell cell:cells)if(cell.widget){android.graphics.RectF box=rectangle(cell);boxes.add(new float[]{box.left-padding,box.top-padding,box.right+padding,box.bottom+padding});}
+            widgetObstacles=boxes.toArray(new float[0][]);
         }
+        float w=body.tile.getLayoutParams().width,h=body.tile.getLayoutParams().height;
+        body.x=SceneMath.clamp(body.x,0,Math.max(0,width-w));body.y=SceneMath.clamp(body.y,0,Math.max(0,height-h));
+        if(!SceneMath.overlapsObstacle(body.x,body.y,w,h,widgetObstacles)){body.tile.setVisibility(View.VISIBLE);return;}
+        float[] position=SceneMath.vacantPosition(body.x,body.y,w,h,width,height,widgetObstacles);
+        if(position==null){body.tile.setVisibility(View.INVISIBLE);return;} // Still accessible in All shortcuts when widgets cover the entire physics viewport.
+        body.tile.setVisibility(View.VISIBLE);body.x=position[0];body.y=position[1];body.vx*= -.35f;body.vy*= -.35f;
     }
     void frame(float dt){
         if(modal||touching||animating)return;
@@ -379,6 +381,7 @@ final class DesktopView extends FrameLayout {
         if(workspace==null)return false;
         float scroll=scroller==null?0:scroller.getScrollY();
         for(View child:cellViews.values()){
+            if(child.getVisibility()!=View.VISIBLE)continue;
             float left=child.getLeft()+child.getTranslationX(),top=child.getTop()+child.getTranslationY()-scroll;
             if(x>=left&&x<left+child.getWidth()&&y>=top&&y<top+child.getHeight())return true;
         }return false;

@@ -84,6 +84,16 @@ final class WidgetSmoke {
         check(cell(existing).x==original.x&&cell(existing).y==original.y,"Adding a widget moved an icon despite vacant space");capture("widget-vacant-space-placement");
         main(()->{store().page=0;store().save();invokeDesktop("rebuild");});idle(500);
         sendUpdate(first,"Updated after changing desktops");await(()->hasText("Updated after changing desktops"),"Returning to a desktop lost widget update delivery");assertOccupancy();
+        main(()->{store().mode=1;store().save();invokeDesktop("rebuild");});idle(1300);
+        main(()->{
+            int visible=0;
+            for(DesktopGrid.Cell target:cells())if(!target.widget){
+                View icon=view(target.id);if(icon==null||icon.getVisibility()!=View.VISIBLE)continue;visible++;
+                for(DesktopGrid.Cell occupied:cells())if(occupied.widget){View widget=view(occupied.id);android.graphics.RectF a=new android.graphics.RectF(icon.getTranslationX(),icon.getTranslationY(),icon.getTranslationX()+icon.getWidth(),icon.getTranslationY()+icon.getHeight());android.graphics.RectF b=new android.graphics.RectF(widget.getTranslationX(),widget.getTranslationY(),widget.getTranslationX()+widget.getWidth(),widget.getTranslationY()+widget.getHeight());check(!android.graphics.RectF.intersects(a,b),"Gravity icon entered a widget");}
+            }
+            check(visible>0,"Gravity scene did not render any icons");
+        });capture("widgets-gravity-obstacles");
+        main(()->{store().mode=0;store().save();invokeDesktop("rebuild");});idle(400);assertOccupancy();
     }
     private int addWidget(boolean configured){
         AtomicReference<Integer> result=new AtomicReference<>();
@@ -125,7 +135,7 @@ final class WidgetSmoke {
     }
     private boolean clickNode(AccessibilityNodeInfo node,String text){
         if(node==null)return false;
-        if(android.text.TextUtils.equals(text,node.getText())||android.text.TextUtils.equals(text,node.getContentDescription())){
+        if((node.getText()!=null&&text.equalsIgnoreCase(node.getText().toString().trim()))||(node.getContentDescription()!=null&&text.equalsIgnoreCase(node.getContentDescription().toString().trim()))){
             Rect bounds=new Rect();node.getBoundsInScreen(bounds);
             if(node.isVisibleToUser()&&!bounds.isEmpty()){long start=SystemClock.uptimeMillis();pointer(start,MotionEvent.ACTION_DOWN,bounds.exactCenterX(),bounds.exactCenterY());pointer(start,MotionEvent.ACTION_UP,bounds.exactCenterX(),bounds.exactCenterY());return true;}
         }
