@@ -126,10 +126,8 @@ final class WidgetSmoke {
     private boolean clickNode(AccessibilityNodeInfo node,String text){
         if(node==null)return false;
         if(android.text.TextUtils.equals(text,node.getText())||android.text.TextUtils.equals(text,node.getContentDescription())){
-            AccessibilityNodeInfo clickable=node;
-            for(int depth=0;clickable!=null&&depth<4;depth++,clickable=clickable.getParent())if(clickable.isClickable()&&clickable.performAction(AccessibilityNodeInfo.ACTION_CLICK))return true;
             Rect bounds=new Rect();node.getBoundsInScreen(bounds);
-            if(!bounds.isEmpty()){long start=SystemClock.uptimeMillis();pointer(start,MotionEvent.ACTION_DOWN,bounds.exactCenterX(),bounds.exactCenterY());pointer(start,MotionEvent.ACTION_UP,bounds.exactCenterX(),bounds.exactCenterY());return true;}
+            if(node.isVisibleToUser()&&!bounds.isEmpty()){long start=SystemClock.uptimeMillis();pointer(start,MotionEvent.ACTION_DOWN,bounds.exactCenterX(),bounds.exactCenterY());pointer(start,MotionEvent.ACTION_UP,bounds.exactCenterX(),bounds.exactCenterY());return true;}
         }
         for(int i=0;i<node.getChildCount();i++)if(clickNode(node.getChild(i),text))return true;
         return false;
