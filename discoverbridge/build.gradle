@@ -5,6 +5,7 @@ android {
     namespace 'com.nth.desktop3d.discover'
     compileSdk 35
     buildFeatures { aidl true }
+    sourceSets.main.assets.srcDirs += [rootProject.file('docs/licenses')]
     sourceSets.main.aidl.srcDirs = [rootProject.file('app/src/main/aidl')]
     defaultConfig {
         applicationId 'com.nth.desktop3d.discover'

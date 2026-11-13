@@ -7,6 +7,7 @@ android {
     namespace 'com.nth.desktop3d'
     compileSdk 35
     buildFeatures { aidl true }
+    sourceSets.main.assets.srcDirs += [rootProject.file('docs/licenses')]
     defaultConfig {
         applicationId 'com.nth.desktop3d'
         minSdk 26
