@@ -19,7 +19,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class SmokeInstrumentation extends Instrumentation {
     private MainActivity activity;
     private String outputDirectory;
-    @Override public void onCreate(Bundle args){super.onCreate(args);outputDirectory=args==null?null:args.getString("additionalTestOutputDir");start();}
+    private boolean polishOnly;
+    @Override public void onCreate(Bundle args){super.onCreate(args);outputDirectory=args==null?null:args.getString("additionalTestOutputDir");polishOnly=args!=null&&"polish".equals(args.getString("phase"));start();}
     private Bundle status(){Bundle b=new Bundle();b.putString("id","InstrumentationTestRunner");b.putInt("numtests",1);b.putInt("current",1);b.putString("class","com.nth.desktop3d.LauncherSmoke");b.putString("test","scenesMenusPersistenceAndLandscape");return b;}
     @Override public void onStart(){
         Bundle s=status();sendStatus(1,s);
@@ -38,6 +39,7 @@ public final class SmokeInstrumentation extends Instrumentation {
             ActivityMonitor monitor=addMonitor(MainActivity.class.getName(),null,false);
             getTargetContext().startActivity(new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);removeMonitor(monitor);check(activity!=null,"Cold launch timed out");idle(1200);
+            if(polishOnly){new PolishSmoke(this,activity,outputDirectory).run();s.putString("stream","New settings, card data and overlay checks passed.\n");sendStatus(0,s);Bundle result=new Bundle();result.putString("stream","OK (1 focused integration test)\n");finish(Activity.RESULT_OK,result);return;}
             assertRestoredGrid();capture("restored-desktop");
             monitor=addMonitor(MainActivity.class.getName(),null,false);main(()->activity.recreate());
             activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);removeMonitor(monitor);check(activity!=null,"Activity recreation timed out");idle(700);assertRestoredGrid();

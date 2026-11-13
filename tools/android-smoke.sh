@@ -6,8 +6,12 @@ adb shell wm density 210
 ./gradlew :widgetfixture:assembleDebug :discoverbridge:assembleDebug || exit $?
 adb install -r widgetfixture/build/outputs/apk/debug/widgetfixture-debug.apk || exit $?
 adb install -r discoverbridge/build/outputs/apk/debug/discoverbridge-debug.apk || exit $?
-timeout 14m ./gradlew :app:connectedDebugAndroidTest
+timeout 6m ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=polish
 nth_smoke_status=$?
+if [ "$nth_smoke_status" -eq 0 ]; then
+    timeout 14m ./gradlew :app:connectedDebugAndroidTest
+    nth_smoke_status=$?
+fi
 mkdir -p app/build/runtime-screenshots
 timeout 15s adb pull /sdcard/Android/data/com.nth.desktop3d/files/verification app/build/runtime-screenshots 2>/dev/null || true
 timeout 15s adb pull /sdcard/Android/media/com.nth.desktop3d/additional_test_output app/build/runtime-screenshots 2>/dev/null || true
