@@ -39,6 +39,7 @@ def main():
     parser.add_argument('--init-script', type=Path)
     parser.add_argument('--verify-only', type=Path, help='Verify and package an already built release APK.')
     parser.add_argument('--unsigned-apk', type=Path, help='Sign the exact unsigned release artifact from CI instead of rebuilding locally.')
+    parser.add_argument('--companion', action='store_true', help='Sign the optional debuggable Discover bridge, keeping the launcher release non-debuggable.')
     parser.add_argument('--previous-apk', type=Path, help='Also verify the prior signed APK has the same identity and a lower version code.')
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'dist')
     args = parser.parse_args()
@@ -93,10 +94,10 @@ def main():
         apk = args.verify_only.resolve()
     metadata = inspect(apk, build_tools)
     expected = {
-        'applicationId': 'com.nth.desktop3d', 'versionCode': int(version['versionCode']),
+        'applicationId': 'com.nth.desktop3d.discover' if args.companion else 'com.nth.desktop3d', 'versionCode': int(version['versionCode']),
         'versionName': version['versionName'],
         'certificateSha256': (ROOT / 'docs/test-update-certificate.sha256').read_text().strip(),
-        'debuggable': False,
+        'debuggable': args.companion,
     }
     if metadata != expected:
         raise SystemExit('APK does not match the committed package, version, release mode and permanent test certificate.')
@@ -107,7 +108,7 @@ def main():
         if previous['versionCode'] >= metadata['versionCode']:
             raise SystemExit('Increase versionCode beyond the previous APK before publishing an update.')
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    name = f"Nth-Desktop-3D-{metadata['versionName']}.apk"
+    name = f"{'Nth-Discover-Bridge' if args.companion else 'Nth-Desktop-3D'}-{metadata['versionName']}.apk"
     output = args.output_dir / name
     if output.resolve() != apk.resolve():
         shutil.copyfile(apk, output)
@@ -115,8 +116,8 @@ def main():
     metadata['sourceCommit'] = capture(['git', 'rev-parse', 'HEAD']).strip()
     metadata['sourceTreeDirty'] = bool(capture(['git', 'status', '--porcelain', '--untracked-files=no']).strip())
     (args.output_dir / (name + '.sha256')).write_text(f"{metadata['apkSha256']}  {name}\n")
-    (args.output_dir / 'build-verification.json').write_text(json.dumps(metadata, indent=2) + '\n')
-    print(f"Verified {name}: {metadata['applicationId']}, code {metadata['versionCode']}, permanent test certificate, non-debuggable.")
+    (args.output_dir / ('bridge-verification.json' if args.companion else 'build-verification.json')).write_text(json.dumps(metadata, indent=2) + '\n')
+    print(f"Verified {name}: {metadata['applicationId']}, code {metadata['versionCode']}, permanent test certificate, expected release/companion mode.")
     if env.get('GITHUB_OUTPUT'):
         with open(env['GITHUB_OUTPUT'], 'a') as target:
             target.write(f"version={metadata['versionName']}\napk={output}\n")

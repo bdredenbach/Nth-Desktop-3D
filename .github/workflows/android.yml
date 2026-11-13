@@ -32,9 +32,15 @@ jobs:
           name: Nth-Desktop-3D-${{ github.sha }}-unsigned-release
           path: app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
+      - name: Upload unsigned optional Discover bridge
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nth-Discover-Bridge-${{ github.sha }}-unsigned-release
+          path: discoverbridge/build/outputs/apk/release/discoverbridge-release-unsigned.apk
+          if-no-files-found: error
   android-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 24
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5

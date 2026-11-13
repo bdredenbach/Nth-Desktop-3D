@@ -31,7 +31,7 @@ public final class AppCatalog {
     public AppCatalog(Context context) { this.context = context; launcher = context.getSystemService(LauncherApps.class); }
     public synchronized List<Entry> load() {
         List<Entry> next = new ArrayList<>();
-        for (String[] b : new String[][]{{"nota", "Nth Nota"}, {"notes", "Nth Notes"}, {"calculator", "Calculator"}, {"calendar", "Calendar"}, {"settings", "3D settings"}, {"modes", "Scene studio"}, {"about", "About Nth Desktop 3D"}})
+        for (String[] b : new String[][]{{"cards", "Crystal cards"}, {"nota", "Nth Nota"}, {"notes", "Nth Notes"}, {"calculator", "Calculator"}, {"calendar", "Calendar"}, {"settings", "3D settings"}, {"modes", "Scene studio"}, {"about", "About Nth Desktop 3D"}})
             next.add(new Entry("builtin:" + b[0], b[1], null, Process.myUserHandle(), null));
         UserManager users = context.getSystemService(UserManager.class);
         for (UserHandle user : launcher.getProfiles()) {

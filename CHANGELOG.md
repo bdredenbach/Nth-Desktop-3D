@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 — 2026-11-13
+
+- Clip settings scrolling to its viewport and fade rows at the preview boundary.
+- Default new fading-menu settings to enabled, 90 percent opacity over content and an 80 dp fade width; preserve explicitly saved values.
+- Keep every icon label on one line with eight Unicode code points followed by dots for longer names. Retain full identities for search, launch, rename and accessibility.
+- Add configurable crystal cards for media controls, Nth Nota, weather, synced calendars, chosen photos, reading links, notes and installed app links. Expose cards through app search and the Nth Feed page.
+- Connect the first-page right swipe to the Google overlay protocol, including a separately signed optional Nth Discover Bridge, live connection status, reconnection and setup fallback. Feed enablement takes priority over infinite paging at the left boundary.
+- Exercise card documents, fade/alignment pixels and a real separate-UID overlay fixture in the native regression. Keep the R2 signing identity and increase the version code to 10081.
+
 ## 0.4.0 — 2026-11-13
 
 - Replace the long settings list and duplicate Crystal sections with searchable categories and a live, draggable 3D preview. Preserve the page and values across recreation and rotation.

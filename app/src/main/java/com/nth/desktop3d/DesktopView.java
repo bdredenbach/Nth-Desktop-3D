@@ -16,7 +16,7 @@ import java.util.List;
 /** Accessible shortcut planes, with bounded physics and native inverse-transform input. */
 @android.annotation.SuppressLint("ViewConstructor") // Requires the canonical layout and launcher action host.
 final class DesktopView extends FrameLayout {
-    interface Host { void open(LauncherStore.Item item);void menu(LauncherStore.Item item);void backgroundMenu();void pageChanged();void ripple(float x,float y);void startMenu();void feed();void configureWidget(int id);void gesture(int action); }
+    interface Host { void open(LauncherStore.Item item);void menu(LauncherStore.Item item);void backgroundMenu();void pageChanged();void ripple(float x,float y);void startMenu();boolean feed();void configureWidget(int id);void gesture(int action); }
     private final LauncherStore store;
     private final AppCatalog catalog;
     private final LauncherWidgetHost widgetHost;
@@ -425,7 +425,7 @@ final class DesktopView extends FrameLayout {
                 if(Math.abs(endDy)>gestureSlop&&Math.abs(endDy)>Math.abs(endDx)*1.4f&&endDy<0){host.gesture(store.preferences.getInt("gesture_up",0));}
                 else if(Math.abs(endDy)>gestureSlop&&Math.abs(endDy)>Math.abs(endDx)*1.4f&&endDy>0){host.gesture(store.preferences.getInt("gesture_down",3));}
                 else if(swiping&&Math.abs(endDx)>gestureSlop){
-                    if(endDx>0&&store.page==0&&!store.preferences.getBoolean("infinite_scroll",false)){host.feed();}
+                    if(endDx>0&&store.page==0&&host.feed()){}
                     else if(endDx<0&&store.page==LauncherStore.PAGE_COUNT-1&&!store.preferences.getBoolean("infinite_scroll",false)){
                         float tilt=endDx>0?12f:-12f;
                         stage.animate().rotationY(tilt).setDuration(110).withEndAction(()->stage.animate().rotationY(0).setDuration(240).start()).start();

@@ -46,9 +46,11 @@ final class SettingsModel {
         bool("search_folders","search","Search folders","Include matching desktop folders in app searches.",true,false);
         bool("search_keyboard","search","Open search keyboard","Focus the app search field when the drawer opens.",false,false);
         bool("cloud_ai","search","Cloud questions for Nth Nota","Send your question and current setting values to Nth Nota's cloud service. Local setting commands always work offline.",false,false);
+        bool("cards_in_search","cards","Cards in app search","Show the Cards action beside filtered app results.",true,false);
+        for(String[] type:CrystalCards.TYPES)bool("card_"+type[0],"cards",type[1],"Show this crystal card.",true,false);
         bool("adaptive_glass","look","Fading menu backgrounds","Add opacity over desktop content and feather it to transparent in empty areas.",true,false);
-        pref("glass_strength","look","Opacity over content","Maximum opacity percentage over icons, folders and widgets.",20,90,5,70,false);
-        pref("glass_feather","look","Fade width","Soft edge width around background objects in dp.",12,80,4,40,false);
+        pref("glass_strength","look","Opacity over content","Maximum opacity percentage over icons, folders and widgets.",20,90,5,90,false);
+        pref("glass_feather","look","Fade width","Soft edge width around background objects in dp.",12,80,4,80,false);
         pref("glass_empty","look","Empty-area opacity","Set to zero for an invisible menu background over open wallpaper.",0,25,1,0,false);
         enumeration("label_color","look","Label color","A readable light palette for desktop, folders and app drawer.",new String[]{"Ice","White","Warm","Mint"},0,true);
         add("transparency","look","Crystal transparency","Transparency of the fixed Crystal material when fading backgrounds are off.",0,100,1,null,false,false,c::transparency,c::setTransparency);
@@ -74,7 +76,7 @@ final class SettingsModel {
         enumeration("gesture_double","gestures","Double tap","Double tap empty desktop space.",new String[]{"App drawer","Settings","Nth Nota","Device controls","None"},4,false);
         add("feed_enabled","feed","Enable feed","Open the Google feed from the first desktop's edge.",0,1,1,null,true,false,()->c.feedEnabled()?1:0,v->c.setFeedEnabled(v==1));
         add("feed_edge","feed","Feed edge swipe","Allow a right swipe on the first desktop to open the feed.",0,1,1,null,true,false,()->c.feedEdgeSwipe()?1:0,v->c.setFeedEdgeSwipe(v==1));
-        add("feed_animation","feed","Animate feed opening","Use the app-opening transition when launching Google.",0,1,1,null,true,false,()->c.feed3dTransition()?1:0,v->c.setFeed3dTransition(v==1));
+        add("feed_animation","feed","Animate feed opening","Animate Google overlay opening when supported.",0,1,1,null,true,false,()->c.feed3dTransition()?1:0,v->c.setFeed3dTransition(v==1));
     }
     private void add(String id,String page,String title,String help,int min,int max,int step,String[] options,boolean toggle,boolean rebuild,IntSupplier get,IntConsumer put){specs.put(id,new Spec(id,page,title,help,min,max,step,options,toggle,rebuild,get,put));}
     private void pref(String id,String page,String title,String help,int min,int max,int step,int fallback,boolean rebuild){add(id,page,title,help,min,max,step,null,false,rebuild,()->Math.max(min,Math.min(max,store.preferences.getInt(id,fallback))),v->store.preferences.edit().putInt(id,v).apply());}

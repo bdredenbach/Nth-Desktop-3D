@@ -24,7 +24,7 @@ final class IconTile extends LinearLayout {
         FrameLayout plinth=new FrameLayout(c);plinth.setBackground(Ui.satin(c,0xA348A3C3,0xB4132B49,18));plinth.setElevation(Ui.dp(c,9));
         ImageView image=new ImageView(c);image.setImageDrawable(drawable==null?new BuiltinIcon(key):drawable);image.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
         image.setScaleType(ImageView.ScaleType.FIT_CENTER);FrameLayout.LayoutParams ip=new FrameLayout.LayoutParams(Ui.dp(c,45),Ui.dp(c,45),Gravity.CENTER);plinth.addView(image,ip);addView(plinth,new LayoutParams(Ui.dp(c,60),Ui.dp(c,60)));
-        label=Ui.text(c,name,12,Ui.TEXT);label.setGravity(Gravity.CENTER);label.setMaxLines(2);label.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        label=Ui.text(c,IconLabel.display(name),12,Ui.TEXT);label.setGravity(Gravity.CENTER);label.setSingleLine(true);label.setLines(1);label.setEllipsize(android.text.TextUtils.TruncateAt.END);
         label.setShadowLayer(Ui.dp(c,2),0,Ui.dp(c,1),0xFF000000);LayoutParams p=new LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT);p.topMargin=Ui.dp(c,7);addView(label,p);
         label.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);setContentDescription(name);setFocusable(true);setClickable(true);setLongClickable(true);
     }
@@ -41,7 +41,7 @@ final class IconTile extends LinearLayout {
         setBackground(Ui.touch(getContext(),Ui.satin(getContext(),0xEF2B3752,0xEE172137,18),18));setElevation(new CrystalPreferences(getContext()).shadows()?Ui.dp(getContext(),6):0);}
     void fitCell(int width,int height){
         setClipChildren(true);setClipToPadding(false);
-        int lines=height<Ui.dp(getContext(),105)?1:2;label.setMaxLines(lines);
+        int lines=1;label.setMaxLines(lines);
         int labelHeight=(int)Math.ceil(label.getVisibility()==GONE?0:label.getPaint().getFontSpacing()*lines);
         int size=Math.max(Ui.dp(getContext(),22),Math.min(desiredSize,Math.min(width-Ui.dp(getContext(),6),height-labelHeight-Ui.dp(getContext(),21))));
         FrameLayout plinth=(FrameLayout)getChildAt(0);LayoutParams p=(LayoutParams)plinth.getLayoutParams();

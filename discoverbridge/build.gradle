@@ -1,0 +1,21 @@
+plugins { id 'com.android.application' }
+def appVersion = new Properties()
+rootProject.file('version.properties').withInputStream { appVersion.load(it) }
+android {
+    namespace 'com.nth.desktop3d.discover'
+    compileSdk 35
+    buildFeatures { aidl true }
+    sourceSets.main.aidl.srcDirs = [rootProject.file('app/src/main/aidl')]
+    defaultConfig {
+        applicationId 'com.nth.desktop3d.discover'
+        minSdk 26
+        targetSdk 35
+        versionCode appVersion.getProperty('versionCode').toInteger()
+        versionName appVersion.getProperty('versionName')
+    }
+    // The Google overlay protocol accepts a separate debuggable companion.
+    // The launcher itself remains a non-debuggable release APK.
+    buildTypes { release { debuggable true; minifyEnabled false } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    lint { abortOnError true }
+}

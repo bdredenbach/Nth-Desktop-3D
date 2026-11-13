@@ -8,4 +8,10 @@ public class SettingsCommandsTest {
     @Test public void overflowDoesNotCrash(){assertNull(SettingsCommands.parse("set icon size 999999999999999999999"));}
     @Test public void spacingAndUndoAreUnderstood(){assertEquals("undo",SettingsCommands.parse("Please  undo that!").id);assertEquals(128,SettingsCommands.parse("set grid row height to 128").value.intValue());assertEquals("grid_row_dp",SettingsCommands.parse("set grid row height to 128").id);}
     @Test public void unrelatedConversationDoesNotExecute(){assertNull(SettingsCommands.parse("I like larger icons"));assertNull(SettingsCommands.parse("what is an icon size of 100"));}
+    @org.junit.Test public void cardsCanBeControlledWithoutExecutingQuestions(){
+        org.junit.Assert.assertEquals("card_weather",SettingsCommands.parse("turn off weather card").id);
+        org.junit.Assert.assertEquals(Integer.valueOf(0),SettingsCommands.parse("turn off weather card").value);
+        org.junit.Assert.assertEquals("cards",SettingsCommands.parse("open card settings").page);
+        org.junit.Assert.assertNull(SettingsCommands.parse("what does the weather card do?"));
+    }
 }

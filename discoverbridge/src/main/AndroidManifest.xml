@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <permission android:name="com.nth.desktop3d.permission.DISCOVER" android:protectionLevel="signature" />
+    <queries><package android:name="com.google.android.googlequicksearchbox" /></queries>
+    <application android:label="Nth Discover Bridge" android:allowBackup="false">
+        <service android:name=".DiscoverBridgeService" android:exported="true" android:permission="com.nth.desktop3d.permission.DISCOVER" />
+    </application>
+</manifest>

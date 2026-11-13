@@ -6,6 +6,7 @@ rootProject.file('version.properties').withInputStream { appVersion.load(it) }
 android {
     namespace 'com.nth.desktop3d'
     compileSdk 35
+    buildFeatures { aidl true }
     defaultConfig {
         applicationId 'com.nth.desktop3d'
         minSdk 26

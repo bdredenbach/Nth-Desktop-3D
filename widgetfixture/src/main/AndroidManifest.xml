@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:label="Nth widget test fixture" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false">
+        <service android:name=".FixtureDiscoverService" android:exported="true"><intent-filter><action android:name="com.android.launcher3.WINDOW_OVERLAY" /><data android:scheme="app" /></intent-filter><meta-data android:name="service.api.version" android:value="7" /></service>
         <receiver android:label="Live widget" android:name=".FixtureWidgetProvider" android:exported="true">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget" />

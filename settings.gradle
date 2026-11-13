@@ -3,3 +3,5 @@ dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_P
 rootProject.name = 'Nth Desktop 3D'
 include ':app'
 include ':widgetfixture'
+
+include ':discoverbridge'

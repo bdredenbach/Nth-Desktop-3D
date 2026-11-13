@@ -1,7 +1,7 @@
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and four original GPU scenes. Current test release: **0.4.0**.
+animated Start menus and four original GPU scenes. Current test release: **0.5.0**.
 
 Install the supplied signed release APK for continued updates. Version 0.3.2
 uses the owner's replacement **R2** signing certificate. Moving from the lost
@@ -110,3 +110,7 @@ must be measured on-device; emulator tests do not establish those results.
 Reference recordings inspired behavior only; their photos, characters, video clips,
 brand assets and artwork are not bundled. Visuals and app icon are original code/vector
 assets. The design reference mapping is in `docs/design-brief.txt`.
+
+0.5.0 adds a clipped, fading settings list, eight-character one-line icon labels,
+crystal cards and optional embedded Discover via Nth Discover Bridge.
+See [the feature and integration notes](docs/settings-cards-discover.md).
