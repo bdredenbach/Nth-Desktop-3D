@@ -224,7 +224,7 @@ final class DesktopView extends FrameLayout {
                         startX=e.getRawX();startY=e.getRawY();
                         FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)widget.getLayoutParams();
                         left=p.leftMargin;top=p.topMargin;
-                        stage.requestDisallowInterceptTouchEvent(true);return true;
+                        DesktopView.this.requestDisallowInterceptTouchEvent(true);return true;
                     case MotionEvent.ACTION_MOVE:
                         FrameLayout.LayoutParams move=(FrameLayout.LayoutParams)widget.getLayoutParams();
                         move.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),left+Math.round(e.getRawX()-startX)));
@@ -243,7 +243,7 @@ final class DesktopView extends FrameLayout {
                         FrameLayout.LayoutParams finalBar=(FrameLayout.LayoutParams)tools.getLayoutParams();
                         finalBar.leftMargin=end.leftMargin;finalBar.topMargin=Math.max(0,end.topMargin-Ui.dp(getContext(),46));
                         tools.setLayoutParams(finalBar);
-                    case MotionEvent.ACTION_CANCEL:stage.requestDisallowInterceptTouchEvent(false);return true;
+                    case MotionEvent.ACTION_CANCEL:DesktopView.this.requestDisallowInterceptTouchEvent(false);return true;
                     default:return true;
                 }
             }
@@ -324,7 +324,7 @@ final class DesktopView extends FrameLayout {
     }
     private int physicsTileHeight(){return Ui.dp(getContext(),98+Math.max(0,getResources().getConfiguration().fontScale-1)*30);}
     private void installDrag(Body body){
-        body.tile.setOnTouchListener(new View.OnTouchListener(){float sx,sy,bx,by,lastX,lastY;long start,last;boolean moved,held;final Runnable hold=()->{held=true;body.tile.performLongClick();};
+        body.tile.setOnTouchListener(new View.OnTouchListener(){float sx,sy,bx,by,lastX,lastY;long start,last;boolean moved,held;final Runnable hold=()->{held=true;body.tile.setScaleX(1.07f);body.tile.setScaleY(1.07f);};
             @Override public boolean onTouch(View v,MotionEvent e){
                 switch(e.getActionMasked()){
                     case MotionEvent.ACTION_DOWN:
@@ -336,11 +336,13 @@ final class DesktopView extends FrameLayout {
                         if(moved){held=false;clearSelection();body.x=SceneMath.clamp(bx+dx,0,Math.max(0,width-v.getWidth()));body.y=SceneMath.clamp(by+dy,0,Math.max(0,height-v.getHeight()));long dt=Math.max(1,e.getEventTime()-last);body.vx=(e.getRawX()-lastX)*1000/dt;body.vy=(e.getRawY()-lastY)*1000/dt;v.setTranslationX(body.x);v.setTranslationY(body.y);last=e.getEventTime();lastX=e.getRawX();lastY=e.getRawY();}return true;
                     case MotionEvent.ACTION_UP:
                         v.removeCallbacks(hold);v.setPressed(false);
-                        if(!moved&&!held&&e.getEventTime()-start<500)v.performClick();
+                        if(!moved&&held)host.menu(body.item);
+                        else if(!moved&&e.getEventTime()-start<500)v.performClick();
+                        v.setScaleX(1f);v.setScaleY(1f);
                         if(moved){savePositions();store.save();}
                         getParent().requestDisallowInterceptTouchEvent(false);
                         return true;
-                    case MotionEvent.ACTION_CANCEL:v.removeCallbacks(hold);v.setPressed(false);getParent().requestDisallowInterceptTouchEvent(false);return true;
+                    case MotionEvent.ACTION_CANCEL:v.removeCallbacks(hold);v.setPressed(false);v.setScaleX(1f);v.setScaleY(1f);getParent().requestDisallowInterceptTouchEvent(false);return true;
                     default:return false;
                 }
             }
