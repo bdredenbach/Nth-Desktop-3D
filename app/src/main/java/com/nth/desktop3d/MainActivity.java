@@ -572,11 +572,11 @@ public final class MainActivity extends Activity implements MotionController.Lis
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(request==3074&&cardsView!=null)cardsView.refresh();}
     private void cardsPhotosResult(int result,Intent data){
         if(result!=RESULT_OK||data==null)return;
-        org.json.JSONArray saved;try{saved=new org.json.JSONArray(store.preferences.getString("card_photos","[]"));}catch(org.json.JSONException bad){saved=new org.json.JSONArray();}
+        org.json.JSONArray saved;try{saved=new org.json.JSONArray(store.preferences.getString("card_photo_uris","[]"));}catch(org.json.JSONException bad){saved=new org.json.JSONArray();}
         java.util.Set<String> uris=new java.util.LinkedHashSet<>();for(int i=0;i<saved.length();i++)uris.add(saved.optString(i));
         java.util.List<Uri> chosen=new ArrayList<>();if(data.getClipData()!=null){for(int i=0;i<data.getClipData().getItemCount();i++)chosen.add(data.getClipData().getItemAt(i).getUri());}else if(data.getData()!=null)chosen.add(data.getData());
-        for(Uri uri:chosen){if(uris.size()>=4)break;try{getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException ignored){}uris.add(uri.toString());}
-        store.preferences.edit().putString("card_photos",new org.json.JSONArray(uris).toString()).apply();if(cardsView!=null)cardsView.refresh();
+        for(Uri uri:chosen){if(uris.size()>=4)break;try{getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException|IllegalArgumentException ignored){}uris.add(uri.toString());}
+        store.preferences.edit().putString("card_photo_uris",new org.json.JSONArray(uris).toString()).apply();if(cardsView!=null)cardsView.refresh();
     }
     @Override public void backgroundMenu(){
         LinearLayout body=scrollBody(openPanel("Desktop",true));
