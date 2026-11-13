@@ -12,3 +12,5 @@ signing.properties
 *-Private-Signing-Backup*.zip
 
 **/__pycache__/
+
+*-APK-and-Private-Key*.zip

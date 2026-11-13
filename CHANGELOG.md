@@ -6,7 +6,7 @@
 - Receive Android pin-shortcut requests (including browser webpage shortcuts), ask before adding, and retain package/shortcut/profile identity, chosen name and icon across restarts. Open the shortcut target through LauncherApps rather than opening the app homepage.
 - Preserve shortcut identities when copied into folders; support rename, move, removal, duplicate requests and unavailable profiles. Add an explicit Add apps desktop action.
 - Extend separate-UID native tests for the preview gallery, selection/cancellation, browser-style requests, persistence, target launch, folder copies and ordinary app shortcuts.
-- Increase versionCode to 10079; signed upgrades still require the existing private 3D signing key.
+- Increase versionCode to 10079. With owner authorization, replace the lost 0.3.0 signing key with the R2 key and supply a private phone recovery backup alongside the APK. This transition requires one reinstall; future updates reuse R2.
 
 ## 0.3.1 — 2026-11-13
 

@@ -1,12 +1,13 @@
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and four original GPU scenes. Current test release: **0.3.1**.
+animated Start menus and four original GPU scenes. Current test release: **0.3.2**.
 
-Install the supplied signed release APK for continued updates. Version 0.3.0
-establishes a permanent test certificate; moving from older debug builds requires
-a one-time reinstall. See [signed APK updates](docs/SIGNED-APK-UPDATES.md) for
-the private key recovery process, build command and versioning rules.
+Install the supplied signed release APK for continued updates. Version 0.3.2
+uses the owner's replacement **R2** signing certificate. Moving from the lost
+0.3.0 key or older debug builds requires a one-time reinstall. Keep the private
+R2 signing backup on your phone and reattach it for future builds. See
+[signed APK updates](docs/SIGNED-APK-UPDATES.md) for recovery and versioning rules.
 
 Widgets now use Android's registered host views, share a placement grid with apps
 and folders, and support direct hold/drag plus cell-aligned resizing. See
