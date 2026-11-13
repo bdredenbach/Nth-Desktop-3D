@@ -39,7 +39,7 @@ final class WidgetSmoke {
         shell("appwidget grantbind --package com.nth.desktop3d --user 0");
         main(()->{LauncherStore store=store();store.mode=0;store.page=0;store.save();invokeDesktop("rebuild");});idle(700);
         holdEmptyBackground();await(()->findIn(activity.getWindow().getDecorView(),v->v instanceof Button&&((Button)v).getText().toString().endsWith("Widgets"))!=null,"Desktop hold did not expose the widget picker action");main(()->activity.onBackPressed());idle(300);
-        int first=addWidget(false);
+        int first=previewAndAddWidget();
         await(()->hasText("Hosted widget ready"),"Initial provider RemoteViews were not displayed");assertOccupancy();capture("widget-visible");
         sendUpdate(first,"Live widget update");await(()->hasText("Live widget update"),"Live RemoteViews update did not reach the registered host view");
         moveWidget(first,1,2);assertOccupancy();check(cell("widget:"+first).x==1&&cell("widget:"+first).y==2,"Widget did not snap to requested grid cell; actual "+cell("widget:"+first).x+","+cell("widget:"+first).y);
@@ -94,6 +94,52 @@ final class WidgetSmoke {
             check(visible>0,"Gravity scene did not render any icons");
         });capture("widgets-gravity-obstacles");
         main(()->{store().mode=0;store().save();invokeDesktop("rebuild");});idle(400);assertOccupancy();
+        testPinnedShortcut();
+    }
+    private void invokeActivity(String name){main(()->{try{java.lang.reflect.Method method=MainActivity.class.getDeclaredMethod(name);method.setAccessible(true);method.invoke(activity);}catch(Exception error){throw new AssertionError(error);}});idle(400);}
+    private int previewAndAddWidget(){
+        AppWidgetHost host=(AppWidgetHost)field(activity,"widgetHost");int before=host.getAppWidgetIds().length;
+        invokeActivity("showWidgets");
+        check(host.getAppWidgetIds().length==before,"Opening the preview gallery allocated a widget ID");
+        clickSystemText("Expand Nth widget test fixture widgets");idle(300);capture("widget-preview-expanded");
+        main(()->{android.widget.EditText search=(android.widget.EditText)findIn(activity.getWindow().getDecorView(),v->v instanceof android.widget.EditText);search.setText("does not exist 437");});idle(200);
+        check(hasText("No matching widgets."),"Widget search did not filter providers");
+        main(()->activity.onBackPressed());idle(200);check(host.getAppWidgetIds().length==before,"Cancelling preview browsing leaked a widget ID");
+        invokeActivity("showWidgets");
+        main(()->((android.widget.EditText)findIn(activity.getWindow().getDecorView(),v->v instanceof android.widget.EditText)).setText("Live widget"));idle(400);
+        View preview=findIn(activity.getWindow().getDecorView(),v->v instanceof android.widget.ImageView&&((android.widget.ImageView)v).getDrawable() instanceof android.graphics.drawable.BitmapDrawable);
+        check(preview!=null,"RemoteViews preview layout was not rendered before placement");capture("widget-preview-before-placement");
+        clickSystemText("Add Live widget widget, 2 by 2");
+        await(()->host.getAppWidgetIds().length==before+1,"Preview selection did not allocate exactly one widget");
+        int[] ids=host.getAppWidgetIds();int result=-1;for(int id:ids)if(widget(id)!=null)result=id;check(result>=0,"Selected preview did not create a hosted widget");return result;
+    }
+    private void testPinnedShortcut()throws Exception{
+        main(()->{store().page=2;store().save();invokeDesktop("rebuild");});idle(400);
+        int count=store().pages.get(2).size();
+        shell("am start -W -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId cancelled-recipe");idle(350);clickSystemText("Pin recipe shortcut");clickSystemText("Cancel");idle(350);
+        check(store().pages.get(2).size()==count,"Cancelling a pin request added a shortcut");
+        shell("am start -W -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId pot-roast");idle(350);clickSystemText("Pin recipe shortcut");
+        await(()->field(field(activity,"shortcuts"),"confirmation")!=null,"Browser-style request did not reach the launcher");
+        main(()->{android.app.AlertDialog dialog=(android.app.AlertDialog)field(field(activity,"shortcuts"),"confirmation");android.widget.EditText name=(android.widget.EditText)findIn(dialog.getWindow().getDecorView(),v->v instanceof android.widget.EditText);check(name!=null,"Shortcut name field missing");name.setText("Dinner recipe");});capture("shortcut-confirmation");clickSystemText("Add");
+        await(()->store().pages.get(2).size()==count+1,"Accepted pin request did not add one desktop item");
+        LauncherStore.Item recipe=store().pages.get(2).get(count);check("Dinner recipe".equals(recipe.label)&&"pot-roast".equals(recipe.shortcutId)&&FIXTURE.equals(recipe.shortcutPackage),"Shortcut identity or chosen name was not saved");assertOccupancy();capture("webpage-shortcut-on-desktop");
+        LauncherStore restored=new LauncherStore(instrumentation.getTargetContext());LauncherStore.Item saved=restored.pages.get(2).get(count);check(recipe.key.equals(saved.key)&&recipe.shortcutUser==saved.shortcutUser&&"pot-roast".equals(saved.shortcutId),"Shortcut metadata was lost on reload");
+        main(()->{try{Object manager=field(activity,"shortcuts");java.lang.reflect.Method icon=manager.getClass().getDeclaredMethod("icon",LauncherStore.Item.class);icon.setAccessible(true);check(icon.invoke(manager,recipe)!=null,"Shortcut icon was not persisted");}catch(Exception error){throw new AssertionError(error);}});
+        Instrumentation.ActivityMonitor monitor=instrumentation.addMonitor(MainActivity.class.getName(),null,false);main(()->activity.recreate());activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);instrumentation.removeMonitor(monitor);check(activity!=null,"Shortcut recreation timed out");idle(700);assertOccupancy();
+        tap(view(recipe.id));clickSystemText("Opened recipe: https://example.test/recipe/pot-roast");
+        instrumentation.getTargetContext().startActivity(new Intent(instrumentation.getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));idle(500);
+        // Repeating the same request updates the saved shortcut instead of creating a duplicate.
+        shell("am start -W -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId pot-roast");idle(300);clickSystemText("Pin recipe shortcut");idle(600);if(field(field(activity,"shortcuts"),"confirmation")!=null)clickSystemText("Add");idle(400);check(store().pages.get(2).size()==count+1,"Repeated pin request duplicated the desktop shortcut");
+        final LauncherStore.Item selected=store().pages.get(2).get(count);
+        main(()->activity.menu(selected));clickSystemText("Add to folder…");clickSystemText("Nth tools");idle(300);
+        LauncherStore.Item copy=null;for(LauncherStore.Item child:store().folders().get(0).children)if("pot-roast".equals(child.shortcutId))copy=child;check(copy!=null,"Copying a website shortcut into a folder lost its launch identity");
+        main(()->activity.menu(selected));clickSystemText("Remove shortcut");idle(300);check(store().pages.get(2).size()==count,"Shortcut removal did not remove the desktop item");
+        // Its folder copy must remain launchable after the desktop copy is removed.
+        final LauncherStore.Item folderCopy=copy;main(()->activity.open(folderCopy));clickSystemText("Opened recipe: https://example.test/recipe/pot-roast");
+        instrumentation.getTargetContext().startActivity(new Intent(instrumentation.getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));idle(500);
+        // Existing ordinary app shortcuts still use the same add-to-desktop action.
+        main(()->{try{Object catalog=field(activity,"catalog");Object entry=((com.nth.desktop3d.AppCatalog)catalog).entries.stream().filter(e->e.component!=null&&FIXTURE.equals(e.component.getPackageName())).findFirst().orElse(null);check(entry!=null,"Fixture app missing from catalog");java.lang.reflect.Method menu=MainActivity.class.getDeclaredMethod("appMenu",entry.getClass(),LauncherStore.Item.class);menu.setAccessible(true);menu.invoke(activity,entry,null);}catch(Exception error){throw new AssertionError(error);}});
+        clickSystemText("Add to this desktop");await(()->store().pages.get(2).size()==count+1,"Ordinary app shortcut could not be placed");assertOccupancy();capture("app-shortcut-and-folders");
     }
     private int addWidget(boolean configured){
         AtomicReference<Integer> result=new AtomicReference<>();

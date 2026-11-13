@@ -75,7 +75,7 @@ final class DesktopView extends FrameLayout {
         for(LauncherStore.Item item:store.pages.get(store.page)){
             if(gravity()&&visible++>=18)break;
             AppCatalog.Entry entry=catalog.find(item.key);
-            IconTile tile=new IconTile(getContext(),item.label,entry==null?null:entry.icon,item.key);
+            IconTile tile=new IconTile(getContext(),item.label,catalog.icon(item),item.key);
             tile.setOnClickListener(v->host.open(item));tile.setOnLongClickListener(v->{host.menu(item);return true;});
             if(gravity())tile.physicsStyle();
             Body body=new Body(tile,item);bodies.add(body);cellViews.put(item.id,tile);
@@ -117,6 +117,13 @@ final class DesktopView extends FrameLayout {
         return new android.graphics.RectF(cell.x*width/(float)columns,top()+cell.y*ch,(cell.x+cell.w)*width/(float)columns,top()+(cell.y+cell.h)*ch);
     }
     private int span(int pixels,int cell){return Math.max(1,(int)Math.ceil(pixels/(double)Math.max(1,cell)));}
+    int[] widgetSpan(android.appwidget.AppWidgetProviderInfo info){
+        android.graphics.Rect padding=android.appwidget.AppWidgetHostView.getDefaultPaddingForWidget(getContext(),info.provider,null);
+        int w=span(info.minWidth+padding.left+padding.right,Math.max(1,(width>0?width:getResources().getDisplayMetrics().widthPixels)/gridColumns()));
+        int h=span(info.minHeight+padding.top+padding.bottom,cellHeight());
+        if(android.os.Build.VERSION.SDK_INT>=31){if(info.targetCellWidth>0)w=info.targetCellWidth;if(info.targetCellHeight>0)h=info.targetCellHeight;}
+        return new int[]{Math.max(1,Math.min(gridColumns(),w)),Math.max(1,Math.min(12,h))};
+    }
     private void restoreCells(){
         columns=gridColumns();cw=Math.max(1,width/columns);ch=cellHeight();visibleRows=Math.max(1,(height-top()-Ui.dp(getContext(),12))/ch);
         java.util.List<DesktopGrid.Cell> desired=new ArrayList<>();int area=0,maxWidgetHeight=1,maxSavedRow=visibleRows,index=0;

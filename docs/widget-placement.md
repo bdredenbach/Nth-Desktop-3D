@@ -50,3 +50,9 @@ Primary references:
 - https://developer.android.com/develop/ui/views/appwidgets/host
 - https://developer.android.com/reference/android/appwidget/AppWidgetHost
 - https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/core/java/android/appwidget/AppWidgetProviderInfo.java
+
+## Widget gallery and website shortcuts (0.3.2)
+
+Hold empty desktop space and choose Widgets. Expand an app to see its supplied preview and cell size, or search by app/widget name. Previews use previewLayout on Android 12+, then previewImage, then a clearly labelled app-icon fallback. Browsing never allocates widget IDs or executes preview button actions. Tapping a preview starts the normal binding/configuration flow and places the real hosted widget on the current desktop.
+
+Set Nth Desktop 3D as default Home to receive browser/app Add to Home screen requests. A confirmation shows the icon, editable name and destination desktop. Accepting stores the Android shortcut package, ID and profile serial plus a local icon cache. Tapping uses LauncherApps.startShortcut, so a saved webpage opens that page. Rename, move, folders and the shared widget occupancy grid work for these shortcuts. Cancellation does not pin or save anything; repeated requests update the existing identity. Removing one copy preserves other copies in folders/desktops. Legacy INSTALL_SHORTCUT broadcasts are not accepted.

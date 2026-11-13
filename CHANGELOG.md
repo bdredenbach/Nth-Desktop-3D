@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.2 — 2026-11-13
+
+- Replace the system widget list with a searchable gallery grouped by app, with provider preview layouts/images and the actual desktop grid size before selection. Browse/cancel without allocating a widget ID. Render preview rows on demand with a bounded cache.
+- Receive Android pin-shortcut requests (including browser webpage shortcuts), ask before adding, and retain package/shortcut/profile identity, chosen name and icon across restarts. Open the shortcut target through LauncherApps rather than opening the app homepage.
+- Preserve shortcut identities when copied into folders; support rename, move, removal, duplicate requests and unavailable profiles. Add an explicit Add apps desktop action.
+- Extend separate-UID native tests for the preview gallery, selection/cancellation, browser-style requests, persistence, target launch, folder copies and ordinary app shortcuts.
+- Increase versionCode to 10079; signed upgrades still require the existing private 3D signing key.
+
 ## 0.3.1 — 2026-11-13
 
 - Register every displayed/restored widget through AppWidgetHost.createView so initial content and live RemoteViews updates reach the desktop.

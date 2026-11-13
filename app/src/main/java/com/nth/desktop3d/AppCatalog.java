@@ -50,6 +50,8 @@ public final class AppCatalog {
         return next;
     }
     public void apply(List<Entry> next) { entries.clear(); entries.addAll(next); byKey.clear(); for (Entry e : next) byKey.put(e.key, e); }
+    PinnedShortcuts shortcuts;
+    Drawable icon(LauncherStore.Item item){if(PinnedShortcuts.isShortcut(item))return shortcuts==null?null:shortcuts.icon(item);Entry entry=find(item.key);return entry==null?null:entry.icon;}
     public Entry find(String key) { return byKey.get(key); }
     public List<Entry> filter(String text, boolean builtins) {
         String q = text.toLowerCase(java.util.Locale.ROOT).trim(); List<Entry> out = new ArrayList<>();
