@@ -138,7 +138,56 @@ final class DesktopView extends FrameLayout {
                 int id=Integer.parseInt(raw);
                 android.appwidget.AppWidgetProviderInfo info=widgetManager.getAppWidgetInfo(id);
                 if(info==null)continue;
-                android.appwidget.AppWidgetHostView widget=widgetHost.createView(getContext(),id,info);
+                android.appwidget.AppWidgetHostView widget=new android.appwidget.AppWidgetHostView(getContext()){
+                    float sx,sy;int startLeft,startTop;boolean armed,moving;long pressedAt;
+                    Runnable hold=()->{armed=true;setElevation(Ui.dp(getContext(),24));};
+                    @Override public boolean dispatchTouchEvent(MotionEvent e){
+                        switch(e.getActionMasked()){
+                            case MotionEvent.ACTION_DOWN:
+                                sx=e.getRawX();sy=e.getRawY();pressedAt=e.getEventTime();
+                                FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)getLayoutParams();
+                                startLeft=p.leftMargin;startTop=p.topMargin;
+                                armed=false;moving=false;
+                                postDelayed(hold,ViewConfiguration.getLongPressTimeout());
+                                break;
+                            case MotionEvent.ACTION_MOVE:
+                                float dx=e.getRawX()-sx,dy=e.getRawY()-sy;
+                                if(!armed&&Math.hypot(dx,dy)>Ui.dp(getContext(),12))removeCallbacks(hold);
+                                if(armed){
+                                    moving=moving||Math.hypot(dx,dy)>Ui.dp(getContext(),6);
+                                    if(moving){
+                                        DesktopView.this.requestDisallowInterceptTouchEvent(true);
+                                        FrameLayout.LayoutParams move=(FrameLayout.LayoutParams)getLayoutParams();
+                                        move.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-getMeasuredWidth()),startLeft+Math.round(dx)));
+                                        move.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-getMeasuredHeight()),startTop+Math.round(dy)));
+                                        setLayoutParams(move);
+                                    }
+                                    return true;
+                                }
+                                break;
+                            case MotionEvent.ACTION_UP:
+                                removeCallbacks(hold);
+                                if(armed){
+                                    if(moving){
+                                        FrameLayout.LayoutParams end=(FrameLayout.LayoutParams)getLayoutParams();
+                                        end.leftMargin=Math.max(0,Math.min(Math.max(0,DesktopView.this.getWidth()-getMeasuredWidth()),snap(end.leftMargin,Math.max(1,DesktopView.this.getWidth()/gridColumns()))));
+                                        end.topMargin=Math.max(0,Math.min(Math.max(0,DesktopView.this.getHeight()-getMeasuredHeight()),Ui.dp(getContext(),24)+snap(end.topMargin-Ui.dp(getContext(),24),cellHeight())));
+                                        setLayoutParams(end);
+                                        store.preferences.edit().putInt("widget_left_"+id,end.leftMargin).putInt("widget_top_"+id,end.topMargin).apply();
+                                    }else showWidgetMenu(this,id,info);
+                                    armed=false;moving=false;setElevation(Ui.dp(getContext(),14));
+                                    DesktopView.this.requestDisallowInterceptTouchEvent(false);
+                                    return true;
+                                }
+                                break;
+                            case MotionEvent.ACTION_CANCEL:
+                                removeCallbacks(hold);armed=false;moving=false;
+                                DesktopView.this.requestDisallowInterceptTouchEvent(false);
+                                break;
+                        }
+                        return super.dispatchTouchEvent(e);
+                    }
+                };
                 widget.setAppWidget(id,info);
                 int width=store.preferences.getInt("widget_width_"+id,Ui.dp(getContext(),Math.min(300,Math.max(160,info.minWidth))));
                 int height=store.preferences.getInt("widget_height_"+id,Ui.dp(getContext(),Math.min(260,Math.max(100,info.minHeight))));
@@ -153,107 +202,6 @@ final class DesktopView extends FrameLayout {
                     store.preferences.edit().putInt("widget_left_"+id,lp.leftMargin)
                         .putInt("widget_top_"+id,lp.topMargin).apply();
                 stage.addView(widget,lp);widget.setElevation(Ui.dp(getContext(),14));
-                widget.setOnLongClickListener(v->{selectWidget(widget,id,info);return true;});
-                widget.setOnTouchListener(new View.OnTouchListener(){
-                    float startX,startY;int originLeft,originTop;boolean dragging;
-                    @Override public boolean onTouch(View v,MotionEvent e){
-                        switch(e.getActionMasked()){
-                            case MotionEvent.ACTION_DOWN:
-                                startX=e.getRawX();startY=e.getRawY();
-                                originLeft=((FrameLayout.LayoutParams)widget.getLayoutParams()).leftMargin;
-                                originTop=((FrameLayout.LayoutParams)widget.getLayoutParams()).topMargin;
-                                dragging=false;return selectedWidget==widget;
-                            case MotionEvent.ACTION_MOVE:
-                                if(selectedWidget!=widget)return false;
-                                float dx=e.getRawX()-startX,dy=e.getRawY()-startY;
-                                if(Math.hypot(dx,dy)>Ui.dp(getContext(),8))dragging=true;
-                                if(dragging){
-                                    FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)widget.getLayoutParams();
-                                    p.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),Math.round(originLeft+dx)));
-                                    p.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),Math.round(originTop+dy)));
-                                    widget.setLayoutParams(p);
-                                    if(widgetToolbar!=null){
-                                        FrameLayout.LayoutParams t=(FrameLayout.LayoutParams)widgetToolbar.getLayoutParams();
-                                        t.topMargin=Math.max(0,p.topMargin-Ui.dp(getContext(),46));
-                                        t.leftMargin=p.leftMargin;widgetToolbar.setLayoutParams(t);
-                                    }
-                                }
-                                return true;
-                            case MotionEvent.ACTION_UP:
-                                if(selectedWidget!=widget)return false;
-                                if(dragging){
-                                    FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)widget.getLayoutParams();
-                                    int cols=gridColumns();
-                                    int cw=Math.max(1,getWidth()/cols);
-                                    p.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),snap(p.leftMargin,cw)));
-                                    p.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),Ui.dp(getContext(),24)+snap(p.topMargin-Ui.dp(getContext(),24),cellHeight())));
-                                    widget.setLayoutParams(p);
-                                    store.preferences.edit().putInt("widget_left_"+id,p.leftMargin)
-                                        .putInt("widget_top_"+id,p.topMargin).apply();
-                                }
-                                dragging=false;return true;
-                            case MotionEvent.ACTION_CANCEL:dragging=false;return selectedWidget==widget;
-                            default:return false;
-                        }
-                    }
-                });
-                // A permanent, small grip avoids relying on widget child views to forward long presses.
-                android.widget.TextView grip=new android.widget.TextView(getContext());
-                grip.setText("⋮⋮");grip.setTextColor(android.graphics.Color.WHITE);
-                grip.setTextSize(17);grip.setGravity(android.view.Gravity.CENTER);
-                grip.setContentDescription("Move or edit widget");
-                grip.setBackground(Ui.satin(getContext(),0xD9367996,0xD911263D,12));
-                FrameLayout.LayoutParams gp=new FrameLayout.LayoutParams(Ui.dp(getContext(),52),Ui.dp(getContext(),28));
-                gp.gravity=android.view.Gravity.TOP|android.view.Gravity.LEFT;
-                gp.leftMargin=lp.leftMargin+Math.max(0,(width-Ui.dp(getContext(),52))/2);
-                gp.topMargin=Math.max(0,lp.topMargin-Ui.dp(getContext(),14));
-                stage.addView(grip,gp);grip.setElevation(Ui.dp(getContext(),30));
-                grip.setOnClickListener(v->selectWidget(widget,id,info));
-                grip.setOnTouchListener(new View.OnTouchListener(){
-                    float sx,sy;int startLeft,startTop;boolean moved;
-                    @Override public boolean onTouch(View v,MotionEvent e){
-                        switch(e.getActionMasked()){
-                            case MotionEvent.ACTION_DOWN:
-                                sx=e.getRawX();sy=e.getRawY();moved=false;
-                                FrameLayout.LayoutParams wp=(FrameLayout.LayoutParams)widget.getLayoutParams();
-                                startLeft=wp.leftMargin;startTop=wp.topMargin;
-                                DesktopView.this.requestDisallowInterceptTouchEvent(true);
-                                return true;
-                            case MotionEvent.ACTION_MOVE:
-                                float dx=e.getRawX()-sx,dy=e.getRawY()-sy;
-                                if(Math.hypot(dx,dy)>Ui.dp(getContext(),6))moved=true;
-                                if(moved){
-                                    FrameLayout.LayoutParams wpMove=(FrameLayout.LayoutParams)widget.getLayoutParams();
-                                    wpMove.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),startLeft+Math.round(dx)));
-                                    wpMove.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),startTop+Math.round(dy)));
-                                    widget.setLayoutParams(wpMove);
-                                    FrameLayout.LayoutParams gripMove=(FrameLayout.LayoutParams)grip.getLayoutParams();
-                                    gripMove.leftMargin=wpMove.leftMargin+Math.max(0,(widget.getWidth()-grip.getWidth())/2);
-                                    gripMove.topMargin=Math.max(0,wpMove.topMargin-Ui.dp(getContext(),14));
-                                    grip.setLayoutParams(gripMove);
-                                }
-                                return true;
-                            case MotionEvent.ACTION_UP:
-                                if(moved){
-                                    FrameLayout.LayoutParams end=(FrameLayout.LayoutParams)widget.getLayoutParams();
-                                    int cw=Math.max(1,getWidth()/gridColumns());
-                                    end.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),snap(end.leftMargin,cw)));
-                                    end.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),Ui.dp(getContext(),24)+snap(end.topMargin-Ui.dp(getContext(),24),cellHeight())));
-                                    widget.setLayoutParams(end);
-                                    FrameLayout.LayoutParams gripEnd=(FrameLayout.LayoutParams)grip.getLayoutParams();
-                                    gripEnd.leftMargin=end.leftMargin+Math.max(0,(widget.getWidth()-grip.getWidth())/2);
-                                    gripEnd.topMargin=Math.max(0,end.topMargin-Ui.dp(getContext(),14));
-                                    grip.setLayoutParams(gripEnd);
-                                    store.preferences.edit().putInt("widget_left_"+id,end.leftMargin)
-                                        .putInt("widget_top_"+id,end.topMargin).apply();
-                                }else v.performClick();
-                                DesktopView.this.requestDisallowInterceptTouchEvent(false);return true;
-                            case MotionEvent.ACTION_CANCEL:
-                                DesktopView.this.requestDisallowInterceptTouchEvent(false);return true;
-                            default:return true;
-                        }
-                    }
-                });
                 position++;
             }catch(RuntimeException ignored){}
         }
@@ -262,80 +210,35 @@ final class DesktopView extends FrameLayout {
     private android.appwidget.AppWidgetHostView selectedWidget;
     private android.widget.LinearLayout widgetToolbar;
     private Runnable delayedMenu;
-    private void selectWidget(android.appwidget.AppWidgetHostView widget,int id,android.appwidget.AppWidgetProviderInfo info){
-        clearSelection();selectedWidget=widget;
-        widget.setBackground(Ui.satin(getContext(),0x6645D9F5,0x88203454,18));
-        widget.setElevation(Ui.dp(getContext(),22));
-        android.widget.LinearLayout tools=new android.widget.LinearLayout(getContext());
-        tools.setBackground(Ui.satin(getContext(),0xEE245775,0xEE0B1B30,16));
-        tools.setPadding(Ui.dp(getContext(),8),Ui.dp(getContext(),4),Ui.dp(getContext(),8),Ui.dp(getContext(),4));
-        android.widget.TextView handle=new android.widget.TextView(getContext());
-        handle.setText("✥ Move");handle.setTextColor(android.graphics.Color.WHITE);
-        handle.setGravity(android.view.Gravity.CENTER);handle.setTextSize(14);
-        handle.setPadding(Ui.dp(getContext(),12),0,Ui.dp(getContext(),12),0);
-        tools.addView(handle,new android.widget.LinearLayout.LayoutParams(-2,-1));
-        handle.setOnTouchListener(new View.OnTouchListener(){
-            float startX,startY;int left,top;
-            @Override public boolean onTouch(View v,MotionEvent e){
-                switch(e.getActionMasked()){
-                    case MotionEvent.ACTION_DOWN:
-                        startX=e.getRawX();startY=e.getRawY();
-                        FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)widget.getLayoutParams();
-                        left=p.leftMargin;top=p.topMargin;
-                        DesktopView.this.requestDisallowInterceptTouchEvent(true);return true;
-                    case MotionEvent.ACTION_MOVE:
-                        FrameLayout.LayoutParams move=(FrameLayout.LayoutParams)widget.getLayoutParams();
-                        move.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),left+Math.round(e.getRawX()-startX)));
-                        move.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),top+Math.round(e.getRawY()-startY)));
-                        widget.setLayoutParams(move);
-                        FrameLayout.LayoutParams bar=(FrameLayout.LayoutParams)tools.getLayoutParams();
-                        bar.leftMargin=move.leftMargin;bar.topMargin=Math.max(0,move.topMargin-Ui.dp(getContext(),46));
-                        tools.setLayoutParams(bar);return true;
-                    case MotionEvent.ACTION_UP:
-                        FrameLayout.LayoutParams end=(FrameLayout.LayoutParams)widget.getLayoutParams();
-                        int cols=gridColumns();
-                        end.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),snap(end.leftMargin,Math.max(1,getWidth()/cols))));
-                        end.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),Ui.dp(getContext(),24)+snap(end.topMargin-Ui.dp(getContext(),24),cellHeight())));
-                        widget.setLayoutParams(end);
-                        store.preferences.edit().putInt("widget_left_"+id,end.leftMargin).putInt("widget_top_"+id,end.topMargin).apply();
-                        FrameLayout.LayoutParams finalBar=(FrameLayout.LayoutParams)tools.getLayoutParams();
-                        finalBar.leftMargin=end.leftMargin;finalBar.topMargin=Math.max(0,end.topMargin-Ui.dp(getContext(),46));
-                        tools.setLayoutParams(finalBar);
-                    case MotionEvent.ACTION_CANCEL:DesktopView.this.requestDisallowInterceptTouchEvent(false);return true;
-                    default:return true;
+    private void showWidgetMenu(android.appwidget.AppWidgetHostView widget,int id,android.appwidget.AppWidgetProviderInfo info){
+        String[] options={"Resize","Widget settings","App info","Remove"};
+        new android.app.AlertDialog.Builder(getContext())
+            .setTitle(info.label==null?"Widget":info.label)
+            .setItems(options,(dialog,which)->{
+                if(which==0){
+                    new android.app.AlertDialog.Builder(getContext()).setTitle("Resize widget")
+                        .setItems(new String[]{"Smaller","Larger"},(d,index)->resizeWidget(widget,id,info,index==0?-1:1)).show();
+                }else if(which==1){
+                    if(info.configure!=null){
+                        try{
+                            android.content.Intent intent=new android.content.Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_CONFIGURE);
+                            intent.setComponent(info.configure);
+                            intent.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,id);
+                            getContext().startActivity(intent);
+                        }catch(RuntimeException ex){android.widget.Toast.makeText(getContext(),"Widget has no available settings",android.widget.Toast.LENGTH_SHORT).show();}
+                    }else android.widget.Toast.makeText(getContext(),"This widget has no settings",android.widget.Toast.LENGTH_SHORT).show();
+                }else if(which==2){
+                    android.content.Intent intent=new android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        android.net.Uri.parse("package:"+info.provider.getPackageName()));
+                    getContext().startActivity(intent);
+                }else{
+                    String key="widget_ids_page_"+store.page;
+                    java.util.ArrayList<String> kept=new java.util.ArrayList<>();
+                    for(String raw:store.preferences.getString(key,"").split(","))if(!raw.isEmpty()&&!raw.equals(String.valueOf(id)))kept.add(raw);
+                    store.preferences.edit().putString(key,android.text.TextUtils.join(",",kept)).apply();
+                    widgetHost.deleteAppWidgetId(id);rebuild();
                 }
-            }
-        });
-        addWidgetAction(tools,"←",()->moveWidget(widget,id,-1,0));
-        addWidgetAction(tools,"↑",()->moveWidget(widget,id,0,-1));
-        addWidgetAction(tools,"↓",()->moveWidget(widget,id,0,1));
-        addWidgetAction(tools,"→",()->moveWidget(widget,id,1,0));
-        addWidgetAction(tools,"−",()->resizeWidget(widget,id,info,-1));
-        addWidgetAction(tools,"+",()->resizeWidget(widget,id,info,1));
-        addWidgetAction(tools,"Remove",()->{
-            String key="widget_ids_page_"+store.page;
-            StringBuilder kept=new StringBuilder();
-            for(String raw:store.preferences.getString(key,"").split(",")){
-                if(raw.isEmpty()||raw.equals(String.valueOf(id)))continue;
-                if(kept.length()>0)kept.append(",");
-                kept.append(raw);
-            }
-            store.preferences.edit().putString(key,kept.toString()).apply();
-            widgetHost.deleteAppWidgetId(id);clearSelection();rebuild();
-        });
-        FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(-2,Ui.dp(getContext(),44));
-        p.gravity=android.view.Gravity.TOP|android.view.Gravity.LEFT;
-        p.leftMargin=((FrameLayout.LayoutParams)widget.getLayoutParams()).leftMargin;
-        p.topMargin=Math.max(0,((FrameLayout.LayoutParams)widget.getLayoutParams()).topMargin-Ui.dp(getContext(),46));
-        stage.addView(tools,p);widgetToolbar=tools;
-    }
-    private void addWidgetAction(android.widget.LinearLayout parent,String label,Runnable action){
-        android.widget.TextView button=new android.widget.TextView(getContext());
-        button.setText(label);button.setTextColor(android.graphics.Color.WHITE);
-        button.setGravity(android.view.Gravity.CENTER);button.setTextSize(15);
-        button.setPadding(Ui.dp(getContext(),14),0,Ui.dp(getContext(),14),0);
-        parent.addView(button,new android.widget.LinearLayout.LayoutParams(-2,-1));
-        button.setOnClickListener(v->action.run());
+            }).show();
     }
     private void moveWidget(android.appwidget.AppWidgetHostView widget,int id,int dx,int dy){
         FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)widget.getLayoutParams();
