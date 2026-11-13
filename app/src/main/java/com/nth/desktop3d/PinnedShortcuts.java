@@ -28,10 +28,10 @@ final class PinnedShortcuts {
     private final LauncherStore store;
     private final LauncherApps launcher;
     private final UserManager users;
-    private final Runnable changed;
+    private final java.util.function.Consumer<String> changed;
     private final Map<String,Drawable> icons=new HashMap<>();
     private AlertDialog confirmation;
-    PinnedShortcuts(MainActivity activity,LauncherStore store,LauncherApps launcher,Runnable changed){this.activity=activity;this.store=store;this.launcher=launcher;this.changed=changed;users=activity.getSystemService(UserManager.class);}
+    PinnedShortcuts(MainActivity activity,LauncherStore store,LauncherApps launcher,java.util.function.Consumer<String> changed){this.activity=activity;this.store=store;this.launcher=launcher;this.changed=changed;users=activity.getSystemService(UserManager.class);}
     static boolean isShortcut(LauncherStore.Item item){return item.shortcutPackage!=null&&item.shortcutId!=null;}
     boolean handle(Intent intent){
         if(intent==null||!LauncherApps.ACTION_CONFIRM_PIN_SHORTCUT.equals(intent.getAction()))return false;
@@ -58,7 +58,7 @@ final class PinnedShortcuts {
                 LauncherStore.Item item=existing==null?new LauncherStore.Item(key,label):existing;
                 item.shortcutPackage=info.getPackage();item.shortcutId=info.getId();item.shortcutUser=serial;item.label=label;
                 saveIcon(info,key);if(existing==null)store.pages.get(page).add(item);
-                store.page=existing==null?page:pageOf(existing);store.save();changed.run();
+                store.page=existing==null?page:pageOf(existing);store.save();changed.accept(item.id);
                 activity.toast(existing==null?"Shortcut added to Desktop "+(store.page+1):"Shortcut updated on Desktop "+(store.page+1));confirmation.dismiss();
             }catch(RuntimeException error){activity.toast("The shortcut could not be added. Set Nth Desktop 3D as your default Home app and try again.");}
         }));confirmation.show();return true;
@@ -82,7 +82,7 @@ final class PinnedShortcuts {
             icons.remove(key);
         }catch(java.io.IOException|RuntimeException unavailable){android.util.Log.w("NthShortcuts","Shortcut icon unavailable",unavailable);}
     }
-    void refresh(String packageName,List<ShortcutInfo> shortcuts){for(ShortcutInfo info:shortcuts){String key=identity(packageName,info.getId(),users.getSerialNumberForUser(info.getUserHandle()));if(find(key)!=null)saveIcon(info,key);}changed.run();}
+    void refresh(String packageName,List<ShortcutInfo> shortcuts){for(ShortcutInfo info:shortcuts){String key=identity(packageName,info.getId(),users.getSerialNumberForUser(info.getUserHandle()));if(find(key)!=null)saveIcon(info,key);}changed.accept(null);}
     void syncRemoved(){
         // Each launcher owns its own pinned set. Preserve references in folders and other desktops.
         Map<String,LauncherStore.Item> all=new HashMap<>();for(List<LauncherStore.Item> page:store.pages)for(LauncherStore.Item item:page)collect(item,all);

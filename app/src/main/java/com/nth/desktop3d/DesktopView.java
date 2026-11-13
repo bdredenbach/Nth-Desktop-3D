@@ -30,7 +30,7 @@ final class DesktopView extends FrameLayout {
     private final java.util.Map<Integer,android.appwidget.AppWidgetProviderInfo> providers=new java.util.HashMap<>();
     private java.util.List<DesktopGrid.Cell> cells=new ArrayList<>(),originalPlan,previewPlan;
     private DesktopGrid.Cell dragStart;
-    private String dragId;
+    private String dragId,pendingRevealItem;
     private int columns,rows,visibleRows,cw,ch;
     private int renderedPage=-1,pendingRevealId=-1;
     private java.util.List<DesktopGrid.Cell> obstaclePlan;
@@ -61,12 +61,13 @@ final class DesktopView extends FrameLayout {
     void tilt(float x,float y){tiltX=x;tiltY=y;}
     void setModal(boolean v){modal=v;if(v){clearSelection();touching=false;removeCallbacks(backgroundHold);}}
     void rebuild(){
+        if(renderedPage!=store.page)pendingRevealItem=null;
         int previousScroll=renderedPage==store.page&&scroller!=null?scroller.getScrollY():0;renderedPage=store.page;
         clearSelection();if(animator!=null)animator.cancel();animating=false;stage.animate().cancel();resetTransform();
         stage.removeAllViews();bodies.clear();cellViews.clear();providers.clear();cells=new ArrayList<>();
         widgetHost.releaseViews();
         workspace=new WorkspaceFrame(getContext());
-        workspace.addOnLayoutChangeListener((v,l,t,r,b,oldL,oldT,oldR,oldB)->{if(pendingRevealId>=0)post(this::revealPendingWidget);});
+        workspace.addOnLayoutChangeListener((v,l,t,r,b,oldL,oldT,oldR,oldB)->{if(pendingRevealId>=0||pendingRevealItem!=null)post(this::revealPendingWidget);});
         if(!gravity()){
             scroller=new ScrollView(getContext());scroller.setFillViewport(true);scroller.setClipToPadding(false);scroller.setVerticalScrollBarEnabled(false);
             scroller.addView(workspace,new ScrollView.LayoutParams(-1,-2));stage.addView(scroller,new LayoutParams(-1,-1));
@@ -102,7 +103,7 @@ final class DesktopView extends FrameLayout {
             }
             view.setTag(widgetKey(id));cellViews.put(widgetKey(id),view);workspace.addView(view,new LayoutParams(1,1));
         }
-        updateLayout();post(()->{updateLayout();if(scroller!=null&&pendingRevealId<0)scroller.scrollTo(0,previousScroll);revealPendingWidget();});
+        updateLayout();post(()->{updateLayout();if(scroller!=null&&pendingRevealId<0&&pendingRevealItem==null)scroller.scrollTo(0,previousScroll);revealPendingWidget();});
     }
     private java.util.List<Integer> widgetIds(){
         java.util.List<Integer> result=new ArrayList<>();
@@ -221,7 +222,9 @@ final class DesktopView extends FrameLayout {
         View view=cellViews.get(widgetKey(id));if(!(view instanceof LauncherWidgetView))return false;
         pendingRevealId=id;post(this::revealPendingWidget);return true;
     }
+    void revealItem(String id){pendingRevealItem=id;post(this::revealPendingWidget);}
     private void revealPendingWidget(){
+        if(pendingRevealItem!=null){View item=cellViews.get(pendingRevealItem);if(item!=null&&item.getWidth()>0&&item.getHeight()>0&&DesktopGrid.find(cells,pendingRevealItem)!=null){if(scroller!=null)scroller.scrollTo(0,Math.max(0,Math.round(item.getTranslationY())-top()));pendingRevealItem=null;}}
         if(pendingRevealId<0)return;View view=cellViews.get(widgetKey(pendingRevealId));
         if(view==null||view.getWidth()<=0||view.getHeight()<=0||DesktopGrid.find(cells,widgetKey(pendingRevealId))==null)return;
         int id=pendingRevealId;pendingRevealId=-1;

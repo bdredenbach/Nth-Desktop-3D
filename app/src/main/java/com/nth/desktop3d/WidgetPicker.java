@@ -44,7 +44,7 @@ final class WidgetPicker {
     private final BaseAdapter adapter=new BaseAdapter(){
         public int getCount(){return rows.size();}public Object getItem(int position){return rows.get(position);}public long getItemId(int position){return position;}
         public View getView(int position,View recycled,ViewGroup parent){return rows.get(position).create();}
-        public boolean isEnabled(int position){return false;}
+        public boolean isEnabled(int position){return true;}
     };
     private final List<Group> catalog=new ArrayList<>();
     private final java.util.Set<String> expanded=new java.util.HashSet<>();

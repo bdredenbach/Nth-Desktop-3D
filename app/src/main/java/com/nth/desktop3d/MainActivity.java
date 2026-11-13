@@ -124,7 +124,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         shell=Ui.column(this);shell.setClipChildren(false);shell.setClipToPadding(false);root.addView(shell,new FrameLayout.LayoutParams(-1,-1));
         buildHeader();
         desktop=new DesktopView(this,store,catalog,this,widgetHost,widgetManager);shell.addView(desktop,new LinearLayout.LayoutParams(-1,0,1));
-        shortcuts=new PinnedShortcuts(this,store,catalog.launcher,()->{desktop.rebuild();pageChanged();});catalog.shortcuts=shortcuts;
+        shortcuts=new PinnedShortcuts(this,store,catalog.launcher,id->{desktop.rebuild();if(id!=null)desktop.revealItem(id);pageChanged();});catalog.shortcuts=shortcuts;
         buildTaskbar();
         // Immersive home: gestures replace persistent desktop chrome.
         header.setVisibility(View.GONE);bar.setVisibility(View.GONE);
@@ -463,7 +463,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void appMenu(AppCatalog.Entry entry,LauncherStore.Item shortcut){
         String label=shortcut!=null?shortcut.label:entry.label;String key=shortcut!=null?shortcut.key:entry.key;
         LinearLayout body=scrollBody(openPanel(label,true));action(body,"Open",()->{if(shortcut==null)launch(key);else open(shortcut);});
-        if(shortcut==null)action(body,"Add to this desktop",()->{boolean added=store.add(store.page,key,label);desktop.rebuild();pageChanged();toast(added?"Shortcut added to Desktop "+(store.page+1):"That shortcut is already here, or this desktop is full.");closePanel();});
+        if(shortcut==null)action(body,"Add to this desktop",()->{boolean added=store.add(store.page,key,label);desktop.rebuild();pageChanged();toast(added?"Shortcut added to Desktop "+(store.page+1):"That shortcut is already here, or this desktop is full.");closePanel();if(added)desktop.revealItem(store.pages.get(store.page).get(store.pages.get(store.page).size()-1).id);});
         else{
             action(body,"Rename shortcut",()->rename(shortcut));
             if(store.pages.get(store.page).contains(shortcut)){action(body,shortcut.fixed?"Unpin in Gravity Playground":"Pin in Gravity Playground",()->{shortcut.fixed=!shortcut.fixed;store.save();desktop.rebuild();closePanel();});action(body,"Move to another desktop",()->move(shortcut));}
