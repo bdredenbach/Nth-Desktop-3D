@@ -10,7 +10,8 @@ Settings is a native searchable category browser with a persistent live preview.
 Home, Dock, Folders, App drawer, Search & Nth Nota, Look & feel, Scenes & motion,
 Gestures, Feed, settings backup and launcher information have real controls.
 The preview uses current desktop/folder/app identities and the same appearance
-preferences as the launcher. Drag it to rotate its plane. Reduced motion disables
+preferences as the launcher. Widget footprints are represented without binding
+additional widget instances. Drag the preview to rotate its plane. Reduced motion disables
 preview rotation and decorative navigation motion. Categories survive Activity
 recreation and device rotation; the Nota draft is saved locally.
 

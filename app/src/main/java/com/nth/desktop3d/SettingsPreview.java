@@ -22,15 +22,23 @@ final class SettingsPreview extends View {
     @Override protected void onDraw(Canvas c){
         super.onDraw(c);float d=getResources().getDisplayMetrics().density,w=getWidth(),h=getHeight();RectF area=new RectF(0,0,w,h);Path path=new Path();path.addRoundRect(area,18*d,18*d,Path.Direction.CW);int saved=c.save();c.clipPath(path);
         Drawable scene=scenes[model.store.mode];scene.setBounds(0,0,(int)w,(int)h);scene.draw(c);paint.setColor(0x6B071522);c.drawRect(area,paint);
-        boolean folder=page.equals("folders"),drawer=page.equals("drawer");int columns=folder?model.value("folder_columns"):drawer?model.value("drawer_columns"):model.value("grid_columns");
+        boolean folder=page.equals("folders"),drawer=page.equals("drawer");int columns=folder?model.value("folder_columns"):drawer?Math.min(8,model.value("drawer_columns")+(getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE?2:0)):model.value("grid_columns");
         List<LauncherStore.Item> items=new ArrayList<>();if(folder&&!model.store.folders().isEmpty())items.addAll(model.store.folders().get(0).children);else if(drawer){for(AppCatalog.Entry entry:catalog.entries){items.add(new LauncherStore.Item(entry.key,entry.label));if(items.size()>=columns*2)break;}}else items.addAll(model.store.pages.get(model.store.page));
         float top=20*d,padding=12*d+model.value("desktop_padding")*d*.25f;
         if(folder&&model.value("folder_title")==1){text(c,"Folder",w/2,16*d,11*d,Ui.TEXT);top=32*d;}
+        if(folder&&!items.isEmpty())columns=Math.min(columns,items.size());
         float bottom=model.value("show_dock")==1&&!folder&&!drawer?28*d:6*d;
         float cw=(w-2*padding)/columns,ch=(h-top-bottom)/2;
         boolean labels=model.value(folder?"folder_labels":drawer?"drawer_labels":"desktop_labels")==1;int percent=model.value(folder?"folder_icon_size":drawer?"drawer_icon_size":"icon_size");
-        for(int n=0;n<Math.min(items.size(),columns*2);n++){
-            LauncherStore.Item item=items.get(n);float x=padding+(n%columns+.5f)*cw,y=top+(n/columns)*ch;
+        List<DesktopGrid.Cell> plan=new ArrayList<>();
+        if(!folder&&!drawer){
+            for(String raw:model.store.preferences.getString("widget_ids_page_"+model.store.page,"").split(","))try{int id=Integer.parseInt(raw);int sw=Math.max(1,Math.min(columns,model.store.preferences.getInt("widget_span_x_"+id,2))),sh=Math.max(1,Math.min(12,model.store.preferences.getInt("widget_span_y_"+id,2)));int x=Math.max(0,Math.min(columns-sw,model.store.preferences.getInt("widget_cell_x_"+id,0))),y=Math.max(0,Math.min(120-sh,model.store.preferences.getInt("widget_cell_y_"+id,0)));plan.add(new DesktopGrid.Cell("widget:"+id,true,x,y,sw,sh));}catch(NumberFormatException ignored){}
+            for(int n=0;n<items.size();n++){LauncherStore.Item item=items.get(n);plan.add(new DesktopGrid.Cell(item.id,false,Math.max(0,Math.min(columns-1,item.cellX<0?n%columns:item.cellX)),Math.max(0,Math.min(118,item.cellY<0?n/columns:item.cellY)),1,1));}
+            List<DesktopGrid.Cell> restored=DesktopGrid.restore(plan,columns,120);if(restored!=null)plan=restored;
+            for(DesktopGrid.Cell cell:plan)if(cell.widget&&cell.y<2){RectF widget=new RectF(padding+cell.x*cw+3*d,top+cell.y*ch+2*d,padding+(cell.x+cell.w)*cw-3*d,Math.min(h-bottom,top+(cell.y+cell.h)*ch-2*d));paint.setColor(0xD52C5065);c.drawRoundRect(widget,9*d,9*d,paint);text(c,"Widget",widget.centerX(),widget.centerY()+4*d,11*d,Ui.TEXT);}
+        }
+        for(int n=0;n<items.size();n++){
+            LauncherStore.Item item=items.get(n);DesktopGrid.Cell cell=folder||drawer?null:DesktopGrid.find(plan,item.id);int column=cell==null?n%columns:cell.x,row=cell==null?n/columns:cell.y;if(row>=2)continue;float x=padding+(column+.5f)*cw,y=top+row*ch;
             float size=Math.max(12*d,Math.min(cw*.62f,ch*(labels?.55f:.75f))*percent/100f);size=Math.min(size,Math.min(cw-6*d,ch-14*d));
             RectF tile=new RectF(x-size/2,y,x+size/2,y+size);material.setBounds(Math.round(tile.left),Math.round(tile.top),Math.round(tile.right),Math.round(tile.bottom));material.draw(c);
             Drawable icon=catalog.icon(item);if(icon==null)icon=new IconTile.BuiltinIcon(item.key);android.graphics.Rect old=icon.copyBounds();int inset=Math.round(size*.12f);icon.setBounds(Math.round(tile.left)+inset,Math.round(tile.top)+inset,Math.round(tile.right)-inset,Math.round(tile.bottom)-inset);icon.draw(c);icon.setBounds(old);

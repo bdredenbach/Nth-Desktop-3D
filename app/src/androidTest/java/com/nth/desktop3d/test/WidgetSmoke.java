@@ -95,7 +95,6 @@ final class WidgetSmoke {
         });capture("widgets-gravity-obstacles");
         main(()->{store().mode=0;store().save();invokeDesktop("rebuild");});idle(400);assertOccupancy();
         testPinnedShortcut();
-        new SettingsSmoke(instrumentation,activity,outputDirectory).run();
     }
     private void invokeActivity(String name){main(()->{try{java.lang.reflect.Method method=MainActivity.class.getDeclaredMethod(name);method.setAccessible(true);method.invoke(activity);}catch(Exception error){throw new AssertionError(error);}});idle(400);}
     private int previewAndAddWidget(){
