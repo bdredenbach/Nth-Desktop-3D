@@ -1,0 +1,14 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:label="Nth widget test fixture" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false">
+        <receiver android:name=".FixtureWidgetProvider" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget" />
+        </receiver>
+        <receiver android:name=".ConfiguredWidgetProvider" android:label="Nth configurable widget fixture" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/configured_widget" />
+        </receiver>
+        <receiver android:name=".FixtureCommandReceiver" android:exported="true" />
+        <activity android:name=".FixtureConfigurationActivity" android:exported="true" />
+    </application>
+</manifest>

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.1 — 2026-11-13
+
+- Register every displayed/restored widget through AppWidgetHost.createView so initial content and live RemoteViews updates reach the desktop.
+- Keep widget provider dimensions in pixels and send size options in dp; remove double density conversion.
+- Give widgets, apps and folders one persisted cell grid. Migrate existing overlapping layouts without deleting items; keep dense desktops scrollable.
+- Add direct widget hold/drag with a drop outline, nearby shortcut/folder reflow, rejection of widget-on-widget drops, and grid-aligned edge resizing.
+- Preserve pending widget ID, page and configuration stage across Activity recreation; cancel/deallocate failed setup and use the host's configuration API.
+- Add a separate-UID widget fixture and native content/update/gesture/lifecycle tests, plus exhaustive occupancy policy tests.
+- Retain the permanent 0.3.0 test signing certificate; versionCode increases to 10078.
+
 ## 0.3.0 — 2026-11-13
 
 - Establish a permanent, dedicated 3D test-update certificate with a private owner recovery backup.

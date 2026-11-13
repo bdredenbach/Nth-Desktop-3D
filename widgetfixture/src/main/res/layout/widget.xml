@@ -1,0 +1,4 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" android:padding="12dp" android:background="#153753">
+    <TextView android:id="@+id/label" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center" android:text="Hosted widget ready" android:textColor="#E5FAFF" android:textSize="17sp" />
+    <Button android:id="@+id/tap" android:layout_width="match_parent" android:layout_height="48dp" android:text="Tap widget" />
+</LinearLayout>

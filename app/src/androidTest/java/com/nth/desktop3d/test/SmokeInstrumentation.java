@@ -56,7 +56,8 @@ public final class SmokeInstrumentation extends Instrumentation {
             assertRestoredGrid();capture("landscape");
             invoke("showControls");check(find(v->v instanceof Button&&"Internet".contentEquals(((Button)v).getText()))!=null,"Device flyout missing");back();
             main(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));idle(900);
-            s.putString("stream","Cold restored grid (24 shortcuts), Activity recreation, all four scenes, app search, Calculator, note persistence, shortcut long press, page changes, landscape and device flyout passed.\n");sendStatus(0,s);
+            new WidgetSmoke(this,activity,outputDirectory).run();
+            s.putString("stream","Cold restored grid (24 shortcuts), Activity recreation, all scenes, tools, gestures, landscape and device flyout passed. Separate-UID widget content, live updates, native drag/reflow, resize, app/folder collision, rejected widget overlap, configuration save/cancel, pause/resume, recreation, rotation and removal passed.\n");sendStatus(0,s);
             Bundle result=new Bundle();result.putString("stream","OK (1 integration test)\n");finish(Activity.RESULT_OK,result);
         }catch(Throwable error){try{capture("failure");}catch(Throwable ignored){}s.putString("stack",android.util.Log.getStackTraceString(error));s.putString("stream",error.toString());sendStatus(-2,s);Bundle result=new Bundle();result.putString("shortMsg",error.toString());finish(Activity.RESULT_CANCELED,result);}
     }

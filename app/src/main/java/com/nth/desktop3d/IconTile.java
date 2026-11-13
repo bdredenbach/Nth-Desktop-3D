@@ -33,6 +33,16 @@ final class IconTile extends LinearLayout {
         plinth.getChildAt(0).setLayoutParams(new FrameLayout.LayoutParams(Ui.dp(getContext(),36),Ui.dp(getContext(),36),Gravity.CENTER));
         ((LayoutParams)label.getLayoutParams()).topMargin=Ui.dp(getContext(),4);
         setBackground(Ui.touch(getContext(),Ui.satin(getContext(),0xEF2B3752,0xEE172137,18),18));setElevation(Ui.dp(getContext(),6));}
+    void fitCell(int width,int height){
+        setClipChildren(true);setClipToPadding(false);
+        int lines=height<Ui.dp(getContext(),105)?1:2;label.setMaxLines(lines);
+        int labelHeight=(int)Math.ceil(label.getPaint().getFontSpacing()*lines);
+        int size=Math.max(Ui.dp(getContext(),22),Math.min(Ui.dp(getContext(),60),Math.min(width-Ui.dp(getContext(),6),height-labelHeight-Ui.dp(getContext(),21))));
+        FrameLayout plinth=(FrameLayout)getChildAt(0);LayoutParams p=(LayoutParams)plinth.getLayoutParams();
+        if(p.width!=size||p.height!=size){p.width=size;p.height=size;plinth.setLayoutParams(p);}
+        int icon=Math.max(1,size*3/4);android.view.View image=plinth.getChildAt(0);FrameLayout.LayoutParams imageParams=(FrameLayout.LayoutParams)image.getLayoutParams();
+        if(imageParams.width!=icon){imageParams.width=icon;imageParams.height=icon;image.setLayoutParams(imageParams);}
+    }
     @Override public CharSequence getAccessibilityClassName(){return android.widget.Button.class.getName();}
     @Override public boolean performClick(){return super.performClick();}
     static final class BuiltinIcon extends Drawable {

@@ -23,17 +23,19 @@ public final class LauncherStore {
     public static final class Item {
         public String id = UUID.randomUUID().toString(), key, label;
         public float x = -1, y = -1;
+        public int cellX=-1,cellY=-1;
         public boolean fixed;
         public final List<Item> children = new ArrayList<>();
         public Item(String key, String label) { this.key = key; this.label = label; }
         public boolean folder() { return "folder".equals(key); }
         JSONObject json() throws JSONException {
-            JSONObject j = new JSONObject().put("id", id).put("key", key).put("label", label).put("x", x).put("y", y).put("fixed", fixed);
+            JSONObject j = new JSONObject().put("id", id).put("key", key).put("label", label).put("x", x).put("y", y).put("cellX",cellX).put("cellY",cellY).put("fixed", fixed);
             JSONArray a = new JSONArray(); for (Item c : children) a.put(c.json()); return j.put("children", a);
         }
         static Item read(JSONObject j, int depth) throws JSONException {
             Item i = new Item(j.getString("key"), j.optString("label", "Shortcut"));
             i.id = j.optString("id", i.id); i.x = (float) j.optDouble("x", -1); i.y = (float) j.optDouble("y", -1); i.fixed = j.optBoolean("fixed");
+            i.cellX=j.optInt("cellX",-1);i.cellY=j.optInt("cellY",-1);
             JSONArray a = j.optJSONArray("children");
             if (a != null && depth < 2) for (int n = 0; n < Math.min(a.length(), 100); n++) i.children.add(read(a.getJSONObject(n), depth + 1));
             return i;

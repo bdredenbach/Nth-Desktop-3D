@@ -1,12 +1,16 @@
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and four original GPU scenes. Current test release: **0.3.0**.
+animated Start menus and four original GPU scenes. Current test release: **0.3.1**.
 
 Install the supplied signed release APK for continued updates. Version 0.3.0
 establishes a permanent test certificate; moving from older debug builds requires
 a one-time reinstall. See [signed APK updates](docs/SIGNED-APK-UPDATES.md) for
 the private key recovery process, build command and versioning rules.
+
+Widgets now use Android's registered host views, share a placement grid with apps
+and folders, and support direct hold/drag plus cell-aligned resizing. See
+[widget placement](docs/widget-placement.md) for the interaction and validation scope.
 
 ## Included
 
@@ -93,8 +97,8 @@ touch transforms and accessibility. Ordinary Android apps launch normally.
 
 ## Next development passes
 
-This is the first working foundation. External Android widget hosting, additional
-Nth utility apps, freely resizable multiple built-in windows, layered-photo imports,
+This is the first working foundation. Additional Nth utility apps,
+freely resizable multiple built-in windows, layered-photo imports,
 and `.nthdesktop` compatibility have not been implemented. They require separate
 integration and regression testing. A room/shelf layout and richer geometry are
 future scene options. Physical Pixel 10 heat, battery, sensor feel and frame times

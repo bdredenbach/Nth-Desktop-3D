@@ -53,9 +53,10 @@ import java.util.concurrent.Executors;
 public final class MainActivity extends Activity implements MotionController.Listener, DesktopView.Host {
     private LauncherStore store;
     private CrystalPreferences crystal;
-    private android.appwidget.AppWidgetHost widgetHost;
+    private LauncherWidgetHost widgetHost;
     private android.appwidget.AppWidgetManager widgetManager;
-    private int pendingWidgetId=-1;
+    private int pendingWidgetId=-1,pendingWidgetPage=-1,pendingWidgetRequest;
+    private boolean widgetListening;
     private android.content.ComponentName pendingWidgetProvider;
     private AppCatalog catalog;
     private MotionController motion;
@@ -107,7 +108,12 @@ public final class MainActivity extends Activity implements MotionController.Lis
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
         getWindow().setStatusBarColor(Color.TRANSPARENT);getWindow().setNavigationBarColor(0xE60A1428);
         store=new LauncherStore(this);crystal=new CrystalPreferences(this);
-        widgetHost=new android.appwidget.AppWidgetHost(this,3047);
+        widgetHost=new LauncherWidgetHost(this);
+        pendingWidgetId=store.preferences.getInt("pending_widget_id",-1);
+        pendingWidgetPage=store.preferences.getInt("pending_widget_page",store.page);
+        pendingWidgetRequest=store.preferences.getInt("pending_widget_request",0);
+        String pendingProvider=store.preferences.getString("pending_widget_provider",null);
+        if(pendingProvider!=null)pendingWidgetProvider=android.content.ComponentName.unflattenFromString(pendingProvider);
         widgetManager=android.appwidget.AppWidgetManager.getInstance(this);catalog=new AppCatalog(this);motion=new MotionController(this,this);
         root=new FrameLayout(this);root.setBackgroundColor(0xFF061326);setContentView(root);
         scene=new SceneSurface(this);root.addView(scene,new FrameLayout.LayoutParams(-1,-1));
@@ -178,9 +184,11 @@ public final class MainActivity extends Activity implements MotionController.Lis
         date.setText(new SimpleDateFormat("EEEE, MMMM d",Locale.getDefault()).format(now));
         clockButton.setText(time+"\n"+new SimpleDateFormat("MMM d",Locale.getDefault()).format(now));clockButton.setTextSize(11);
     }
-    @Override protected void onResume(){super.onResume();try{widgetHost.startListening();}catch(RuntimeException ignored){}resumed=true;previousFrame=lastRender=0;scene.onResume();applySettings(false);Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);handler.removeCallbacks(clockTick);clockTick.run();if(loaded)reloadApps();}
-    @Override protected void onPause(){resumed=false;Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();widgetHost.stopListening();desktop.savePositions();store.save();savePanel();super.onPause();}
-    @Override protected void onDestroy(){destroyed=true;handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();super.onDestroy();}
+    @Override protected void onStart(){super.onStart();try{widgetHost.startListening();widgetListening=true;}catch(RuntimeException error){android.util.Log.e("NthWidgets","Could not listen for widget updates",error);}}
+    @Override protected void onStop(){if(widgetListening){widgetHost.stopListening();widgetListening=false;}super.onStop();}
+    @Override protected void onResume(){super.onResume();resumed=true;previousFrame=lastRender=0;scene.onResume();applySettings(false);Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);handler.removeCallbacks(clockTick);clockTick.run();if(loaded)reloadApps();}
+    @Override protected void onPause(){resumed=false;Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();super.onPause();}
+    @Override protected void onDestroy(){destroyed=true;handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();widgetHost.releaseViews();super.onDestroy();}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);closePanel();motion.recenter();}
     @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);closePanel();motion.recenter();clock.setTextSize(compact()?30:54);desktop.rebuild();root.requestApplyInsets();}
     @Override public void onBackPressed(){if(overlay!=null)closePanel();else if(store.page!=0){store.page=0;desktop.rebuild();pageChanged();store.save();}}
@@ -467,7 +475,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         new AlertDialog.Builder(this).setTitle("Rename").setView(edit).setNegativeButton("Cancel",null).setPositiveButton("Save",(d,w)->{String s=edit.getText().toString().trim();if(!s.isEmpty()){item.label=s;store.save();desktop.rebuild();closePanel();}}).show();
     }
     private void move(LauncherStore.Item item){
-        new AlertDialog.Builder(this).setTitle("Move shortcut").setItems(new String[]{"Desktop 1","Desktop 2","Desktop 3"},(d,w)->{if(store.pages.get(w).size()>=60){toast("That desktop is full.");return;}store.remove(item);store.pages.get(w).add(item);item.x=item.y=-1;store.save();desktop.rebuild();pageChanged();closePanel();}).show();
+        new AlertDialog.Builder(this).setTitle("Move shortcut").setItems(new String[]{"Desktop 1","Desktop 2","Desktop 3"},(d,w)->{if(store.pages.get(w).size()>=60){toast("That desktop is full.");return;}store.remove(item);store.pages.get(w).add(item);item.x=item.y=-1;item.cellX=item.cellY=-1;store.save();desktop.rebuild();pageChanged();closePanel();}).show();
     }
     private void confirmRemove(LauncherStore.Item item){new AlertDialog.Builder(this).setTitle("Remove "+item.label+"?").setMessage("This removes the folder and its shortcuts. Installed apps remain on your device.").setNegativeButton("Cancel",null).setPositiveButton("Remove",(d,w)->{store.remove(item);desktop.rebuild();pageChanged();closePanel();}).show();}
     private void chooseFolder(String key,String label){
@@ -536,92 +544,76 @@ public final class MainActivity extends Activity implements MotionController.Lis
         action(body,"All shortcuts",this::showDesktopOverview);
         action(body,"Set default Home",this::requestHome);
     }
+    private void savePendingWidget(){
+        android.content.SharedPreferences.Editor edit=store.preferences.edit();
+        if(pendingWidgetId<0)edit.remove("pending_widget_id").remove("pending_widget_page").remove("pending_widget_request").remove("pending_widget_provider");
+        else{edit.putInt("pending_widget_id",pendingWidgetId).putInt("pending_widget_page",pendingWidgetPage).putInt("pending_widget_request",pendingWidgetRequest);if(pendingWidgetProvider!=null)edit.putString("pending_widget_provider",pendingWidgetProvider.flattenToString());else edit.remove("pending_widget_provider");}
+        edit.apply();
+    }
     private void showWidgets(){
-        // Use Android's native picker immediately; no intermediary launcher panel.
         try{
-            pendingWidgetId=widgetHost.allocateAppWidgetId();
-            pendingWidgetProvider=null;
+            releasePendingWidget();pendingWidgetId=widgetHost.allocateAppWidgetId();pendingWidgetPage=store.page;pendingWidgetRequest=3047;pendingWidgetProvider=null;savePendingWidget();
             Intent pick=new Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_PICK);
             pick.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,pendingWidgetId);
             startActivityForResult(pick,3047);
-        }catch(RuntimeException e){
-            releasePendingWidget();
-            toast("Widget picker unavailable on this device.");
-        }
+        }catch(RuntimeException error){releasePendingWidget();toast("Widget picker unavailable on this device.");}
+    }
+    private boolean knownWidget(int id){
+        for(int page=0;page<LauncherStore.PAGE_COUNT;page++)for(String raw:store.preferences.getString("widget_ids_page_"+page,"").split(","))if(raw.equals(String.valueOf(id)))return true;
+        return false;
     }
     private void releasePendingWidget(){
-        if(pendingWidgetId>=0){
-            widgetHost.deleteAppWidgetId(pendingWidgetId);
-            pendingWidgetId=-1;
-        }
-        pendingWidgetProvider=null;
+        if(pendingWidgetId>=0&&!knownWidget(pendingWidgetId))widgetHost.deleteAppWidgetId(pendingWidgetId);
+        pendingWidgetId=-1;pendingWidgetPage=-1;pendingWidgetRequest=0;pendingWidgetProvider=null;savePendingWidget();
     }
     private android.appwidget.AppWidgetProviderInfo resolveWidget(int id,Intent data){
-        android.appwidget.AppWidgetProviderInfo info=widgetManager.getAppWidgetInfo(id);
-        if(info!=null)return info;
+        android.appwidget.AppWidgetProviderInfo info=widgetManager.getAppWidgetInfo(id);if(info!=null)return info;
         android.content.ComponentName provider=pendingWidgetProvider;
-        if(data!=null){
-            android.content.ComponentName returned=data.getParcelableExtra(
-                android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_PROVIDER);
-            if(returned!=null)provider=returned;
-        }
-        if(provider!=null){
-            for(android.appwidget.AppWidgetProviderInfo candidate:widgetManager.getInstalledProviders()){
-                if(provider.equals(candidate.provider))return candidate;
-            }
-        }
+        if(data!=null){android.content.ComponentName returned=data.getParcelableExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_PROVIDER);if(returned!=null)provider=returned;}
+        if(provider!=null)for(android.appwidget.AppWidgetProviderInfo candidate:widgetManager.getInstalledProviders())if(provider.equals(candidate.provider))return candidate;
         return null;
+    }
+    @Override public void configureWidget(int id){
+        try{widgetHost.startAppWidgetConfigureActivityForResult(this,id,0,3050,null);}
+        catch(RuntimeException error){toast("Widget settings unavailable.");}
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);
+        if(request==3050){desktop.rebuild();return;}
         if(request!=3047&&request!=3048&&request!=3049)return;
+        if(pendingWidgetId<0||request!=pendingWidgetRequest)return;
         if(result!=RESULT_OK){releasePendingWidget();return;}
-        int id=data==null?pendingWidgetId:data.getIntExtra(
-            android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,pendingWidgetId);
-        if(id<0){releasePendingWidget();return;}
-        pendingWidgetId=id;
+        int id=data==null?pendingWidgetId:data.getIntExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,pendingWidgetId);
+        if(id!=pendingWidgetId){releasePendingWidget();toast("Widget selection was not completed. Please try again.");return;}
         android.appwidget.AppWidgetProviderInfo info=resolveWidget(id,data);
         if(info==null){releasePendingWidget();toast("Widget provider unavailable.");return;}
-        pendingWidgetProvider=info.provider;
-        if(request==3047){
-            boolean bound=widgetManager.getAppWidgetInfo(id)!=null;
-            if(!bound)bound=widgetManager.bindAppWidgetIdIfAllowed(id,info.provider);
+        pendingWidgetProvider=info.provider;savePendingWidget();
+        if(request==3047&&widgetManager.getAppWidgetInfo(id)==null){
+            boolean bound=false;
+            try{bound=widgetManager.bindAppWidgetIdIfAllowed(id,info.provider);}catch(SecurityException error){android.util.Log.w("NthWidgets","Widget binding needs user permission",error);}
             if(!bound){
                 try{
+                    pendingWidgetRequest=3048;savePendingWidget();
                     Intent bind=new Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_BIND);
-                    bind.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,id);
-                    bind.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_PROVIDER,info.provider);
+                    bind.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,id);bind.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_PROVIDER,info.provider);
                     startActivityForResult(bind,3048);
-                }catch(RuntimeException e){
-                    releasePendingWidget();toast("Could not request widget permission.");
-                }
+                }catch(RuntimeException error){releasePendingWidget();toast("Could not request widget permission.");}
                 return;
             }
         }
-        // A successful permission result must resolve to a genuinely bound widget.
-        if(request==3048&&widgetManager.getAppWidgetInfo(id)==null){
-            releasePendingWidget();toast("Widget permission was not applied. Please try again.");
+        if(widgetManager.getAppWidgetInfo(id)==null){releasePendingWidget();toast("Widget permission was not applied. Please try again.");return;}
+        boolean optional=android.os.Build.VERSION.SDK_INT>=28&&(info.widgetFeatures&android.appwidget.AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL)!=0&&(info.widgetFeatures&android.appwidget.AppWidgetProviderInfo.WIDGET_FEATURE_RECONFIGURABLE)!=0;
+        if(request!=3049&&info.configure!=null&&!optional){
+            try{pendingWidgetRequest=3049;savePendingWidget();widgetHost.startAppWidgetConfigureActivityForResult(this,id,0,3049,null);}
+            catch(RuntimeException error){releasePendingWidget();toast("Widget setup could not open. Please choose the widget again.");}
             return;
         }
-        if(request!=3049&&info.configure!=null){
-            try{
-                Intent configure=new Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_CONFIGURE);
-                configure.setComponent(info.configure);
-                configure.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,id);
-                startActivityForResult(configure,3049);
-                return;
-            }catch(RuntimeException e){
-                toast("Widget configuration unavailable; adding default widget.");
-            }
-        }
-        String key="widget_ids_page_"+store.page;
+        int page=Math.max(0,Math.min(LauncherStore.PAGE_COUNT-1,pendingWidgetPage));String key="widget_ids_page_"+page;
         String previous=store.preferences.getString(key,"");
-        store.preferences.edit().putString(key,
-            previous.isEmpty()?String.valueOf(id):previous+","+id).apply();
-        pendingWidgetId=-1;
-        pendingWidgetProvider=null;
-        closePanel();desktop.rebuild();
-        toast("Widget added to desktop");
+        if(!knownWidget(id))store.preferences.edit().putString(key,previous.isEmpty()?String.valueOf(id):previous+","+id).apply();
+        pendingWidgetId=-1;pendingWidgetPage=-1;pendingWidgetRequest=0;pendingWidgetProvider=null;savePendingWidget();
+        store.page=page;store.save();closePanel();desktop.rebuild();pageChanged();
+        toast(desktop.revealWidget(id)?"Widget placed on Desktop "+(page+1):"Widget saved, but its provider is unavailable. Hold the placeholder to retry or remove it.");
     }
     private void newFolder(){EditText edit=new EditText(this);edit.setSingleLine(true);edit.setHint("Folder name");Ui.pad(edit,16);new AlertDialog.Builder(this).setTitle("New folder").setView(edit).setNegativeButton("Cancel",null).setPositiveButton("Create",(d,w)->{String name=edit.getText().toString().trim();if(!name.isEmpty()&&store.pages.get(store.page).size()<60){store.pages.get(store.page).add(new LauncherStore.Item("folder",name));store.save();desktop.rebuild();pageChanged();closePanel();}}).show();}
 
@@ -752,9 +744,10 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private void systemPanel(String action,String fallback){if(Build.VERSION.SDK_INT>=29){try{startActivity(new Intent(action));return;}catch(RuntimeException ignored){}}openSystem(fallback);}
     private void openSystem(String action){try{startActivity(new Intent(action));}catch(RuntimeException e){toast("That settings screen is unavailable on this device.");}}
+    private String appVersion(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(android.content.pm.PackageManager.NameNotFoundException error){return "";}}
     private void showAbout(){
-        LinearLayout body=scrollBody(openPanel("Nth Desktop 3D"));paragraph(body,"Version 0.2.0\n\nFour scenes. One desktop.\n\nTilt gently to explore depth. Swipe the desktop or use the arrows to turn pages. Hold an app for its menu. Hold the taskbar for desktop options.\n\nScene studio changes the environment. 3D settings mixes the transition and menu style independently.");
-        paragraph(body,"This first version includes app launching, persistent shortcuts and folders, Nth Notes, Calculator, Calendar, scene controls, and Android settings shortcuts. Android widgets, the wider Nth utility suite, and .nthdesktop imports are planned for later passes.");
+        LinearLayout body=scrollBody(openPanel("Nth Desktop 3D"));paragraph(body,"Version "+appVersion()+"\n\nFour scenes. One desktop.\n\nTilt gently to explore depth. Swipe the desktop or use the arrows to turn pages. Hold an app for its menu. Hold the taskbar for desktop options.\n\nScene studio changes the environment. 3D settings mixes the transition and menu style independently.");
+        paragraph(body,"This first version includes app launching, persistent shortcuts and folders, Nth Notes, Calculator, Calendar, scene controls, and Android settings shortcuts. Android widgets support direct hold/drag, cell snapping and resizing. The wider Nth utility suite and .nthdesktop imports are planned for later passes.");
         action(body,"Scene studio",this::showModes);action(body,"3D settings",this::showSettings);action(body,"Set default Home",this::requestHome);
     }
     private void welcome(){
