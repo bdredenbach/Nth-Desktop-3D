@@ -27,11 +27,12 @@ final class LauncherWidgetView extends AppWidgetHostView {
         super.onSizeChanged(w,h,oldw,oldh);
         if(w<=0||h<=0)return;
         post(()->{
+            if(!isAttachedToWindow())return;
             float density=getResources().getDisplayMetrics().density;
             android.os.Bundle options=new android.os.Bundle();
             options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_HOST_CATEGORY,android.appwidget.AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN);
             // Provider dimensions are already pixels. Only the options bundle is expressed in dp.
-            try{updateAppWidgetSize(options,Math.round(w/density),Math.round(h/density),Math.round(w/density),Math.round(h/density));}
+            try{updateAppWidgetSize(options,Math.round(getWidth()/density),Math.round(getHeight()/density),Math.round(getWidth()/density),Math.round(getHeight()/density));}
             catch(RuntimeException error){android.util.Log.e("NthWidgets","Could not report widget size",error);}
         });
     }

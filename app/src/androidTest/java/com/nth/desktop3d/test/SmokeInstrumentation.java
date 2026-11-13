@@ -24,6 +24,9 @@ public final class SmokeInstrumentation extends Instrumentation {
     @Override public void onStart(){
         Bundle s=status();sendStatus(1,s);
         try{
+            android.accessibilityservice.AccessibilityServiceInfo accessibility=getUiAutomation().getServiceInfo();
+            accessibility.flags|=android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS|android.accessibilityservice.AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS;
+            getUiAutomation().setServiceInfo(accessibility);
             // Quickstep is not the app under test; keep it from owning Home/recents input.
             shell("cmd package set-home-activity com.nth.desktop3d/.MainActivity");
             shell("am force-stop com.android.launcher3");

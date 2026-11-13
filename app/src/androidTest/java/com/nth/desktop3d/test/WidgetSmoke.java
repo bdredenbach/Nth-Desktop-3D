@@ -78,6 +78,12 @@ final class WidgetSmoke {
         main(()->{try{java.lang.reflect.Method reveal=desktop().getClass().getDeclaredMethod("revealWidget",int.class);reveal.setAccessible(true);reveal.invoke(desktop(),second);}catch(Exception error){throw new AssertionError(error);}});idle(400);
         hold(widget(second));clickSystemText("Remove");await(()->!known(second),"Widget Remove did not remove its saved record");
         check(AppWidgetManager.getInstance(activity).getAppWidgetInfo(second)==null,"Removed widget ID is still allocated");assertOccupancy();capture("widgets-restored-after-removal");
+        main(()->{store().page=1;store().save();invokeDesktop("rebuild");});idle(400);
+        String existing=store().pages.get(1).get(0).id;DesktopGrid.Cell original=cell(existing);
+        int sparse=addWidget(false);await(()->widget(sparse)!=null,"Sparse-page widget missing");assertOccupancy();
+        check(cell(existing).x==original.x&&cell(existing).y==original.y,"Adding a widget moved an icon despite vacant space");capture("widget-vacant-space-placement");
+        main(()->{store().page=0;store().save();invokeDesktop("rebuild");});idle(500);
+        sendUpdate(first,"Updated after changing desktops");await(()->hasText("Updated after changing desktops"),"Returning to a desktop lost widget update delivery");assertOccupancy();
     }
     private int addWidget(boolean configured){
         AtomicReference<Integer> result=new AtomicReference<>();
@@ -86,7 +92,7 @@ final class WidgetSmoke {
                 AppWidgetHost host=(AppWidgetHost)field(activity,"widgetHost");int id=host.allocateAppWidgetId();result.set(id);
                 ComponentName provider=new ComponentName(FIXTURE,FIXTURE+(configured?".ConfiguredWidgetProvider":".FixtureWidgetProvider"));
                 check(AppWidgetManager.getInstance(activity).bindAppWidgetIdIfAllowed(id,provider),"Fixture bind permission was not granted");
-                set(activity,"pendingWidgetId",id);set(activity,"pendingWidgetPage",0);set(activity,"pendingWidgetRequest",3047);
+                set(activity,"pendingWidgetId",id);set(activity,"pendingWidgetPage",store().page);set(activity,"pendingWidgetRequest",3047);
                 java.lang.reflect.Method save=MainActivity.class.getDeclaredMethod("savePendingWidget");save.setAccessible(true);save.invoke(activity);
                 java.lang.reflect.Method deliver=MainActivity.class.getDeclaredMethod("onActivityResult",int.class,int.class,Intent.class);deliver.setAccessible(true);
                 deliver.invoke(activity,3047,Activity.RESULT_OK,new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,id));
@@ -117,9 +123,24 @@ final class WidgetSmoke {
         }
         check(root!=null&&android.text.TextUtils.equals("com.nth.desktop3d",root.getPackageName()),"Native widget gesture is blocked by another window");
     }
+    private boolean clickNode(AccessibilityNodeInfo node,String text){
+        if(node==null)return false;
+        if(android.text.TextUtils.equals(text,node.getText())||android.text.TextUtils.equals(text,node.getContentDescription())){
+            AccessibilityNodeInfo clickable=node;
+            for(int depth=0;clickable!=null&&depth<4;depth++,clickable=clickable.getParent())if(clickable.isClickable()&&clickable.performAction(AccessibilityNodeInfo.ACTION_CLICK))return true;
+            Rect bounds=new Rect();node.getBoundsInScreen(bounds);
+            if(!bounds.isEmpty()){long start=SystemClock.uptimeMillis();pointer(start,MotionEvent.ACTION_DOWN,bounds.exactCenterX(),bounds.exactCenterY());pointer(start,MotionEvent.ACTION_UP,bounds.exactCenterX(),bounds.exactCenterY());return true;}
+        }
+        for(int i=0;i<node.getChildCount();i++)if(clickNode(node.getChild(i),text))return true;
+        return false;
+    }
     private void clickSystemText(String text){
         long end=SystemClock.uptimeMillis()+7000;
-        while(SystemClock.uptimeMillis()<end){AccessibilityNodeInfo root=instrumentation.getUiAutomation().getRootInActiveWindow();if(root!=null){List<AccessibilityNodeInfo> nodes=root.findAccessibilityNodeInfosByText(text);for(AccessibilityNodeInfo node:nodes){if(android.text.TextUtils.equals(text,node.getText())&&(node.performAction(AccessibilityNodeInfo.ACTION_CLICK)||(node.getParent()!=null&&node.getParent().performAction(AccessibilityNodeInfo.ACTION_CLICK)))){idle(600);return;}}}idle(100);}
+        while(SystemClock.uptimeMillis()<end){
+            if(clickNode(instrumentation.getUiAutomation().getRootInActiveWindow(),text)){idle(600);return;}
+            for(android.view.accessibility.AccessibilityWindowInfo window:instrumentation.getUiAutomation().getWindows())if(clickNode(window.getRoot(),text)){idle(600);return;}
+            idle(100);
+        }
         throw new AssertionError("External widget/config menu missing: "+text);
     }
     private boolean known(int id){return java.util.Arrays.asList(instrumentation.getTargetContext().getSharedPreferences("desktop3d",0).getString("widget_ids_page_0","").split(",")).contains(String.valueOf(id));}

@@ -118,6 +118,7 @@ final class DesktopView extends FrameLayout {
     private void restoreCells(){
         columns=gridColumns();cw=Math.max(1,width/columns);ch=cellHeight();visibleRows=Math.max(1,(height-top()-Ui.dp(getContext(),12))/ch);
         java.util.List<DesktopGrid.Cell> desired=new ArrayList<>();int area=0,maxWidgetHeight=1,maxSavedRow=visibleRows,index=0;
+        java.util.Set<String> unplaced=new java.util.HashSet<>();
         for(int id:widgetIds()){
             android.appwidget.AppWidgetProviderInfo info=providers.get(id);
             android.graphics.Rect padding=info==null?new android.graphics.Rect():android.appwidget.AppWidgetHostView.getDefaultPaddingForWidget(getContext(),info.provider,null);
@@ -131,6 +132,7 @@ final class DesktopView extends FrameLayout {
             int y=store.preferences.getInt("widget_cell_y_"+id,Math.round((store.preferences.getInt("widget_top_"+id,top())-top())/(float)ch));
             x=Math.max(0,Math.min(columns-w,x));y=Math.max(0,Math.min(60,y));
             desired.add(new DesktopGrid.Cell(widgetKey(id),true,x,y,w,h));area+=w*h;maxWidgetHeight=Math.max(maxWidgetHeight,h);maxSavedRow=Math.max(maxSavedRow,y+h);
+            if(!store.preferences.contains("widget_cell_x_"+id)&&!store.preferences.contains("widget_left_"+id))unplaced.add(widgetKey(id));
         }
         for(Body body:bodies){
             LauncherStore.Item item=body.item;
@@ -138,6 +140,12 @@ final class DesktopView extends FrameLayout {
             int y=item.cellY>=0?item.cellY:item.y<0?index/columns:Math.round((item.y*Math.max(0,height-Ui.dp(getContext(),112))-top())/ch);
             x=Math.max(0,Math.min(columns-1,x));y=Math.max(0,Math.min(60,y));
             desired.add(new DesktopGrid.Cell(item.id,false,x,y,1,1));area++;maxSavedRow=Math.max(maxSavedRow,y+1);index++;
+        }
+        // Prefer a genuinely vacant visible rectangle before moving any existing shortcuts.
+        for(int i=0;i<desired.size();i++)if(unplaced.contains(desired.get(i).id)){
+            java.util.List<DesktopGrid.Cell> occupied=new ArrayList<>(desired);DesktopGrid.Cell fresh=occupied.remove(i);
+            DesktopGrid.Cell vacant=DesktopGrid.nearest(fresh,occupied,columns,visibleRows);
+            if(vacant!=null)desired.set(i,vacant);
         }
         rows=Math.max(maxSavedRow,Math.max(visibleRows,(area+columns-1)/columns+maxWidgetHeight-1));
         cells=DesktopGrid.restore(desired,columns,rows);
