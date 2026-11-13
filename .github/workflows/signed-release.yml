@@ -1,0 +1,55 @@
+name: Signed APK release
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  signed-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 13114758
+          packages: platform-tools platforms;android-35 build-tools;35.0.0
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Verify signing secrets
+        env:
+          KEYSTORE: ${{ secrets.NTH_RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.NTH_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NTH_RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.NTH_RELEASE_KEY_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE" && test -n "$STORE_PASSWORD" && test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD" || { echo "::error::Configure all four NTH_RELEASE signing secrets first."; exit 1; }
+          printf '%s' "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/nth-release.jks"
+          chmod 600 "$RUNNER_TEMP/nth-release.jks"
+      - name: Build signed APK
+        env:
+          NTH_SIGNING_STORE_FILE: ${{ runner.temp }}/nth-release.jks
+          NTH_SIGNING_STORE_PASSWORD: ${{ secrets.NTH_RELEASE_STORE_PASSWORD }}
+          NTH_SIGNING_KEY_ALIAS: ${{ secrets.NTH_RELEASE_KEY_ALIAS }}
+          NTH_SIGNING_KEY_PASSWORD: ${{ secrets.NTH_RELEASE_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease lintRelease testDebugUnitTest
+      - name: Verify APK signature
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -f "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          cp "$APK" "Nth-Desktop-3D-v0.2.${GITHUB_RUN_NUMBER}.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nth-Desktop-3D-signed-release
+          path: Nth-Desktop-3D-v*.apk
+      - name: Publish direct-download release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v0.2.${GITHUB_RUN_NUMBER}" "Nth-Desktop-3D-v0.2.${GITHUB_RUN_NUMBER}.apk" --title "Nth Desktop 3D v0.2.${GITHUB_RUN_NUMBER}" --notes "Signed update-in-place Android APK. Install over the prior release signed with the same Nth release certificate."
+      - name: Remove temporary keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/nth-release.jks"
