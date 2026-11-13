@@ -92,13 +92,14 @@ final class DesktopView extends FrameLayout {
         updateLayout();post(this::updateLayout);
     }
     // Shared desktop grid metrics for widgets and shortcuts.
-    private int cellWidth(){return Ui.dp(getContext(),Math.max(84,Math.round(84*getResources().getConfiguration().fontScale*.8f)));}
-    private int cellHeight(){return Ui.dp(getContext(),112+Math.max(0,getResources().getConfiguration().fontScale-1)*30);}
+    private int gridColumns(){return Math.max(3,Math.min(8,store.preferences.getInt("grid_columns",4)));}
+    private int cellWidth(){return Math.max(1,Math.max(getWidth(),Ui.dp(getContext(),320))/gridColumns());}
+    private int cellHeight(){return Ui.dp(getContext(),store.preferences.getInt("grid_row_dp",112)+Math.max(0,getResources().getConfiguration().fontScale-1)*30);}
     private int snap(int pixels,int cell){return Math.round(pixels/(float)Math.max(1,cell))*Math.max(1,cell);}
     private android.graphics.Point emptyWidgetSpot(int id,int w,int h){
         int screenW=Math.max(Ui.dp(getContext(),320),getWidth());
         int screenH=Math.max(Ui.dp(getContext(),540),getHeight());
-        int cols=Math.max(1,Math.min(8,screenW/cellWidth()));
+        int cols=gridColumns();
         int cw=screenW/cols,ch=cellHeight();
         int spanX=Math.max(1,(int)Math.ceil(w/(double)cw));
         int spanY=Math.max(1,(int)Math.ceil(h/(double)ch));
@@ -182,7 +183,7 @@ final class DesktopView extends FrameLayout {
                                 if(selectedWidget!=widget)return false;
                                 if(dragging){
                                     FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)widget.getLayoutParams();
-                                    int cols=Math.max(1,Math.min(8,Math.max(1,getWidth())/cellWidth()));
+                                    int cols=gridColumns();
                                     int cw=Math.max(1,getWidth()/cols);
                                     p.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),snap(p.leftMargin,cw)));
                                     p.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),Ui.dp(getContext(),24)+snap(p.topMargin-Ui.dp(getContext(),24),cellHeight())));
@@ -235,7 +236,7 @@ final class DesktopView extends FrameLayout {
                         tools.setLayoutParams(bar);return true;
                     case MotionEvent.ACTION_UP:
                         FrameLayout.LayoutParams end=(FrameLayout.LayoutParams)widget.getLayoutParams();
-                        int cols=Math.max(1,Math.min(8,Math.max(1,getWidth())/cellWidth()));
+                        int cols=gridColumns();
                         end.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),snap(end.leftMargin,Math.max(1,getWidth()/cols))));
                         end.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),Ui.dp(getContext(),24)+snap(end.topMargin-Ui.dp(getContext(),24),cellHeight())));
                         widget.setLayoutParams(end);
@@ -339,7 +340,15 @@ final class DesktopView extends FrameLayout {
                         if(!moved&&held)host.menu(body.item);
                         else if(!moved&&e.getEventTime()-start<500)v.performClick();
                         v.setScaleX(1f);v.setScaleY(1f);
-                        if(moved){savePositions();store.save();}
+                        if(moved){
+                            if(store.mode!=1||reduced){
+                                int cols=gridColumns(),cw=Math.max(1,width/cols);
+                                body.x=SceneMath.clamp(snap(Math.round(body.x),cw),0,Math.max(0,width-v.getWidth()));
+                                body.y=SceneMath.clamp(Ui.dp(getContext(),24)+snap(Math.round(body.y)-Ui.dp(getContext(),24),cellHeight()),0,Math.max(0,height-v.getHeight()));
+                                v.setTranslationX(body.x);v.setTranslationY(body.y);
+                            }
+                            savePositions();store.save();
+                        }
                         getParent().requestDisallowInterceptTouchEvent(false);
                         return true;
                     case MotionEvent.ACTION_CANCEL:v.removeCallbacks(hold);v.setPressed(false);v.setScaleX(1f);v.setScaleY(1f);getParent().requestDisallowInterceptTouchEvent(false);return true;
@@ -352,12 +361,12 @@ final class DesktopView extends FrameLayout {
         width=getWidth();height=getHeight();if(width==0||height==0)return;
         if(grid!=null){
             grid.requestLayout();
-            int cols=Math.max(1,Math.min(8,width/Ui.dp(getContext(),84)));
+            int cols=gridColumns();
             int cw=Math.max(1,width/cols),i=0;
             for(Body body:bodies){
                 int tw=body.tile.getLayoutParams().width,th=body.tile.getLayoutParams().height;
                 float x=body.item.x<0?(i%cols)*cw:body.item.x*Math.max(0,width-tw);
-                float y=body.item.y<0?Ui.dp(getContext(),24)+(i/cols)*Ui.dp(getContext(),112):body.item.y*Math.max(0,height-th);
+                float y=body.item.y<0?Ui.dp(getContext(),24)+(i/cols)*cellHeight():body.item.y*Math.max(0,height-th);
                 body.x=SceneMath.clamp(x,0,Math.max(0,width-tw));
                 body.y=SceneMath.clamp(y,0,Math.max(0,height-th));
                 body.tile.setTranslationX(body.x);body.tile.setTranslationY(body.y);
