@@ -48,15 +48,16 @@ final class SettingsSmoke {
         // Exercise the Android document result contract and real bytes, without depending on picker UI text.
         main(()->activity.onBackPressed());click("Settings backup & restore");
         java.io.File file=new java.io.File(instrumentation.getTargetContext().getExternalFilesDir(null),"settings-smoke.nth3dsettings");
-        monitor=instrumentation.addMonitor(new IntentFilter(Intent.ACTION_CREATE_DOCUMENT),new Instrumentation.ActivityResult(Activity.RESULT_OK,new Intent().setData(android.net.Uri.fromFile(file))),true);
+        monitor=instrumentation.addMonitor(documentFilter(Intent.ACTION_CREATE_DOCUMENT),new Instrumentation.ActivityResult(Activity.RESULT_OK,new Intent().setData(android.net.Uri.fromFile(file))),true);
         click("Export settings");idle(500);instrumentation.removeMonitor(monitor);check(file.isFile()&&file.length()>100,"Settings document was not written");
         click("Ask Nota");command("set grid to six columns");check(prefs().getInt("grid_columns",0)==6,"Restore setup command failed");main(()->activity.onBackPressed());click("Settings backup & restore");
-        monitor=instrumentation.addMonitor(new IntentFilter(Intent.ACTION_OPEN_DOCUMENT),new Instrumentation.ActivityResult(Activity.RESULT_OK,new Intent().setData(android.net.Uri.fromFile(file))),true);
+        monitor=instrumentation.addMonitor(documentFilter(Intent.ACTION_OPEN_DOCUMENT),new Instrumentation.ActivityResult(Activity.RESULT_OK,new Intent().setData(android.net.Uri.fromFile(file))),true);
         click("Restore settings");idle(500);instrumentation.removeMonitor(monitor);check(prefs().getInt("grid_columns",0)==4,"Settings document did not restore the grid");
         check(prefs().getString("note","").contains("3D persistence"),"Settings restore replaced saved notes");capture("settings-backup-restored");
         main(()->activity.onBackPressed());click("Gestures");check(find(v->v instanceof android.widget.Button&&((android.widget.Button)v).getText().toString().startsWith("Swipe up"))!=null,"Gesture settings missing");capture("settings-gesture-actions");
         main(()->activity.onBackPressed());main(()->activity.onBackPressed());idle(300);
     }
+    private IntentFilter documentFilter(String action){IntentFilter filter=new IntentFilter(action);filter.addCategory(Intent.CATEGORY_OPENABLE);try{filter.addDataType("*/*");}catch(IntentFilter.MalformedMimeTypeException impossible){throw new AssertionError(impossible);}return filter;}
     private android.content.SharedPreferences prefs(){return instrumentation.getTargetContext().getSharedPreferences("desktop3d",0);}
     private Object studio(){return field(activity,"settingsStudio");}private View activityPanel(){return (View)field(activity,"panel");}
     private void command(String text){main(()->{EditText question=(EditText)find(v->v instanceof EditText&&"Ask Nth Nota".contentEquals(v.getContentDescription()));check(question!=null,"Nota input missing");question.setText(text);});click("Send to Nth Nota");idle(350);}

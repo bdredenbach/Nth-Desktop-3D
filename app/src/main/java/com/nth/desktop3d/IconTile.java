@@ -35,10 +35,10 @@ final class IconTile extends LinearLayout {
     }
     void physicsStyle(){
         setPadding(Ui.dp(getContext(),3),Ui.dp(getContext(),4),Ui.dp(getContext(),3),Ui.dp(getContext(),4));
-        FrameLayout plinth=(FrameLayout)getChildAt(0);plinth.setLayoutParams(new LayoutParams(Ui.dp(getContext(),48),Ui.dp(getContext(),48)));
-        plinth.getChildAt(0).setLayoutParams(new FrameLayout.LayoutParams(Ui.dp(getContext(),36),Ui.dp(getContext(),36),Gravity.CENTER));
+        int size=Math.round(desiredSize*.8f);FrameLayout plinth=(FrameLayout)getChildAt(0);plinth.setLayoutParams(new LayoutParams(size,size));
+        plinth.getChildAt(0).setLayoutParams(new FrameLayout.LayoutParams(size*3/4,size*3/4,Gravity.CENTER));
         ((LayoutParams)label.getLayoutParams()).topMargin=Ui.dp(getContext(),4);
-        setBackground(Ui.touch(getContext(),Ui.satin(getContext(),0xEF2B3752,0xEE172137,18),18));setElevation(Ui.dp(getContext(),6));}
+        setBackground(Ui.touch(getContext(),Ui.satin(getContext(),0xEF2B3752,0xEE172137,18),18));setElevation(new CrystalPreferences(getContext()).shadows()?Ui.dp(getContext(),6):0);}
     void fitCell(int width,int height){
         setClipChildren(true);setClipToPadding(false);
         int lines=height<Ui.dp(getContext(),105)?1:2;label.setMaxLines(lines);
