@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0 — 2026-11-13
+
+- Build Nth Feed into the main APK: RSS/Atom headlines, publisher attribution, local interests, unread/recent ordering, search, saved headlines, hide/restore, custom HTTPS sources and an offline cache.
+- Add a publisher WebView reader with visible origin, feed return, reload and optional browser opening. Saved headlines do not claim to be downloaded full articles.
+- Use crystal news cards with subtle tilt, and retain the existing crystal tools. Switch the former default Google provider to Nth Feed once; preserve feed-off and explicit Google-app choices.
+- Expose provider selection in settings. Keep direct Google overlay support experimental with an explicit fallback; stop depending on or shipping a companion APK. The main release remains non-debuggable and uses the same R2 key.
+- Test RSS/Atom parsing, bounds, hostile XML, native refresh, partial errors, offline cache, saved stories, source toggles, interests, search and the internal reader alongside the launcher regression.
+
 ## 0.5.0 — 2026-11-13
 
 - Clip settings scrolling to its viewport and fade rows at the preview boundary.

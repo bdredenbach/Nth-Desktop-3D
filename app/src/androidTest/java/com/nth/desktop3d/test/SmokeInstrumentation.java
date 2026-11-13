@@ -39,7 +39,7 @@ public final class SmokeInstrumentation extends Instrumentation {
             ActivityMonitor monitor=addMonitor(MainActivity.class.getName(),null,false);
             getTargetContext().startActivity(new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);removeMonitor(monitor);check(activity!=null,"Cold launch timed out");idle(1200);
-            if(polishOnly){new PolishSmoke(this,activity,outputDirectory).run();s.putString("stream","New settings, card data and overlay checks passed.\n");sendStatus(0,s);Bundle result=new Bundle();result.putString("stream","OK (1 focused integration test)\n");finish(Activity.RESULT_OK,result);return;}
+            if(polishOnly){new PolishSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.FeedSmoke(this,activity,outputDirectory).run();s.putString("stream","Native feed refresh, offline cache, sources, interests, saved stories, internal reader, settings, card data and overlay checks passed.\n");sendStatus(0,s);Bundle result=new Bundle();result.putString("stream","OK (1 focused integration test)\n");finish(Activity.RESULT_OK,result);return;}
             assertRestoredGrid();capture("restored-desktop");
             monitor=addMonitor(MainActivity.class.getName(),null,false);main(()->activity.recreate());
             activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);removeMonitor(monitor);check(activity!=null,"Activity recreation timed out");idle(700);assertRestoredGrid();
@@ -65,7 +65,7 @@ public final class SmokeInstrumentation extends Instrumentation {
             invoke("showControls");check(find(v->v instanceof Button&&"Internet".contentEquals(((Button)v).getText()))!=null,"Device flyout missing");back();
             main(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));idle(900);
             activity=new SettingsSmoke(this,activity,outputDirectory).run();
-            new PolishSmoke(this,activity,outputDirectory).run();
+            new PolishSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.FeedSmoke(this,activity,outputDirectory).run();
             new WidgetSmoke(this,activity,outputDirectory).run();
             s.putString("stream","Cold restored grid (24 shortcuts), Activity recreation, all scenes, tools, gestures, landscape and device flyout passed. Separate-UID widget content, live updates, native drag/reflow, resize, app/folder collision, rejected widget overlap, configuration save/cancel, pause/resume, recreation, rotation and removal passed. Preview gallery, browser-style pin confirmation/cancellation, shortcut target/name/icon persistence, folder copies, removal and ordinary app placement passed. Live settings preview, Nota commands/Undo, adaptive opacity, document backups, fading viewport, one-line labels, crystal cards and cross-process Discover overlay passed.\n");sendStatus(0,s);
             Bundle result=new Bundle();result.putString("stream","OK (1 integration test)\n");finish(Activity.RESULT_OK,result);

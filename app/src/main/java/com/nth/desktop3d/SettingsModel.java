@@ -74,7 +74,8 @@ final class SettingsModel {
         enumeration("gesture_up","gestures","Swipe up","Action on empty desktop space.",new String[]{"App drawer","Settings","Nth Nota","Device controls","None"},0,false);
         enumeration("gesture_down","gestures","Swipe down","Applies to empty space; workspace scrolling keeps priority.",new String[]{"App drawer","Settings","Nth Nota","Device controls","None"},3,false);
         enumeration("gesture_double","gestures","Double tap","Double tap empty desktop space.",new String[]{"App drawer","Settings","Nth Nota","Device controls","None"},4,false);
-        add("feed_enabled","feed","Enable feed","Open the Google feed from the first desktop's edge.",0,1,1,null,true,false,()->c.feedEnabled()?1:0,v->c.setFeedEnabled(v==1));
+        add("feed_enabled","feed","Enable feed","Open your selected feed from the first desktop's edge.",0,1,1,null,true,false,()->c.feedEnabled()?1:0,v->c.setFeedEnabled(v==1));
+        add("feed_provider","feed","Feed provider","Nth Feed needs no companion. Direct Google Discover requires the Google app and may be unavailable.",0,3,1,new String[]{"Google Discover (experimental)","Google App","Nth Feed (built in)","Off"},false,false,c::feedProvider,c::setFeedProvider);
         add("feed_edge","feed","Feed edge swipe","Allow a right swipe on the first desktop to open the feed.",0,1,1,null,true,false,()->c.feedEdgeSwipe()?1:0,v->c.setFeedEdgeSwipe(v==1));
         add("feed_animation","feed","Animate feed opening","Animate Google overlay opening when supported.",0,1,1,null,true,false,()->c.feed3dTransition()?1:0,v->c.setFeed3dTransition(v==1));
     }

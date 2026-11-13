@@ -36,12 +36,12 @@ final class PolishSmoke {
         main(()->{prefs.edit().remove("card_photo_uris").remove("card_bookmarks").apply();activity.onBackPressed();});
         CrystalPreferences crystal=new CrystalPreferences(activity);int original=crystal.feedProvider();boolean enabled=crystal.feedEnabled(),edge=crystal.feedEdgeSwipe();
         main(()->{crystal.setFeedEnabled(false);});check(Boolean.FALSE.equals(invoke("feed",new Class[0])),"Disabled feed still opened");
-        main(()->{crystal.setFeedEnabled(true);crystal.setFeedEdgeSwipe(true);crystal.setFeedProvider(2);});check(Boolean.TRUE.equals(invoke("feed",new Class[0])),"Nth Feed did not handle the boundary swipe");await(()->field(activity,"cardsView")!=null,"Nth Feed did not show crystal cards");
+        main(()->{crystal.setFeedEnabled(true);crystal.setFeedEdgeSwipe(true);crystal.setFeedProvider(2);});check(Boolean.TRUE.equals(invoke("feed",new Class[0])),"Nth Feed did not handle the boundary swipe");await(()->field(activity,"nativeFeed")!=null,"Nth Feed did not show native news");
         main(()->{activity.onBackPressed();crystal.setFeedProvider(0);Object client=field(activity,"discover");set(client,"targetOverride","com.nth.desktop3d.widgetfixture");call(client,"reconnect");call(client,"resume");});
         invoke("feed",new Class[0]);await(()->systemHas("Discover protocol fixture"),"Remote Discover overlay did not render from the separate UID");capture("discover-cross-process-overlay");
         check(((View)field(activity,"root")).getTranslationX()>0,"Overlay scroll callback did not move the desktop");clickSystem("Close fixture feed");await(()->((View)field(activity,"root")).getTranslationX()==0,"Closing Discover did not restore the desktop");
         invoke("feed",new Class[0]);await(()->systemHas("Discover protocol fixture"),"Overlay could not reopen");main(()->call(field(activity,"discover"),"pause"));await(()->((View)field(activity,"root")).getTranslationX()==0,"Pausing did not restore the desktop");
-        main(()->{Object client=field(activity,"discover");call(client,"resume");set(client,"targetOverride",null);call(client,"reconnect");});invoke("feed",new Class[0]);await(()->findText("Reconnect Google Discover")!=null,"Missing Google app did not expose a usable setup fallback");capture("discover-companion-fallback");
+        main(()->{Object client=field(activity,"discover");call(client,"resume");set(client,"targetOverride",null);call(client,"reconnect");});invoke("feed",new Class[0]);await(()->findText("Reconnect Google Discover")!=null,"Missing Google app did not expose a usable setup fallback");capture("discover-direct-fallback");
         main(()->{activity.onBackPressed();crystal.setFeedProvider(original);crystal.setFeedEnabled(enabled);crystal.setFeedEdgeSwipe(edge);call(field(activity,"discover"),"disable");});
     }
     private void fadePixels(){try{

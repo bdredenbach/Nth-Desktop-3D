@@ -63,6 +63,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private SettingsModel settingsModel;
     private SettingsStudio settingsStudio;
     private CrystalCards cardsView;
+    private NativeFeedPage nativeFeed;
     private String cardsQuery="";
     private DiscoverClient discover;
     private AdaptiveMenuDrawable menuGlass;
@@ -151,6 +152,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         applySettings(true);applyCrystalAppearance();reloadApps();
         if(!shortcuts.handle(getIntent())&&!store.preferences.getBoolean("welcomed",false))handler.postDelayed(this::welcome,450);
         if(state!=null&&state.getString("settings_page")!=null&&!LauncherApps.ACTION_CONFIRM_PIN_SHORTCUT.equals(getIntent().getAction()))handler.post(()->showSettings(state.getString("settings_page")));
+        else if(state!=null&&state.getBundle("native_feed")!=null&&!LauncherApps.ACTION_CONFIRM_PIN_SHORTCUT.equals(getIntent().getAction()))handler.post(()->{showNativeFeed();nativeFeed.restore(state.getBundle("native_feed"));});
     }
     private int dp(float n){return Ui.dp(this,n);}
     private boolean compact(){return getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE;}
@@ -209,15 +211,15 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     @Override protected void onStart(){super.onStart();try{widgetHost.startListening();widgetListening=true;}catch(RuntimeException error){android.util.Log.e("NthWidgets","Could not listen for widget updates",error);}}
     @Override protected void onStop(){if(widgetListening){widgetHost.stopListening();widgetListening=false;}super.onStop();}
-    @Override protected void onResume(){super.onResume();resumed=true;previousFrame=lastRender=0;scene.onResume();applySettings(false);Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);handler.removeCallbacks(clockTick);clockTick.run();if(loaded)reloadApps();if(discover!=null)discover.resume();if(cardsView!=null)cardsView.refresh();}
-    @Override protected void onPause(){resumed=false;Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();if(settingsStudio!=null)settingsStudio.pause();if(cardsView!=null)cardsView.pause();if(discover!=null)discover.pause();super.onPause();}
-    @Override protected void onDestroy(){destroyed=true;handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();widgetHost.releaseViews();if(shortcuts!=null)shortcuts.destroy();if(settingsStudio!=null)settingsStudio.dispose();if(cardsView!=null)cardsView.dispose();if(discover!=null)discover.destroy();super.onDestroy();}
+    @Override protected void onResume(){super.onResume();resumed=true;previousFrame=lastRender=0;scene.onResume();applySettings(false);Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);handler.removeCallbacks(clockTick);clockTick.run();if(loaded)reloadApps();if(discover!=null)discover.resume();if(cardsView!=null)cardsView.refresh();if(nativeFeed!=null)nativeFeed.resume();}
+    @Override protected void onPause(){resumed=false;Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();if(settingsStudio!=null)settingsStudio.pause();if(cardsView!=null)cardsView.pause();if(nativeFeed!=null)nativeFeed.pause();if(discover!=null)discover.pause();super.onPause();}
+    @Override protected void onDestroy(){destroyed=true;handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();widgetHost.releaseViews();if(shortcuts!=null)shortcuts.destroy();if(settingsStudio!=null)settingsStudio.dispose();if(cardsView!=null)cardsView.dispose();if(nativeFeed!=null)nativeFeed.dispose();if(discover!=null)discover.destroy();super.onDestroy();}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);closePanel();motion.recenter();shortcuts.handle(intent);}
-    @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);String page=settingsStudio==null?null:settingsStudio.page();boolean cards=cardsView!=null;closePanel();if(discover!=null)discover.configurationChanged();motion.recenter();clock.setTextSize(compact()?30:54);desktop.rebuild();root.requestApplyInsets();if(page!=null)handler.post(()->showSettings(page));else if(cards)handler.post(()->showCards(cardsQuery));}
-    @Override protected void onSaveInstanceState(Bundle state){if(settingsStudio!=null)state.putString("settings_page",settingsStudio.page());super.onSaveInstanceState(state);}
-    @Override public void onBackPressed(){if(discover!=null&&discover.close())return;if(settingsStudio!=null&&settingsStudio.back())return;if(overlay!=null)closePanel();else if(store.page!=0){store.page=0;desktop.rebuild();pageChanged();store.save();}}
+    @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);String page=settingsStudio==null?null:settingsStudio.page();boolean cards=cardsView!=null;Bundle feedState=nativeFeed==null?null:nativeFeed.state();closePanel();if(discover!=null)discover.configurationChanged();motion.recenter();clock.setTextSize(compact()?30:54);desktop.rebuild();root.requestApplyInsets();if(page!=null)handler.post(()->showSettings(page));else if(cards)handler.post(()->showCards(cardsQuery));else if(feedState!=null)handler.post(()->{showNativeFeed();nativeFeed.restore(feedState);});}
+    @Override protected void onSaveInstanceState(Bundle state){if(settingsStudio!=null)state.putString("settings_page",settingsStudio.page());if(nativeFeed!=null)state.putBundle("native_feed",nativeFeed.state());super.onSaveInstanceState(state);}
+    @Override public void onBackPressed(){if(discover!=null&&discover.close())return;if(settingsStudio!=null&&settingsStudio.back())return;if(nativeFeed!=null&&nativeFeed.back())return;if(overlay!=null)closePanel();else if(store.page!=0){store.page=0;desktop.rebuild();pageChanged();store.save();}}
     @Override public int displayRotation(){return getWindowManager().getDefaultDisplay().getRotation();}
-    @Override public void onTilt(float x,float y){if(Math.abs(x-currentX)>.002f||Math.abs(y-currentY)>.002f)sceneDirty=true;currentX=x;currentY=y;if(scene!=null)scene.tilt(x,y);if(desktop!=null)desktop.tilt(x,y);if(settingsStudio!=null)settingsStudio.tilt(x,y);if(cardsView!=null)cardsView.tilt(x,y);}
+    @Override public void onTilt(float x,float y){if(Math.abs(x-currentX)>.002f||Math.abs(y-currentY)>.002f)sceneDirty=true;currentX=x;currentY=y;if(scene!=null)scene.tilt(x,y);if(desktop!=null)desktop.tilt(x,y);if(settingsStudio!=null)settingsStudio.tilt(x,y);if(cardsView!=null)cardsView.tilt(x,y);if(nativeFeed!=null)nativeFeed.tilt(x,y);}
     private void applySettings(boolean rebuild){
         powerSave=getSystemService(PowerManager.class).isPowerSaveMode();
         systemReduced=Settings.Global.getFloat(getContentResolver(),Settings.Global.ANIMATOR_DURATION_SCALE,1)==0;
@@ -259,7 +261,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private void savePanel(){if(onPanelClose!=null)onPanelClose.run();}
     private void closePanel(){
-        savePanel();if(discover!=null)discover.close();if(cardsView!=null){cardsView.dispose();cardsView=null;}if(settingsStudio!=null){settingsStudio.dispose();settingsStudio=null;}menuGlass=null;lastGlassUpdate=0;onPanelClose=null;panelKind=0;appsAdapter=null;appSearch=null;
+        savePanel();if(nativeFeed!=null){nativeFeed.dispose();nativeFeed=null;}if(discover!=null)discover.close();if(cardsView!=null){cardsView.dispose();cardsView=null;}if(settingsStudio!=null){settingsStudio.dispose();settingsStudio=null;}menuGlass=null;lastGlassUpdate=0;onPanelClose=null;panelKind=0;appsAdapter=null;appSearch=null;
         if(overlay!=null){((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(overlay.getWindowToken(),0);root.removeView(overlay);overlay=null;panel=null;}
         desktop.setModal(false);startButton.setSelected(false);scene.requestRender();
     }
@@ -547,7 +549,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     @Override public void startMenu(){showStart();}
     @Override public boolean feed(){
         if(!crystal.feedEnabled()||!crystal.feedEdgeSwipe()||crystal.feedProvider()==3)return false;
-        if(crystal.feedProvider()==2){showCards("");return true;}
+        if(crystal.feedProvider()==2){showNativeFeed();return true;}
         if(crystal.feedProvider()==1){openGoogleFeed();return true;}
         openDiscover();return true;
     }
@@ -555,11 +557,14 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void showDiscoverEntry(){
         LinearLayout body=scrollBody(openPanel("Google Discover",true));
         paragraph(body,discover.status());
-        paragraph(body,"For the embedded feed, install Nth-Discover-Bridge from your Nth Desktop download ZIP, and keep the Google app enabled. Then reconnect. The bridge is separate so the launcher keeps its normal release signing and settings.");
+        paragraph(body,"Direct Google Discover is experimental and depends on the installed Google app accepting this launcher. Nth Feed works inside Nth Desktop without Google or a companion app.");
         action(body,"Reconnect Google Discover",()->{closePanel();discover.reconnect();discover.open();});
         action(body,"Open Google app",this::openGoogleFeed);
-        action(body,"Open crystal cards",()->showCards(""));
+        action(body,"Open Nth Feed",this::showNativeFeed);
         action(body,"Feed preferences",()->showSettings("feed"));
+    }
+    private void showNativeFeed(){
+        LinearLayout p=openPanel("Nth Feed");nativeFeed=new NativeFeedPage(this,new NativeFeedPage.Host(){public void cards(){showCards("");}public void settings(){showSettings("feed");}});p.addView(nativeFeed,new LinearLayout.LayoutParams(-1,0,1));
     }
     private void showCards(String query){
         LinearLayout p=openPanel("Crystal cards");cardsQuery=query==null?"":query;
@@ -688,7 +693,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void showSettings(){showSettings("root");}
     private void showSettings(String page){
         LinearLayout p=openPanel("3D settings");settingsStudio=new SettingsStudio(this,settingsModel(),catalog,new SettingsStudio.Host(){
-            public void home(){requestHome();}public void arrange(){desktop.arrange();toast("Desktop arranged");}public void recenter(){motion.recenter();toast("Tilt centered");}public void feed(){openDiscover();}public void reconnectFeed(){closePanel();discover.reconnect();discover.open();}public String feedStatus(){return discover.status();}public void googleApp(){openGoogleFeed();}public void cards(){showCards("");}public void widgets(){showWidgets();}public void folder(){newFolder();}public void overview(){showDesktopOverview();}public void apps(){showStart();}public void about(){showAbout();}public void backup(boolean restore){settingsDocument(restore);}
+            public void home(){requestHome();}public void arrange(){desktop.arrange();toast("Desktop arranged");}public void recenter(){motion.recenter();toast("Tilt centered");}public void feed(){showNativeFeed();}public void reconnectFeed(){closePanel();discover.reconnect();discover.open();}public String feedStatus(){return discover.status();}public void googleApp(){openGoogleFeed();}public void cards(){showCards("");}public void widgets(){showWidgets();}public void folder(){newFolder();}public void overview(){showDesktopOverview();}public void apps(){showStart();}public void about(){showAbout();}public void backup(boolean restore){settingsDocument(restore);}
             public boolean openApp(String query){List<AppCatalog.Entry> matches=catalog.filter(query,false);if(matches.size()==1){launch(matches.get(0).key);return true;}if(matches.size()>1){showStart();appSearch.setText(query);toast("Choose an app from the matching shortcuts.");return true;}return false;}
         },page);p.addView(settingsStudio,new LinearLayout.LayoutParams(-1,0,1));
     }

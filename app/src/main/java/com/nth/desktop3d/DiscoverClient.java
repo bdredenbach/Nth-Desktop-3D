@@ -8,8 +8,6 @@ import android.view.View;
 import android.view.WindowManager;
 import com.google.android.libraries.launcherclient.ILauncherOverlay;
 import com.google.android.libraries.launcherclient.ILauncherOverlayCallback;
-import com.nth.desktop3d.discover.IFeedBridge;
-import com.nth.desktop3d.discover.IFeedBridgeCallback;
 
 /** Optional Google overlay; missing/denied services yield an explicit setup panel. */
 final class DiscoverClient {
@@ -25,20 +23,19 @@ final class DiscoverClient {
     void pause(){resumed=false;requested=false;close();if(overlay!=null)call(()->{overlay.setActivityState(1);overlay.onPause();});}
     void reconnect(){disconnect();connect();}
     void configurationChanged(){close();if(overlay!=null)attach(generation);}
-    void open(){if(destroyed)return;if(bound&&overlay==null)disconnect();requested=true;if(!bound)connect();if(ready)openReady();int token=generation;main.postDelayed(()->{if(!destroyed&&token==generation&&requested&&!showing){requested=false;opening=false;status="Google Discover has not accepted the overlay connection. Install or update Google and Nth Discover Bridge, then reconnect.";unavailable.run();}},2500);}
+    void open(){if(destroyed)return;if(bound&&overlay==null)disconnect();requested=true;if(!bound)connect();if(ready)openReady();int token=generation;main.postDelayed(()->{if(!destroyed&&token==generation&&requested&&!showing){requested=false;opening=false;status="Google Discover has not accepted the overlay connection. Use the built-in Nth Feed, or open the Google app.";unavailable.run();}},2500);}
     private void connect(){
         if(destroyed||bound)return;
         final int token=++generation;
-        String pkg=targetOverride!=null?targetOverride:installed("com.nth.desktop3d.discover")?"com.nth.desktop3d.discover":"com.google.android.googlequicksearchbox";
-        boolean bridge=pkg.equals("com.nth.desktop3d.discover");
-        Intent intent=bridge?new Intent().setComponent(new ComponentName(pkg,pkg+".DiscoverBridgeService")):new Intent("com.android.launcher3.WINDOW_OVERLAY").setPackage(pkg).setData(Uri.parse("app://"+activity.getPackageName()+":"+android.os.Process.myUid()+"?v=7&cv=9"));
+        String pkg=targetOverride!=null?targetOverride:"com.google.android.googlequicksearchbox";
+        Intent intent=new Intent("com.android.launcher3.WINDOW_OVERLAY").setPackage(pkg).setData(Uri.parse("app://"+activity.getPackageName()+":"+android.os.Process.myUid()+"?v=7&cv=9"));
         connection=new ServiceConnection(){
-            @Override public void onServiceConnected(ComponentName name,IBinder service){if(destroyed||token!=generation)return;if(bridge){try{IFeedBridge.Stub.asInterface(service).connect(new IFeedBridgeCallback.Stub(){public void connected(IBinder binder){main.post(()->accept(binder,token));}public void unavailable(){main.post(()->lost(token));}});}catch(RemoteException failure){lost(token);}}else accept(service,token);}
+            @Override public void onServiceConnected(ComponentName name,IBinder service){if(destroyed||token!=generation)return;accept(service,token);}
             @Override public void onServiceDisconnected(ComponentName name){lost(token);}
             @Override public void onNullBinding(ComponentName name){lost(token);}
             @Override public void onBindingDied(ComponentName name){lost(token);}
         };
-        try{bound=activity.bindService(intent,connection,Context.BIND_AUTO_CREATE|Context.BIND_ADJUST_WITH_ACTIVITY);status=bound?"Connecting to Google Discover…":"Google overlay unavailable. Install the optional Nth Discover Bridge from the download ZIP.";}catch(SecurityException denied){status="Google requires a companion connection. Install Nth Discover Bridge from the download ZIP.";bound=false;}
+        try{bound=activity.bindService(intent,connection,Context.BIND_AUTO_CREATE|Context.BIND_ADJUST_WITH_ACTIVITY);status=bound?"Connecting to Google Discover…":"Direct Google overlay unavailable. Nth Feed works without a companion.";}catch(SecurityException denied){status="Google declined the direct connection. Use built-in Nth Feed or the Google app.";bound=false;}
     }
     private void accept(IBinder binder,int token){if(destroyed||token!=generation)return;overlay=ILauncherOverlay.Stub.asInterface(binder);desktop.post(()->attach(token));}
     private ILauncherOverlayCallback callback(int token){return new ILauncherOverlayCallback.Stub(){

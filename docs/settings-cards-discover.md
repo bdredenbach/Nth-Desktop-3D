@@ -1,5 +1,7 @@
 # Settings polish, crystal cards and Discover — 0.5.0
 
+Historical 0.5.0 behavior below. In 0.6.0 the built-in [Nth Feed](native-feed.md) replaces the former companion-based default; the companion is no longer built or supplied.
+
 Owner references: 226825.mp4 (settings scroll overflow), 226826.png (long labels),
 and 226768.mp4 (Cards and Google feed settings).
 

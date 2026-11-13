@@ -4,4 +4,4 @@ rootProject.name = 'Nth Desktop 3D'
 include ':app'
 include ':widgetfixture'
 
-include ':discoverbridge'
+// Legacy bridge sources are retained for historical reference; the launcher is all in one.

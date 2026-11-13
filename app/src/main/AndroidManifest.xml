@@ -5,8 +5,7 @@
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.BIND_APPWIDGET" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
-    <uses-permission android:name="com.nth.desktop3d.permission.DISCOVER" />
-    <queries><package android:name="com.nth.desktop3d.discover" /><intent><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent><package android:name="com.google.android.googlequicksearchbox" /><intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent></queries>
+    <queries><intent><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent><package android:name="com.google.android.googlequicksearchbox" /><intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent></queries>
     <application android:label="@string/app_name" android:theme="@style/AppTheme"
         android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher"
         android:allowBackup="false" android:supportsRtl="true" android:hardwareAccelerated="true">

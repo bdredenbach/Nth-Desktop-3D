@@ -8,6 +8,7 @@ public final class CrystalPreferences {
     private final SharedPreferences prefs;
     public CrystalPreferences(Context context) {
         prefs = context.getSharedPreferences("desktop3d_crystal", Context.MODE_PRIVATE);
+        if(!prefs.getBoolean("native_feed_migration",false)){android.content.SharedPreferences.Editor edit=prefs.edit().putBoolean("native_feed_migration",true);if(!prefs.contains("feed_provider")||prefs.getInt("feed_provider",2)==0)edit.putInt("feed_provider",2);edit.apply();}
     }
     private int percent(String key,int fallback){return Math.max(0,Math.min(100,prefs.getInt(key,fallback)));}
     private void put(String key,int value){prefs.edit().putInt(key,value).apply();}
@@ -37,9 +38,9 @@ public final class CrystalPreferences {
     public boolean dynamicLighting(){return lighting()!=0;}
     public boolean feedEnabled(){return prefs.getBoolean("feed_enabled",true);}
     public void setFeedEnabled(boolean v){put("feed_enabled",v);}
-    public int feedProvider(){return Math.max(0,Math.min(3,prefs.getInt("feed_provider",0)));}
+    public int feedProvider(){return Math.max(0,Math.min(3,prefs.getInt("feed_provider",2)));}
     public void setFeedProvider(int v){put("feed_provider",Math.max(0,Math.min(3,v)));}
-    public String feedProviderLabel(){return new String[]{"Google Discover","Google App","Nth Feed","Off"}[feedProvider()];}
+    public String feedProviderLabel(){return new String[]{"Google Discover (experimental)","Google App","Nth Feed (built in)","Off"}[feedProvider()];}
     public boolean feedEdgeSwipe(){return prefs.getBoolean("feed_edge_swipe",true);}
     public void setFeedEdgeSwipe(boolean v){put("feed_edge_swipe",v);}
     public boolean feed3dTransition(){return prefs.getBoolean("feed_3d_transition",false);}

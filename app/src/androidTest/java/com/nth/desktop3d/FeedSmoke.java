@@ -1,0 +1,49 @@
+package com.nth.desktop3d;
+
+import android.app.*;
+import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.os.SystemClock;
+import android.view.*;
+import android.webkit.*;
+import android.widget.*;
+import java.io.*;
+import java.lang.reflect.*;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.concurrent.atomic.*;
+import java.util.function.BooleanSupplier;
+
+/** Native feed UI with deterministic publisher transport; no external network required. */
+public final class FeedSmoke {
+    private final Instrumentation test;private final MainActivity activity;private final String output;private NativeFeedPage page;
+    public FeedSmoke(Instrumentation test,MainActivity activity,String output){this.test=test;this.activity=activity;this.output=output;}
+    public void run()throws Exception{
+        SharedPreferences prefs=activity.getSharedPreferences("nth_native_feed",0);Map<String,?> before=prefs.getAll();AtomicBoolean offline=new AtomicBoolean(false);
+        try{
+            main(()->{prefs.edit().clear().commit();FeedRepository repo=new FeedRepository(activity);repo.sources.clear();repo.sources.add(new FeedRepository.Source("Test Science","https://publisher.example/science.xml","Science",true));repo.sources.add(new FeedRepository.Source("Unavailable World","https://publisher.example/world.xml","World",true));repo.replaceSource(repo.sources.get(1),Collections.singletonList(new FeedParser.Entry("Cached world headline","https://publisher.example/cached","Retained when publisher is unavailable","Unavailable World","World",100)));repo.updated=System.currentTimeMillis();repo.save();});
+            // Run the production parser on Android's SAX implementation (including its DTD rejection).
+            String xml="<rss><channel><item><title>Crystal science story</title><link>https://publisher.example/science-story</link><description><![CDATA[<p>A real parsed excerpt.</p>]]></description><pubDate>Fri, 13 Nov 2026 12:00:00 GMT</pubDate></item></channel></rss>";
+            FeedRepository.Fetcher transport=source->{if(offline.get()||source.name.contains("Unavailable"))throw new IOException("Fixture offline");return FeedParser.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)),source.url,source.name,source.topic);};
+            try{FeedParser.parse(new ByteArrayInputStream("<!DOCTYPE rss [<!ENTITY x SYSTEM 'file:///etc/passwd'>]><rss/>".getBytes(StandardCharsets.UTF_8)),"https://publisher.example/feed","Test","Science");throw new AssertionError("Android parser accepted DTD");}catch(org.xml.sax.SAXException expected){}
+            main(()->{LinearLayout panel=(LinearLayout)invoke("openPanel",new Class[]{String.class},"Nth Feed");page=new NativeFeedPage(activity,new NativeFeedPage.Host(){public void cards(){}public void settings(){}},transport);set("nativeFeed",page);panel.addView(page,new LinearLayout.LayoutParams(-1,0,1));});
+            click("Refresh");await(()->has("Crystal science story")&&has("Cached world headline")&&hasContains("Cached headlines retained"),"Partial refresh did not merge success and preserve failed publisher cache");capture("native-feed-headlines");
+            main(()->{View save=find(v->"Save story: Crystal science story".contentEquals(v.getContentDescription()));check(save!=null,"Save action missing");save.performClick();});click("Saved");check(has("Crystal science story"),"Saved story missing");main(()->{FeedRepository reloaded=new FeedRepository(activity);check(reloaded.isSaved("https://publisher.example/science-story"),"Saved story did not persist");check(reloaded.cache.size()==2,"Refresh cache not persisted");});capture("native-feed-saved");
+            click("News");main(()->((EditText)find(v->v instanceof EditText)).setText("no-such-story"));check(has("No headlines match your search."),"Search empty state missing");main(()->((EditText)find(v->v instanceof EditText)).setText(""));
+            click("Sources");main(()->{Switch science=(Switch)find(v->v instanceof Switch&&"Science".contentEquals(((Switch)v).getText()));check(science!=null,"Interest control missing");science.performClick();});check(new FeedRepository(activity).interests.contains("Science"),"Interest did not persist");capture("native-feed-sources");
+            main(()->{Switch toggle=(Switch)find(v->v instanceof Switch&&((Switch)v).getText().toString().startsWith("Unavailable World"));check(toggle!=null,"Publisher toggle missing");toggle.performClick();});click("News");check(!has("Cached world headline"),"Disabled publisher still displayed");
+            offline.set(true);click("Refresh");await(()->hasContains("Could not refresh"),"Offline refresh status missing");check(has("Crystal science story"),"Offline refresh discarded cached stories");capture("native-feed-offline");
+            main(()->{View story=find(v->"Read story: Crystal science story".contentEquals(v.getContentDescription()));check(story!=null,"Story action missing");story.performClick();});await(()->find(v->v instanceof WebView)!=null,"Article did not open inside launcher");
+            AtomicReference<String> article=new AtomicReference<>();main(()->{WebView web=(WebView)find(v->v instanceof WebView);check(!web.getSettings().getAllowFileAccess()&&!web.getSettings().getAllowContentAccess()&&web.getSettings().getMixedContentMode()==WebSettings.MIXED_CONTENT_NEVER_ALLOW,"Reader security settings missing");web.setWebViewClient(new WebViewClient(){@Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest request){return new WebResourceResponse("text/html","UTF-8",new ByteArrayInputStream("<html><body><h1>Publisher article fixture</h1></body></html>".getBytes(StandardCharsets.UTF_8)));}@Override public void onPageFinished(WebView view,String url){view.evaluateJavascript("document.body.innerText",article::set);}});web.loadUrl("https://publisher.example/science-story");});await(()->article.get()!=null&&article.get().contains("Publisher article fixture"),"Internal publisher WebView did not render");capture("native-feed-reader");click("‹ Feed");check(has("Crystal science story")&&find(v->v instanceof WebView)==null,"Reader did not return to feed");
+            main(()->{page.repository.hidden.add("https://publisher.example/science-story");page.repository.save();});click("Sources");click("Restore hidden stories");click("News");check(has("Crystal science story"),"Restoring hidden stories failed");
+            main(()->{page.pause();page.dispose();invoke("closePanel",new Class[0]);});
+        }finally{main(()->{if(page!=null)page.dispose();invoke("closePanel",new Class[0]);SharedPreferences.Editor edit=prefs.edit().clear();for(Map.Entry<String,?> entry:before.entrySet()){Object value=entry.getValue();if(value instanceof String)edit.putString(entry.getKey(),(String)value);else if(value instanceof Long)edit.putLong(entry.getKey(),(Long)value);else if(value instanceof Boolean)edit.putBoolean(entry.getKey(),(Boolean)value);else if(value instanceof Integer)edit.putInt(entry.getKey(),(Integer)value);else if(value instanceof Set)edit.putStringSet(entry.getKey(),new HashSet<>((Set<String>)value));}edit.commit();});}
+    }
+    private Object invoke(String name,Class<?>[] types,Object...args){try{Method m=MainActivity.class.getDeclaredMethod(name,types);m.setAccessible(true);return m.invoke(activity,args);}catch(Exception e){throw new AssertionError(e);}}
+    private void set(String name,Object value){try{Field f=MainActivity.class.getDeclaredField(name);f.setAccessible(true);f.set(activity,value);}catch(Exception e){throw new AssertionError(e);}}
+    private View find(java.util.function.Predicate<View> match){return find(activity.getWindow().getDecorView(),match);}private View find(View root,java.util.function.Predicate<View> match){if(root.getVisibility()!=View.VISIBLE)return null;if(match.test(root))return root;if(root instanceof ViewGroup)for(int i=0;i<((ViewGroup)root).getChildCount();i++){View found=find(((ViewGroup)root).getChildAt(i),match);if(found!=null)return found;}return null;}
+    private boolean has(String text){return find(v->v instanceof TextView&&text.contentEquals(((TextView)v).getText()))!=null;}private boolean hasContains(String text){return find(v->v instanceof TextView&&((TextView)v).getText().toString().contains(text))!=null;}
+    private void click(String text){main(()->{View view=find(v->v instanceof Button&&text.contentEquals(((Button)v).getText()));check(view!=null,"Feed button missing: "+text);view.performClick();});SystemClock.sleep(180);}
+    private void main(Runnable run){test.runOnMainSync(run);}private void await(BooleanSupplier condition,String message){long until=SystemClock.uptimeMillis()+12000;while(SystemClock.uptimeMillis()<until){AtomicBoolean ok=new AtomicBoolean();main(()->ok.set(condition.getAsBoolean()));if(ok.get())return;SystemClock.sleep(100);}throw new AssertionError(message);}private void check(boolean ok,String text){if(!ok)throw new AssertionError(text);}
+    private void capture(String name)throws Exception{Bitmap bitmap=test.getUiAutomation().takeScreenshot();check(bitmap!=null,"No feed screenshot");File directory=output==null?new File(test.getTargetContext().getExternalFilesDir(null),"verification"):new File(output);directory.mkdirs();try(FileOutputStream out=new FileOutputStream(new File(directory,name+".png"))){bitmap.compress(Bitmap.CompressFormat.PNG,100,out);}finally{bitmap.recycle();}}
+}
