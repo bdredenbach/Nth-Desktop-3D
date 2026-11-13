@@ -132,7 +132,7 @@ final class WidgetSmoke {
         LauncherStore restored=new LauncherStore(instrumentation.getTargetContext());LauncherStore.Item saved=restored.pages.get(2).get(count);check(recipe.key.equals(saved.key)&&recipe.shortcutUser==saved.shortcutUser&&"pot-roast".equals(saved.shortcutId),"Shortcut metadata was lost on reload");
         main(()->{try{Object manager=field(activity,"shortcuts");java.lang.reflect.Method icon=manager.getClass().getDeclaredMethod("icon",LauncherStore.Item.class);icon.setAccessible(true);check(icon.invoke(manager,recipe)!=null,"Shortcut icon was not persisted");}catch(Exception error){throw new AssertionError(error);}});
         Instrumentation.ActivityMonitor monitor=instrumentation.addMonitor(MainActivity.class.getName(),null,false);main(()->activity.recreate());activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);instrumentation.removeMonitor(monitor);check(activity!=null,"Shortcut recreation timed out");idle(700);assertOccupancy();
-        tap(view(recipe.id));clickSystemText("Opened recipe: https://example.test/recipe/pot-roast");
+        tap(view(recipe.id));awaitSystemText("Opened recipe: https://example.test/recipe/pot-roast");
         instrumentation.getTargetContext().startActivity(new Intent(instrumentation.getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));idle(500);
         // Repeating the same request updates the saved shortcut instead of creating a duplicate.
         shell("am start -W -f 0x10008000 -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId pot-roast");idle(300);requestShortcutPin();idle(600);if(field(field(activity,"shortcuts"),"confirmation")!=null)clickSystemText("Add");idle(400);check(store().pages.get(2).size()==count+1,"Repeated pin request duplicated the desktop shortcut");
@@ -142,7 +142,7 @@ final class WidgetSmoke {
         LauncherStore.Item copy=null;for(LauncherStore.Item child:store().folders().get(0).children)if("pot-roast".equals(child.shortcutId))copy=child;check(copy!=null,"Copying a website shortcut into a folder lost its launch identity");
         main(()->activity.menu(selected));clickSystemText("Remove shortcut");idle(300);check(store().pages.get(2).size()==count,"Shortcut removal did not remove the desktop item");
         // Its folder copy must remain launchable after the desktop copy is removed.
-        final LauncherStore.Item folderCopy=copy;main(()->activity.open(folderCopy));clickSystemText("Opened recipe: https://example.test/recipe/pot-roast");
+        final LauncherStore.Item folderCopy=copy;main(()->activity.open(folderCopy));awaitSystemText("Opened recipe: https://example.test/recipe/pot-roast");
         instrumentation.getTargetContext().startActivity(new Intent(instrumentation.getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));idle(500);
         // Existing ordinary app shortcuts still use the same add-to-desktop action.
         main(()->{try{Object catalog=field(activity,"catalog");Object entry=((com.nth.desktop3d.AppCatalog)catalog).entries.stream().filter(e->e.component!=null&&FIXTURE.equals(e.component.getPackageName())).findFirst().orElse(null);check(entry!=null,"Fixture app missing from catalog");java.lang.reflect.Method menu=MainActivity.class.getDeclaredMethod("appMenu",entry.getClass(),LauncherStore.Item.class);menu.setAccessible(true);menu.invoke(activity,entry,null);}catch(Exception error){throw new AssertionError(error);}});
@@ -194,6 +194,17 @@ final class WidgetSmoke {
         }
         for(int i=0;i<node.getChildCount();i++)if(clickNode(node.getChild(i),text))return true;
         return false;
+    }
+    private boolean visibleSystemText(AccessibilityNodeInfo node,String text){
+        if(node==null)return false;
+        if(node.isVisibleToUser()&&node.getText()!=null&&text.contentEquals(node.getText()))return true;
+        for(int i=0;i<node.getChildCount();i++)if(visibleSystemText(node.getChild(i),text))return true;
+        return false;
+    }
+    private void awaitSystemText(String text){
+        long end=SystemClock.uptimeMillis()+10000;
+        while(SystemClock.uptimeMillis()<end){AccessibilityNodeInfo root=instrumentation.getUiAutomation().getRootInActiveWindow();if(root!=null&&FIXTURE.contentEquals(root.getPackageName())&&visibleSystemText(root,text)){idle(300);return;}idle(100);}
+        throw new AssertionError("Shortcut destination was not displayed: "+text);
     }
     private void clickSystemText(String text){
         long end=SystemClock.uptimeMillis()+7000;
