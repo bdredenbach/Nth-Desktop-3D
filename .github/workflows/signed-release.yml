@@ -3,8 +3,12 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+concurrency:
+  group: signed-apk-release
+  cancel-in-progress: false
 jobs:
   signed-apk:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -28,28 +32,24 @@ jobs:
           test -n "$KEYSTORE" && test -n "$STORE_PASSWORD" && test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD" || { echo "::error::Configure all four NTH_RELEASE signing secrets first."; exit 1; }
           printf '%s' "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/nth-release.jks"
           chmod 600 "$RUNNER_TEMP/nth-release.jks"
-      - name: Build signed APK
+      - name: Build and verify signed APK
+        id: package
         env:
           NTH_SIGNING_STORE_FILE: ${{ runner.temp }}/nth-release.jks
           NTH_SIGNING_STORE_PASSWORD: ${{ secrets.NTH_RELEASE_STORE_PASSWORD }}
           NTH_SIGNING_KEY_ALIAS: ${{ secrets.NTH_RELEASE_KEY_ALIAS }}
           NTH_SIGNING_KEY_PASSWORD: ${{ secrets.NTH_RELEASE_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease lintRelease testDebugUnitTest
-      - name: Verify APK signature
-        run: |
-          APK=app/build/outputs/apk/release/app-release.apk
-          test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          cp "$APK" "Nth-Desktop-3D-v0.2.${GITHUB_RUN_NUMBER}.apk"
+        run: python3 tools/build-signed-apk.py
       - uses: actions/upload-artifact@v4
         with:
-          name: Nth-Desktop-3D-signed-release
-          path: Nth-Desktop-3D-v*.apk
+          name: Nth-Desktop-3D-${{ steps.package.outputs.version }}-signed-release
+          path: dist/
       - name: Publish direct-download release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.package.outputs.version }}
         run: |
-          gh release create "v0.2.${GITHUB_RUN_NUMBER}" "Nth-Desktop-3D-v0.2.${GITHUB_RUN_NUMBER}.apk" --title "Nth Desktop 3D v0.2.${GITHUB_RUN_NUMBER}" --notes "Signed update-in-place Android APK. Install over the prior release signed with the same Nth release certificate."
+          gh release create "v${RELEASE_VERSION}" dist/*.apk dist/*.sha256 dist/build-verification.json --target "$GITHUB_SHA" --title "Nth Desktop 3D ${RELEASE_VERSION}" --notes "Signed with the permanent 3D test-update certificate. Future builds using this same certificate and a higher versionCode update in place. Older debug builds require a one-time migration; read docs/SIGNED-APK-UPDATES.md before uninstalling."
       - name: Remove temporary keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/nth-release.jks"

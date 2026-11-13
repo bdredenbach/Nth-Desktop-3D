@@ -1,5 +1,8 @@
 plugins { id 'com.android.application' }
 
+def appVersion = new Properties()
+rootProject.file('version.properties').withInputStream { appVersion.load(it) }
+
 android {
     namespace 'com.nth.desktop3d'
     compileSdk 35
@@ -7,8 +10,8 @@ android {
         applicationId 'com.nth.desktop3d'
         minSdk 26
         targetSdk 35
-        versionCode (System.getenv('GITHUB_RUN_NUMBER') ? 10000 + System.getenv('GITHUB_RUN_NUMBER').toInteger() : 2)
-        versionName (System.getenv('GITHUB_RUN_NUMBER') ? '0.2.' + System.getenv('GITHUB_RUN_NUMBER') : '0.2.0')
+        versionCode appVersion.getProperty('versionCode').toInteger()
+        versionName appVersion.getProperty('versionName')
         testInstrumentationRunner 'com.nth.desktop3d.test.SmokeInstrumentation'
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }

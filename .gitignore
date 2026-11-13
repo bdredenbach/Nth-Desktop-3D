@@ -5,5 +5,10 @@ local.properties
 *.keystore
 .idea/
 captures/
+dist/
+private-signing/
+signing.json
+signing.properties
+*-Private-Signing-Backup*.zip
 
 **/__pycache__/

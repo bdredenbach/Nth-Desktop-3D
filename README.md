@@ -1,7 +1,12 @@
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and four original GPU scenes. Current development release: **0.2.0**.
+animated Start menus and four original GPU scenes. Current test release: **0.3.0**.
+
+Install the supplied signed release APK for continued updates. Version 0.3.0
+establishes a permanent test certificate; moving from older debug builds requires
+a one-time reinstall. See [signed APK updates](docs/SIGNED-APK-UPDATES.md) for
+the private key recovery process, build command and versioning rules.
 
 ## Included
 
@@ -42,7 +47,7 @@ of the dock, and panel positions respect asymmetric cutouts.
 
 ## Use
 
-1. Install the debug APK and open Nth Desktop 3D.
+1. Install the signed test APK and open Nth Desktop 3D.
 2. Choose **Set as my Home app**, or explore before selecting a default.
 3. Tilt gently for depth. Swipe the desktop or use the page arrows.
 4. Open the **cube in the dock** for Start. Hold an app for its menu.

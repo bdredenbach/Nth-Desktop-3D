@@ -21,11 +21,17 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
       - name: Build, lint and unit tests
-        run: ./gradlew assembleDebug lintDebug testDebugUnitTest
+        run: ./gradlew assembleDebug assembleRelease lintDebug lintRelease testDebugUnitTest
       - uses: actions/upload-artifact@v4
         with:
-          name: Nth-Desktop-3D-0.1.0-debug
+          name: Nth-Desktop-3D-${{ github.sha }}-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Upload unsigned release for private offline signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nth-Desktop-3D-${{ github.sha }}-unsigned-release
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
   android-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 15

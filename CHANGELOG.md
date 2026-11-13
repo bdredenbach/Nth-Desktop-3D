@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 — 2026-11-13
+
+- Establish a permanent, dedicated 3D test-update certificate with a private owner recovery backup.
+- Read the version from committed version.properties for identical local and CI versioning; versionCode 10077 follows the latest debug build's 10076.
+- Add signed release packaging that checks package, version, non-debuggable mode and the exact expected certificate before delivering an APK.
+- Support verifying update compatibility against a previous APK and publish source/checksum metadata with signed releases.
+- Retain the latest direct widget hold/drag and bounds fixes from d42f901.
+- Moving from earlier debug certificates to this dedicated test key requires a one-time migration. The key and passwords are excluded from Git.
+
 ## 0.2.0 — 2026-11-11
 
 - Replace the restored shortcut grid to avoid Android GridLayout's column-count exception on startup.
