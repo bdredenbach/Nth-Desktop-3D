@@ -218,12 +218,16 @@ final class WidgetSmoke {
     private boolean known(int id){return java.util.Arrays.asList(instrumentation.getTargetContext().getSharedPreferences("desktop3d",0).getString("widget_ids_page_0","").split(",")).contains(String.valueOf(id));}
     @SuppressWarnings("unchecked") private List<DesktopGrid.Cell> cells(){return new ArrayList<>((List<DesktopGrid.Cell>)field(desktop(),"cells"));}
     private DesktopGrid.Cell cell(String id){return DesktopGrid.find(cells(),id);}
-    private void assertOccupancy(){main(()->{
+    private void assertOccupancy(){
+        // RemoteViews text is attached before Android's next measure/layout pass.
+        // A catalog refresh after returning from provider setup also replaces views.
+        await(()->{for(DesktopGrid.Cell cell:cells()){View view=view(cell.id);if(view==null||view.getWidth()<=0||view.getHeight()<=0)return false;}return !cells().isEmpty();},"Desktop did not finish laying out its items");
+        main(()->{
         List<DesktopGrid.Cell> cells=cells();int columns=metric("columns"),rows=metric("rows");
         check(cells.size()==store().pages.get(store().page).size()+java.util.Arrays.stream(store().preferences.getString("widget_ids_page_"+store().page,"").split(",")).filter(x->!x.isEmpty()).count(),"Layout lost a shortcut/folder/widget");
         for(int i=0;i<cells.size();i++){
             DesktopGrid.Cell current=cells.get(i);check(DesktopGrid.fits(current,columns,rows),"Item is outside the grid");
-            View view=view(current.id);check(view!=null&&view.getWidth()>0&&view.getHeight()>0,"Item has no rendered bounds");
+            View view=view(current.id);check(view!=null&&view.getWidth()>0&&view.getHeight()>0,"Item has no rendered bounds: "+current.id);
             for(int j=i+1;j<cells.size();j++)check(!current.overlaps(cells.get(j)),"Widget/app/folder cell overlap");
         }
     });}

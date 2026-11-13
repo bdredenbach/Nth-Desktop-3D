@@ -149,5 +149,6 @@ final class CrystalGlassDrawable extends Drawable {
     }
     @Override public void setAlpha(int value) {alpha=Math.max(0,Math.min(255,value));invalidateSelf();}
     @Override public void setColorFilter(android.graphics.ColorFilter filter) {paint.setColorFilter(filter);invalidateSelf();}
+    @Override public void getOutline(android.graphics.Outline outline){android.graphics.Rect b=getBounds();if(b.isEmpty()){outline.setEmpty();return;}outline.setRoundRect(b,Math.min(radius,Math.min(b.width(),b.height())*.5f));outline.setAlpha(alpha/255f*.5f);}
     @Override public int getOpacity() {return PixelFormat.TRANSLUCENT;}
 }
