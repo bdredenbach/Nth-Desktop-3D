@@ -107,18 +107,24 @@ final class WidgetSmoke {
         main(()->activity.onBackPressed());idle(200);check(host.getAppWidgetIds().length==before,"Cancelling preview browsing leaked a widget ID");
         invokeActivity("showWidgets");
         main(()->((android.widget.EditText)findIn(activity.getWindow().getDecorView(),v->v instanceof android.widget.EditText)).setText("Live widget"));idle(400);
-        View preview=findIn(activity.getWindow().getDecorView(),v->v instanceof android.widget.ImageView&&((android.widget.ImageView)v).getDrawable() instanceof android.graphics.drawable.BitmapDrawable);
-        check(preview!=null,"RemoteViews preview layout was not rendered before placement");capture("widget-preview-before-placement");
+        await(()->findIn((View)field(activity,"overlay"),v->v instanceof android.widget.ImageView&&((android.widget.ImageView)v).getDrawable() instanceof android.graphics.drawable.BitmapDrawable)!=null,"RemoteViews preview layout was not rendered before placement");capture("widget-preview-before-placement");
         clickSystemText("Add Live widget widget, 2 by 2");
         await(()->host.getAppWidgetIds().length==before+1,"Preview selection did not allocate exactly one widget");
         int[] ids=host.getAppWidgetIds();int result=-1;for(int id:ids)if(widget(id)!=null)result=id;check(result>=0,"Selected preview did not create a hosted widget");return result;
     }
+    private void requestShortcutPin(){
+        // Android launches CONFIRM_PIN_SHORTCUT with NEW_TASK | CLEAR_TASK, replacing Home.
+        Instrumentation.ActivityMonitor monitor=instrumentation.addMonitor(MainActivity.class.getName(),null,false);
+        clickSystemText("Pin recipe shortcut");MainActivity replacement=(MainActivity)monitor.waitForActivityWithTimeout(5000);instrumentation.removeMonitor(monitor);
+        if(replacement!=null)activity=replacement;idle(400);
+    }
     private void testPinnedShortcut()throws Exception{
         main(()->{store().page=2;store().save();invokeDesktop("rebuild");});idle(400);
+        int websiteWidget=addWidget(false);await(()->widget(websiteWidget)!=null,"Website shortcut collision fixture missing");assertOccupancy();
         int count=store().pages.get(2).size();
-        shell("am start -W -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId cancelled-recipe");idle(350);clickSystemText("Pin recipe shortcut");clickSystemText("Cancel");idle(350);
+        shell("am start -W -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId cancelled-recipe");idle(350);requestShortcutPin();clickSystemText("Cancel");idle(350);
         check(store().pages.get(2).size()==count,"Cancelling a pin request added a shortcut");
-        shell("am start -W -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId pot-roast");idle(350);clickSystemText("Pin recipe shortcut");
+        shell("am start -W -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId pot-roast");idle(350);requestShortcutPin();
         await(()->field(field(activity,"shortcuts"),"confirmation")!=null,"Browser-style request did not reach the launcher");
         main(()->{android.app.AlertDialog dialog=(android.app.AlertDialog)field(field(activity,"shortcuts"),"confirmation");android.widget.EditText name=(android.widget.EditText)findIn(dialog.getWindow().getDecorView(),v->v instanceof android.widget.EditText);check(name!=null,"Shortcut name field missing");name.setText("Dinner recipe");});capture("shortcut-confirmation");clickSystemText("Add");
         await(()->store().pages.get(2).size()==count+1,"Accepted pin request did not add one desktop item");
@@ -129,7 +135,8 @@ final class WidgetSmoke {
         tap(view(recipe.id));clickSystemText("Opened recipe: https://example.test/recipe/pot-roast");
         instrumentation.getTargetContext().startActivity(new Intent(instrumentation.getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));idle(500);
         // Repeating the same request updates the saved shortcut instead of creating a duplicate.
-        shell("am start -W -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId pot-roast");idle(300);clickSystemText("Pin recipe shortcut");idle(600);if(field(field(activity,"shortcuts"),"confirmation")!=null)clickSystemText("Add");idle(400);check(store().pages.get(2).size()==count+1,"Repeated pin request duplicated the desktop shortcut");
+        shell("am start -W -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId pot-roast");idle(300);requestShortcutPin();idle(600);if(field(field(activity,"shortcuts"),"confirmation")!=null)clickSystemText("Add");idle(400);check(store().pages.get(2).size()==count+1,"Repeated pin request duplicated the desktop shortcut");
+        instrumentation.getTargetContext().startActivity(new Intent(instrumentation.getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));idle(500);
         final LauncherStore.Item selected=store().pages.get(2).get(count);
         main(()->activity.menu(selected));clickSystemText("Add to folder…");clickSystemText("Nth tools");idle(300);
         LauncherStore.Item copy=null;for(LauncherStore.Item child:store().folders().get(0).children)if("pot-roast".equals(child.shortcutId))copy=child;check(copy!=null,"Copying a website shortcut into a folder lost its launch identity");
@@ -225,6 +232,6 @@ final class WidgetSmoke {
     private void idle(long milliseconds){SystemClock.sleep(milliseconds);instrumentation.runOnMainSync(()->{});}
     private void main(Runnable work){AtomicReference<Throwable> failure=new AtomicReference<>();instrumentation.runOnMainSync(()->{try{work.run();}catch(Throwable error){failure.set(error);}});if(failure.get()!=null)throw new AssertionError(failure.get());}
     private void shell(String command)throws Exception{try(ParcelFileDescriptor.AutoCloseInputStream input=new ParcelFileDescriptor.AutoCloseInputStream(instrumentation.getUiAutomation().executeShellCommand(command))){byte[] bytes=new byte[1024];while(input.read(bytes)!=-1){}}}
-    private void capture(String name){android.graphics.Bitmap image=instrumentation.getUiAutomation().takeScreenshot();check(image!=null,"Cannot capture widget evidence");java.io.File directory=outputDirectory==null?new java.io.File(instrumentation.getTargetContext().getExternalFilesDir(null),"verification"):new java.io.File(outputDirectory);directory.mkdirs();try(java.io.FileOutputStream output=new java.io.FileOutputStream(new java.io.File(directory,name+".png"))){image.compress(android.graphics.Bitmap.CompressFormat.PNG,100,output);}catch(java.io.IOException error){throw new AssertionError(error);}finally{image.recycle();}}
+    private void capture(String name){idle(700);android.graphics.Bitmap image=instrumentation.getUiAutomation().takeScreenshot();check(image!=null,"Cannot capture widget evidence");java.io.File directory=outputDirectory==null?new java.io.File(instrumentation.getTargetContext().getExternalFilesDir(null),"verification"):new java.io.File(outputDirectory);directory.mkdirs();try(java.io.FileOutputStream output=new java.io.FileOutputStream(new java.io.File(directory,name+".png"))){image.compress(android.graphics.Bitmap.CompressFormat.PNG,100,output);}catch(java.io.IOException error){throw new AssertionError(error);}finally{image.recycle();}}
     private static void check(boolean condition,String message){if(!condition)throw new AssertionError(message);}
 }

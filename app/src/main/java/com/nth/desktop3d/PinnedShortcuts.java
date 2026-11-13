@@ -63,6 +63,7 @@ final class PinnedShortcuts {
             }catch(RuntimeException error){activity.toast("The shortcut could not be added. Set Nth Desktop 3D as your default Home app and try again.");}
         }));confirmation.show();return true;
     }
+    void destroy(){if(confirmation!=null)confirmation.dismiss();}
     private void clearIntent(){activity.setIntent(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME));}
     void open(LauncherStore.Item item){
         UserHandle user=users.getUserForSerialNumber(item.shortcutUser);
