@@ -30,7 +30,7 @@ final class DesktopView extends FrameLayout {
     private ShortcutGrid grid;
     private float downX,downY,tiltX,tiltY;
     private final float gestureSlop;
-    private boolean swiping,animating,touching,modal,reduced,powerSave,held,verticalGesture;
+    private boolean swiping,animating,touching,modal,reduced,powerSave,held,verticalGesture,startedOnItem;
     private ValueAnimator animator;
     private int width,height;
     private final Runnable backgroundHold;
@@ -289,17 +289,20 @@ final class DesktopView extends FrameLayout {
         body.tile.setOnTouchListener(new View.OnTouchListener(){float sx,sy,bx,by,lastX,lastY;long start,last;boolean moved,held;final Runnable hold=()->{held=true;body.tile.performLongClick();};
             @Override public boolean onTouch(View v,MotionEvent e){
                 switch(e.getActionMasked()){
-                    case MotionEvent.ACTION_DOWN:sx=lastX=e.getRawX();sy=lastY=e.getRawY();bx=body.x;by=body.y;last=start=e.getEventTime();moved=held=false;v.setPressed(true);v.postDelayed(hold,ViewConfiguration.getLongPressTimeout());return true;
+                    case MotionEvent.ACTION_DOWN:
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                        sx=lastX=e.getRawX();sy=lastY=e.getRawY();bx=body.x;by=body.y;last=start=e.getEventTime();moved=held=false;v.setPressed(true);v.postDelayed(hold,ViewConfiguration.getLongPressTimeout());return true;
                     case MotionEvent.ACTION_MOVE:
                         float dx=e.getRawX()-sx,dy=e.getRawY()-sy;
                         if(Math.hypot(dx,dy)>Ui.dp(getContext(),9)){moved=true;v.removeCallbacks(hold);}
-                        if(moved){held=false;body.x=SceneMath.clamp(bx+dx,0,Math.max(0,width-v.getWidth()));body.y=SceneMath.clamp(by+dy,0,Math.max(0,height-v.getHeight()));long dt=Math.max(1,e.getEventTime()-last);body.vx=(e.getRawX()-lastX)*1000/dt;body.vy=(e.getRawY()-lastY)*1000/dt;v.setTranslationX(body.x);v.setTranslationY(body.y);last=e.getEventTime();lastX=e.getRawX();lastY=e.getRawY();}return true;
+                        if(moved){held=false;clearSelection();body.x=SceneMath.clamp(bx+dx,0,Math.max(0,width-v.getWidth()));body.y=SceneMath.clamp(by+dy,0,Math.max(0,height-v.getHeight()));long dt=Math.max(1,e.getEventTime()-last);body.vx=(e.getRawX()-lastX)*1000/dt;body.vy=(e.getRawY()-lastY)*1000/dt;v.setTranslationX(body.x);v.setTranslationY(body.y);last=e.getEventTime();lastX=e.getRawX();lastY=e.getRawY();}return true;
                     case MotionEvent.ACTION_UP:
                         v.removeCallbacks(hold);v.setPressed(false);
                         if(!moved&&!held&&e.getEventTime()-start<500)v.performClick();
                         if(moved){savePositions();store.save();}
+                        getParent().requestDisallowInterceptTouchEvent(false);
                         return true;
-                    case MotionEvent.ACTION_CANCEL:v.removeCallbacks(hold);v.setPressed(false);return true;
+                    case MotionEvent.ACTION_CANCEL:v.removeCallbacks(hold);v.setPressed(false);getParent().requestDisallowInterceptTouchEvent(false);return true;
                     default:return false;
                 }
             }
@@ -382,9 +385,19 @@ final class DesktopView extends FrameLayout {
         if(e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL){touching=false;removeCallbacks(backgroundHold);}
         return result;
     }
+    private boolean itemAt(float x,float y){
+        for(int i=stage.getChildCount()-1;i>=0;i--){
+            View child=stage.getChildAt(i);
+            if(!(child instanceof IconTile)&&!(child instanceof android.appwidget.AppWidgetHostView))continue;
+            float left=child.getLeft()+child.getTranslationX(),top=child.getTop()+child.getTranslationY();
+            if(x>=left&&x<left+child.getWidth()&&y>=top&&y<top+child.getHeight())return true;
+        }
+        return false;
+    }
     @Override public boolean onInterceptTouchEvent(MotionEvent e){
         if(animating)return true;
-        if(e.getActionMasked()==MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();swiping=false;}
+        if(e.getActionMasked()==MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();swiping=false;verticalGesture=false;startedOnItem=itemAt(downX,downY);}
+        if(startedOnItem)return false;
         if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&(store.mode!=1||reduced)&&!held){float dx=e.getX()-downX,dy=e.getY()-downY;
             int slop=ViewConfiguration.get(getContext()).getScaledTouchSlop();
             if(!swiping&&Math.abs(dy)>slop*2&&Math.abs(dy)>Math.abs(dx)*1.4f&&dy<0){return true;}
@@ -394,10 +407,10 @@ final class DesktopView extends FrameLayout {
     }
     @Override public boolean onTouchEvent(MotionEvent e){
         switch(e.getActionMasked()){
-            case MotionEvent.ACTION_DOWN:downX=e.getX();downY=e.getY();touching=true;swiping=false;postDelayed(backgroundHold,ViewConfiguration.getLongPressTimeout());host.ripple(e.getX(),e.getY());return true;
+            case MotionEvent.ACTION_DOWN:downX=e.getX();downY=e.getY();touching=true;swiping=false;verticalGesture=false;startedOnItem=itemAt(downX,downY);postDelayed(backgroundHold,ViewConfiguration.getLongPressTimeout());host.ripple(e.getX(),e.getY());return true;
             case MotionEvent.ACTION_MOVE:float dx=e.getX()-downX,dy=e.getY()-downY;
                 if(Math.hypot(dx,dy)>ViewConfiguration.get(getContext()).getScaledTouchSlop()){removeCallbacks(backgroundHold);if(Math.abs(dy)>Math.abs(dx))verticalGesture=true;if(!verticalGesture&&Math.abs(dx)>Math.abs(dy)*1.4f)swiping=true;}return true;
-            case MotionEvent.ACTION_UP:removeCallbacks(backgroundHold);if(!held){
+            case MotionEvent.ACTION_UP:removeCallbacks(backgroundHold);if(startedOnItem){startedOnItem=false;return true;}if(!held){
                 float endDx=e.getX()-downX,endDy=e.getY()-downY;
                 if(Math.abs(endDy)>gestureSlop&&Math.abs(endDy)>Math.abs(endDx)*1.4f&&endDy<0){host.startMenu();}
                 else if(swiping&&Math.abs(endDx)>gestureSlop){
