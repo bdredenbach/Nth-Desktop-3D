@@ -21,7 +21,7 @@ public final class FixtureShortcutActivity extends Activity {
         TextView title=new TextView(this);body.addView(title);
         if(Intent.ACTION_VIEW.equals(getIntent().getAction()))title.setText("Opened recipe: "+getIntent().getDataString());
         else{
-            title.setText("Browser shortcut fixture");
+            title.setText("Browser shortcut fixture: "+getIntent().getStringExtra("shortcutId"));
             Button pin=new Button(this);pin.setText("Pin recipe shortcut");body.addView(pin);
             pin.setOnClickListener(v->{
                 String id=getIntent().getStringExtra("shortcutId");if(id==null)id="pot-roast";

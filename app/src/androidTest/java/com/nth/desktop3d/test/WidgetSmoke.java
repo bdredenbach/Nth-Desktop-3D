@@ -122,20 +122,20 @@ final class WidgetSmoke {
         main(()->{store().page=2;store().save();invokeDesktop("rebuild");});idle(400);
         int websiteWidget=addWidget(false);await(()->widget(websiteWidget)!=null,"Website shortcut collision fixture missing");assertOccupancy();
         int count=store().pages.get(2).size();
-        shell("am start -W -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId cancelled-recipe");idle(350);requestShortcutPin();clickSystemText("Cancel");idle(350);
+        shell("am start -W -f 0x10008000 -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId cancelled-recipe");idle(350);requestShortcutPin();clickSystemText("Cancel");idle(350);
         check(store().pages.get(2).size()==count,"Cancelling a pin request added a shortcut");
-        shell("am start -W -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId pot-roast");idle(350);requestShortcutPin();
+        shell("am start -W -f 0x10008000 -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId pot-roast");idle(350);requestShortcutPin();
         await(()->field(field(activity,"shortcuts"),"confirmation")!=null,"Browser-style request did not reach the launcher");
         main(()->{android.app.AlertDialog dialog=(android.app.AlertDialog)field(field(activity,"shortcuts"),"confirmation");android.widget.EditText name=(android.widget.EditText)findIn(dialog.getWindow().getDecorView(),v->v instanceof android.widget.EditText);check(name!=null,"Shortcut name field missing");name.setText("Dinner recipe");});capture("shortcut-confirmation");clickSystemText("Add");
         await(()->store().pages.get(2).size()==count+1,"Accepted pin request did not add one desktop item");
-        LauncherStore.Item recipe=store().pages.get(2).get(count);check("Dinner recipe".equals(recipe.label)&&"pot-roast".equals(recipe.shortcutId)&&FIXTURE.equals(recipe.shortcutPackage),"Shortcut identity or chosen name was not saved");assertOccupancy();capture("webpage-shortcut-on-desktop");
+        LauncherStore.Item recipe=store().pages.get(2).get(count);check("Dinner recipe".equals(recipe.label)&&"pot-roast".equals(recipe.shortcutId)&&FIXTURE.equals(recipe.shortcutPackage),"Shortcut identity or chosen name was not saved: "+recipe.label+" / "+recipe.shortcutId+" / "+recipe.shortcutPackage);assertOccupancy();capture("webpage-shortcut-on-desktop");
         LauncherStore restored=new LauncherStore(instrumentation.getTargetContext());LauncherStore.Item saved=restored.pages.get(2).get(count);check(recipe.key.equals(saved.key)&&recipe.shortcutUser==saved.shortcutUser&&"pot-roast".equals(saved.shortcutId),"Shortcut metadata was lost on reload");
         main(()->{try{Object manager=field(activity,"shortcuts");java.lang.reflect.Method icon=manager.getClass().getDeclaredMethod("icon",LauncherStore.Item.class);icon.setAccessible(true);check(icon.invoke(manager,recipe)!=null,"Shortcut icon was not persisted");}catch(Exception error){throw new AssertionError(error);}});
         Instrumentation.ActivityMonitor monitor=instrumentation.addMonitor(MainActivity.class.getName(),null,false);main(()->activity.recreate());activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);instrumentation.removeMonitor(monitor);check(activity!=null,"Shortcut recreation timed out");idle(700);assertOccupancy();
         tap(view(recipe.id));clickSystemText("Opened recipe: https://example.test/recipe/pot-roast");
         instrumentation.getTargetContext().startActivity(new Intent(instrumentation.getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));idle(500);
         // Repeating the same request updates the saved shortcut instead of creating a duplicate.
-        shell("am start -W -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId pot-roast");idle(300);requestShortcutPin();idle(600);if(field(field(activity,"shortcuts"),"confirmation")!=null)clickSystemText("Add");idle(400);check(store().pages.get(2).size()==count+1,"Repeated pin request duplicated the desktop shortcut");
+        shell("am start -W -f 0x10008000 -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId pot-roast");idle(300);requestShortcutPin();idle(600);if(field(field(activity,"shortcuts"),"confirmation")!=null)clickSystemText("Add");idle(400);check(store().pages.get(2).size()==count+1,"Repeated pin request duplicated the desktop shortcut");
         instrumentation.getTargetContext().startActivity(new Intent(instrumentation.getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));idle(500);
         final LauncherStore.Item selected=store().pages.get(2).get(count);
         main(()->activity.menu(selected));clickSystemText("Add to folder…");clickSystemText("Nth tools");idle(300);
