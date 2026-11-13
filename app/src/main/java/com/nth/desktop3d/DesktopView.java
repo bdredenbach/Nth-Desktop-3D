@@ -211,6 +211,43 @@ final class DesktopView extends FrameLayout {
         android.widget.LinearLayout tools=new android.widget.LinearLayout(getContext());
         tools.setBackground(Ui.satin(getContext(),0xEE245775,0xEE0B1B30,16));
         tools.setPadding(Ui.dp(getContext(),8),Ui.dp(getContext(),4),Ui.dp(getContext(),8),Ui.dp(getContext(),4));
+        android.widget.TextView handle=new android.widget.TextView(getContext());
+        handle.setText("✥ Move");handle.setTextColor(android.graphics.Color.WHITE);
+        handle.setGravity(android.view.Gravity.CENTER);handle.setTextSize(14);
+        handle.setPadding(Ui.dp(getContext(),12),0,Ui.dp(getContext(),12),0);
+        tools.addView(handle,new android.widget.LinearLayout.LayoutParams(-2,-1));
+        handle.setOnTouchListener(new View.OnTouchListener(){
+            float startX,startY;int left,top;
+            @Override public boolean onTouch(View v,MotionEvent e){
+                switch(e.getActionMasked()){
+                    case MotionEvent.ACTION_DOWN:
+                        startX=e.getRawX();startY=e.getRawY();
+                        FrameLayout.LayoutParams p=(FrameLayout.LayoutParams)widget.getLayoutParams();
+                        left=p.leftMargin;top=p.topMargin;
+                        stage.requestDisallowInterceptTouchEvent(true);return true;
+                    case MotionEvent.ACTION_MOVE:
+                        FrameLayout.LayoutParams move=(FrameLayout.LayoutParams)widget.getLayoutParams();
+                        move.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),left+Math.round(e.getRawX()-startX)));
+                        move.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),top+Math.round(e.getRawY()-startY)));
+                        widget.setLayoutParams(move);
+                        FrameLayout.LayoutParams bar=(FrameLayout.LayoutParams)tools.getLayoutParams();
+                        bar.leftMargin=move.leftMargin;bar.topMargin=Math.max(0,move.topMargin-Ui.dp(getContext(),46));
+                        tools.setLayoutParams(bar);return true;
+                    case MotionEvent.ACTION_UP:
+                        FrameLayout.LayoutParams end=(FrameLayout.LayoutParams)widget.getLayoutParams();
+                        int cols=Math.max(1,Math.min(8,Math.max(1,getWidth())/cellWidth()));
+                        end.leftMargin=Math.max(0,Math.min(Math.max(0,getWidth()-widget.getWidth()),snap(end.leftMargin,Math.max(1,getWidth()/cols))));
+                        end.topMargin=Math.max(0,Math.min(Math.max(0,getHeight()-widget.getHeight()),Ui.dp(getContext(),24)+snap(end.topMargin-Ui.dp(getContext(),24),cellHeight())));
+                        widget.setLayoutParams(end);
+                        store.preferences.edit().putInt("widget_left_"+id,end.leftMargin).putInt("widget_top_"+id,end.topMargin).apply();
+                        FrameLayout.LayoutParams finalBar=(FrameLayout.LayoutParams)tools.getLayoutParams();
+                        finalBar.leftMargin=end.leftMargin;finalBar.topMargin=Math.max(0,end.topMargin-Ui.dp(getContext(),46));
+                        tools.setLayoutParams(finalBar);
+                    case MotionEvent.ACTION_CANCEL:stage.requestDisallowInterceptTouchEvent(false);return true;
+                    default:return true;
+                }
+            }
+        });
         addWidgetAction(tools,"←",()->moveWidget(widget,id,-1,0));
         addWidgetAction(tools,"↑",()->moveWidget(widget,id,0,-1));
         addWidgetAction(tools,"↓",()->moveWidget(widget,id,0,1));
@@ -229,7 +266,8 @@ final class DesktopView extends FrameLayout {
             widgetHost.deleteAppWidgetId(id);clearSelection();rebuild();
         });
         FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(-2,Ui.dp(getContext(),44));
-        p.gravity=android.view.Gravity.TOP|android.view.Gravity.CENTER_HORIZONTAL;
+        p.gravity=android.view.Gravity.TOP|android.view.Gravity.LEFT;
+        p.leftMargin=((FrameLayout.LayoutParams)widget.getLayoutParams()).leftMargin;
         p.topMargin=Math.max(0,((FrameLayout.LayoutParams)widget.getLayoutParams()).topMargin-Ui.dp(getContext(),46));
         stage.addView(tools,p);widgetToolbar=tools;
     }
