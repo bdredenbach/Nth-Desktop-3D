@@ -18,7 +18,7 @@ for nth_phase in compat_seed compat_normal compat_discover compat_normal; do
     timeout 30s adb shell am instrument -w -e phase "$nth_phase" com.nth.desktop3d.test/com.nth.desktop3d.test.SmokeInstrumentation > app/build/replacement-check.log 2>&1
     nth_instrument_status=$?
     cat app/build/replacement-check.log
-    if [ "$nth_instrument_status" -ne 0 ] || ! rg -q 'OK \(in-place replacement' app/build/replacement-check.log; then nth_smoke_status=1; break; fi
+    if [ "$nth_instrument_status" -ne 0 ] || ! grep -Fq 'OK (in-place replacement' app/build/replacement-check.log; then nth_smoke_status=1; break; fi
 done
 if [ "$nth_smoke_status" -eq 0 ]; then
     # Reset only the disposable emulator's seeded replacement-proof data.
