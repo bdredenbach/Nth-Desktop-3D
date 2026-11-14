@@ -19,12 +19,13 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class SmokeInstrumentation extends Instrumentation {
     private MainActivity activity;
     private String outputDirectory;
-    private boolean polishOnly;
-    @Override public void onCreate(Bundle args){super.onCreate(args);outputDirectory=args==null?null:args.getString("additionalTestOutputDir");polishOnly=args!=null&&"polish".equals(args.getString("phase"));start();}
+    private boolean polishOnly;private String phase="";
+    @Override public void onCreate(Bundle args){super.onCreate(args);outputDirectory=args==null?null:args.getString("additionalTestOutputDir");phase=args==null?"":args.getString("phase","");polishOnly="polish".equals(phase);start();}
     private Bundle status(){Bundle b=new Bundle();b.putString("id","InstrumentationTestRunner");b.putInt("numtests",1);b.putInt("current",1);b.putString("class","com.nth.desktop3d.LauncherSmoke");b.putString("test","scenesMenusPersistenceAndLandscape");return b;}
     @Override public void onStart(){
         Bundle s=status();sendStatus(1,s);
         try{
+            if(phase.startsWith("compat_")){replacementCheck();return;}
             android.accessibilityservice.AccessibilityServiceInfo accessibility=getUiAutomation().getServiceInfo();
             accessibility.flags|=android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS|android.accessibilityservice.AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS;
             getUiAutomation().setServiceInfo(accessibility);
@@ -39,7 +40,7 @@ public final class SmokeInstrumentation extends Instrumentation {
             ActivityMonitor monitor=addMonitor(MainActivity.class.getName(),null,false);
             getTargetContext().startActivity(new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);removeMonitor(monitor);check(activity!=null,"Cold launch timed out");idle(1200);
-            if(polishOnly){new PolishSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.FeedSmoke(this,activity,outputDirectory).run();s.putString("stream","Native feed refresh, offline cache, sources, interests, saved stories, internal reader, settings, card data and overlay checks passed.\n");sendStatus(0,s);Bundle result=new Bundle();result.putString("stream","OK (1 focused integration test)\n");finish(Activity.RESULT_OK,result);return;}
+            if(polishOnly){new PolishSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.FeedSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.DiscoverSmoke(this,activity,outputDirectory).run();s.putString("stream","Native feed refresh, offline cache, sources, interests, saved stories, internal reader, settings, card data and overlay checks passed.\n");sendStatus(0,s);Bundle result=new Bundle();result.putString("stream","OK (1 focused integration test)\n");finish(Activity.RESULT_OK,result);return;}
             assertRestoredGrid();capture("restored-desktop");
             monitor=addMonitor(MainActivity.class.getName(),null,false);main(()->activity.recreate());
             activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);removeMonitor(monitor);check(activity!=null,"Activity recreation timed out");idle(700);assertRestoredGrid();
@@ -65,11 +66,17 @@ public final class SmokeInstrumentation extends Instrumentation {
             invoke("showControls");check(find(v->v instanceof Button&&"Internet".contentEquals(((Button)v).getText()))!=null,"Device flyout missing");back();
             main(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));idle(900);
             activity=new SettingsSmoke(this,activity,outputDirectory).run();
-            new PolishSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.FeedSmoke(this,activity,outputDirectory).run();
+            new PolishSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.FeedSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.DiscoverSmoke(this,activity,outputDirectory).run();
             new WidgetSmoke(this,activity,outputDirectory).run();
             s.putString("stream","Cold restored grid (24 shortcuts), Activity recreation, all scenes, tools, gestures, landscape and device flyout passed. Separate-UID widget content, live updates, native drag/reflow, resize, app/folder collision, rejected widget overlap, configuration save/cancel, pause/resume, recreation, rotation and removal passed. Preview gallery, browser-style pin confirmation/cancellation, shortcut target/name/icon persistence, folder copies, removal and ordinary app placement passed. Live settings preview, Nota commands/Undo, adaptive opacity, document backups, fading viewport, one-line labels, crystal cards and cross-process Discover overlay passed.\n");sendStatus(0,s);
             Bundle result=new Bundle();result.putString("stream","OK (1 integration test)\n");finish(Activity.RESULT_OK,result);
         }catch(Throwable error){try{capture("failure");}catch(Throwable ignored){}s.putString("stack",android.util.Log.getStackTraceString(error));s.putString("stream",error.toString());sendStatus(-2,s);Bundle result=new Bundle();result.putString("shortMsg",error.toString());finish(Activity.RESULT_CANCELED,result);}
+    }
+    private void replacementCheck()throws Exception{
+        android.content.SharedPreferences data=getTargetContext().getSharedPreferences("desktop3d",0),proof=getTargetContext().getSharedPreferences("discover_replace_check",0);
+        if(phase.equals("compat_seed")){check(proof.edit().putString("token","same-app-kept-data").putString("layout",data.getString("layout","")).putString("note",data.getString("note","")).commit(),"Could not save replacement sentinel");}
+        else{check(proof.getString("token","").equals("same-app-kept-data"),"In-place update lost preferences");check(proof.getString("layout","").equals(data.getString("layout","")),"In-place update changed desktop layout");check(proof.getString("note","").equals(data.getString("note","")),"In-place update changed notes");boolean debug=(getTargetContext().getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0;check(debug==phase.equals("compat_discover"),"Installed mode differs from the expected release/test mode");}
+        Bundle result=new Bundle();result.putString("stream","OK (in-place replacement "+phase+")\n");finish(Activity.RESULT_OK,result);
     }
     private void assertRestoredGrid(){main(()->{
         ViewGroup stage=(ViewGroup)find(v->v.getClass().getSimpleName().equals("DesktopView"));

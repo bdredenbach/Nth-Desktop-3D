@@ -209,8 +209,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
         date.setText(new SimpleDateFormat("EEEE, MMMM d",Locale.getDefault()).format(now));
         clockButton.setText(time+"\n"+new SimpleDateFormat("MMM d",Locale.getDefault()).format(now));clockButton.setTextSize(11);
     }
-    @Override protected void onStart(){super.onStart();try{widgetHost.startListening();widgetListening=true;}catch(RuntimeException error){android.util.Log.e("NthWidgets","Could not listen for widget updates",error);}}
-    @Override protected void onStop(){if(widgetListening){widgetHost.stopListening();widgetListening=false;}super.onStop();}
+    @Override protected void onStart(){super.onStart();if(discover!=null)discover.start();try{widgetHost.startListening();widgetListening=true;}catch(RuntimeException error){android.util.Log.e("NthWidgets","Could not listen for widget updates",error);}}
+    @Override protected void onStop(){if(discover!=null)discover.stop();if(widgetListening){widgetHost.stopListening();widgetListening=false;}super.onStop();}
     @Override protected void onResume(){super.onResume();resumed=true;previousFrame=lastRender=0;scene.onResume();applySettings(false);Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);handler.removeCallbacks(clockTick);clockTick.run();if(loaded)reloadApps();if(discover!=null)discover.resume();if(cardsView!=null)cardsView.refresh();if(nativeFeed!=null)nativeFeed.resume();}
     @Override protected void onPause(){resumed=false;Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();if(settingsStudio!=null)settingsStudio.pause();if(cardsView!=null)cardsView.pause();if(nativeFeed!=null)nativeFeed.pause();if(discover!=null)discover.pause();super.onPause();}
     @Override protected void onDestroy(){destroyed=true;handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();widgetHost.releaseViews();if(shortcuts!=null)shortcuts.destroy();if(settingsStudio!=null)settingsStudio.dispose();if(cardsView!=null)cardsView.dispose();if(nativeFeed!=null)nativeFeed.dispose();if(discover!=null)discover.destroy();super.onDestroy();}
@@ -553,16 +553,35 @@ public final class MainActivity extends Activity implements MotionController.Lis
         if(crystal.feedProvider()==1){openGoogleFeed();return true;}
         openDiscover();return true;
     }
-    private void openDiscover(){closePanel();discover.open();}
+    private void openDiscover(){
+        closePanel();discover.open();
+        handler.postDelayed(()->{if(!destroyed&&discover.isConnecting()&&overlay==null)showDiscoverConnecting();},250);
+    }
+    private void retryDiscover(){crystal.setFeedEnabled(true);crystal.setFeedEdgeSwipe(true);crystal.setFeedProvider(0);closePanel();discover.reconnect();openDiscover();}
+    private View discoverWaiting;
+    private void showDiscoverConnecting(){
+        if(discoverWaiting!=null||!discover.isConnecting())return;
+        LinearLayout waiting=Ui.row(this);waiting.setPadding(dp(12),dp(8),dp(8),dp(8));waiting.setBackground(Ui.satin(this,0xF02D5268,0xF016273E,18));TextView label=Ui.text(this,"Connecting to Google Discover…",14,Ui.TEXT);waiting.addView(label,new LinearLayout.LayoutParams(0,-2,1));waiting.addView(Ui.quiet(this,"Cancel",()->discover.close()));
+        FrameLayout.LayoutParams place=new FrameLayout.LayoutParams(-1,-2,Gravity.TOP|Gravity.CENTER_HORIZONTAL);place.setMargins(dp(16),insetTop+dp(12),dp(16),0);root.addView(waiting,place);discoverWaiting=waiting;
+        Runnable check=new Runnable(){public void run(){if(destroyed||discoverWaiting!=waiting)return;if(!discover.isConnecting()){root.removeView(waiting);discoverWaiting=null;return;}handler.postDelayed(this,100);}};handler.postDelayed(check,100);
+    }
     private void showDiscoverEntry(){
         LinearLayout body=scrollBody(openPanel("Google Discover",true));
         paragraph(body,discover.status());
         paragraph(body,"Direct Google Discover is experimental and depends on the installed Google app accepting this launcher. Nth Feed works inside Nth Desktop without Google or a companion app.");
-        action(body,"Reconnect Google Discover",()->{closePanel();discover.reconnect();discover.open();});
+        action(body,"Reconnect Google Discover",this::retryDiscover);
+        action(body,"Connection details",this::showDiscoverDetails);
+        action(body,"Google app info",this::googleAppInfo);
         action(body,"Open Google app",this::openGoogleFeed);
         action(body,"Open Nth Feed",this::showNativeFeed);
         action(body,"Feed preferences",()->showSettings("feed"));
     }
+    private void showDiscoverDetails(){
+        String report=discover.report();LinearLayout body=scrollBody(openPanel("Discover connection"));
+        paragraph(body,"This report stays on this phone. Copy it after an unsuccessful attempt so we can identify the connection stage. It contains app/build versions and connection events; no Google account or news history.");
+        action(body,"Test Google Discover",this::retryDiscover);action(body,"Copy connection report",()->{android.content.ClipboardManager clipboard=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nth Discover connection",report));toast("Connection report copied");});action(body,"Google app info",this::googleAppInfo);TextView details=Ui.text(this,report,13,Ui.TEXT);details.setTextIsSelectable(true);body.addView(details,new LinearLayout.LayoutParams(-1,-2));
+    }
+    private void googleAppInfo(){try{startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:com.google.android.googlequicksearchbox")));}catch(RuntimeException missing){toast("Google app info is unavailable.");}}
     private void showNativeFeed(){
         LinearLayout p=openPanel("Nth Feed");nativeFeed=new NativeFeedPage(this,new NativeFeedPage.Host(){public void cards(){showCards("");}public void settings(){showSettings("feed");}});p.addView(nativeFeed,new LinearLayout.LayoutParams(-1,0,1));
     }
@@ -693,7 +712,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void showSettings(){showSettings("root");}
     private void showSettings(String page){
         LinearLayout p=openPanel("3D settings");settingsStudio=new SettingsStudio(this,settingsModel(),catalog,new SettingsStudio.Host(){
-            public void home(){requestHome();}public void arrange(){desktop.arrange();toast("Desktop arranged");}public void recenter(){motion.recenter();toast("Tilt centered");}public void feed(){showNativeFeed();}public void reconnectFeed(){closePanel();discover.reconnect();discover.open();}public String feedStatus(){return discover.status();}public void googleApp(){openGoogleFeed();}public void cards(){showCards("");}public void widgets(){showWidgets();}public void folder(){newFolder();}public void overview(){showDesktopOverview();}public void apps(){showStart();}public void about(){showAbout();}public void backup(boolean restore){settingsDocument(restore);}
+            public void home(){requestHome();}public void arrange(){desktop.arrange();toast("Desktop arranged");}public void recenter(){motion.recenter();toast("Tilt centered");}public void feed(){showNativeFeed();}public void reconnectFeed(){retryDiscover();}public void feedDetails(){showDiscoverDetails();}public String feedStatus(){return discover.status();}public void googleApp(){openGoogleFeed();}public void cards(){showCards("");}public void widgets(){showWidgets();}public void folder(){newFolder();}public void overview(){showDesktopOverview();}public void apps(){showStart();}public void about(){showAbout();}public void backup(boolean restore){settingsDocument(restore);}
             public boolean openApp(String query){List<AppCatalog.Entry> matches=catalog.filter(query,false);if(matches.size()==1){launch(matches.get(0).key);return true;}if(matches.size()>1){showStart();appSearch.setText(query);toast("Choose an app from the matching shortcuts.");return true;}return false;}
         },page);p.addView(settingsStudio,new LinearLayout.LayoutParams(-1,0,1));
     }

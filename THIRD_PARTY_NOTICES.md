@@ -13,3 +13,8 @@ Weather data and city lookup are provided by Open-Meteo and its geocoding servic
 The weather card includes a visible Open-Meteo attribution link.
 https://open-meteo.com/en/docs
 https://open-meteo.com/en/docs/geocoding-api
+
+Overlay compatibility behavior was compared with Lawnchair's Apache-2.0 sources
+(16-dev LauncherClient.java, BaseClientService.java, FeedBridge.kt and
+OverlayCallbackImpl.kt). The Nth client remains original project code.
+https://github.com/LawnchairLauncher/lawnchair

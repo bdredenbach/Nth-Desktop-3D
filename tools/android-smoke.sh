@@ -11,6 +11,24 @@ if [ "$nth_smoke_status" -eq 0 ]; then
     timeout 14m ./gradlew :app:connectedDebugAndroidTest
     nth_smoke_status=$?
 fi
+# Prove release -> Discover Test -> release replacement at the same code keeps app data.
+# Both are signed with the emulator's debug key only in this compatibility check.
+if [ "$nth_smoke_status" -eq 0 ]; then
+    timeout 3m ./gradlew :app:assembleRelease :app:assembleDiscoverTest -PnthCompatibilitySigning=true
+    nth_smoke_status=$?
+fi
+if [ "$nth_smoke_status" -eq 0 ]; then
+    for nth_phase in compat_seed compat_normal compat_discover compat_normal; do
+        case "$nth_phase" in
+            compat_normal) adb install -r app/build/outputs/apk/release/app-release.apk || { nth_smoke_status=1; break; } ;;
+            compat_discover) adb install -r app/build/outputs/apk/discoverTest/app-discoverTest.apk || { nth_smoke_status=1; break; } ;;
+        esac
+        timeout 30s adb shell am instrument -w -e phase "$nth_phase" com.nth.desktop3d.test/com.nth.desktop3d.test.SmokeInstrumentation > app/build/replacement-check.log 2>&1
+        nth_instrument_status=$?
+        cat app/build/replacement-check.log
+        if [ "$nth_instrument_status" -ne 0 ] || ! rg -q 'OK \(in-place replacement' app/build/replacement-check.log; then nth_smoke_status=1; break; fi
+    done
+fi
 mkdir -p app/build/runtime-screenshots
 timeout 15s adb pull /sdcard/Android/data/com.nth.desktop3d/files/verification app/build/runtime-screenshots 2>/dev/null || true
 timeout 15s adb pull /sdcard/Android/media/com.nth.desktop3d/additional_test_output app/build/runtime-screenshots 2>/dev/null || true

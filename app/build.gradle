@@ -15,6 +15,7 @@ android {
         versionCode appVersion.getProperty('versionCode').toInteger()
         versionName appVersion.getProperty('versionName')
         testInstrumentationRunner 'com.nth.desktop3d.test.SmokeInstrumentation'
+        manifestPlaceholders = [launcherLabel:'@string/app_name']
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     signingConfigs {
@@ -36,6 +37,21 @@ android {
             minifyEnabled false
             if (System.getenv('NTH_SIGNING_STORE_FILE')) signingConfig signingConfigs.stable
         }
+    }
+    // Same package/version/key: a tester can replace the release and return without data loss.
+    buildTypes {
+        discoverTest {
+            initWith release
+            debuggable true
+            signingConfig null
+            versionNameSuffix '-discover-test'
+            manifestPlaceholders = [launcherLabel:'@string/app_name_discover_test']
+        }
+    }
+    // Used only by the emulator's in-place replacement check; production artifacts stay unsigned.
+    if (project.hasProperty('nthCompatibilitySigning')) {
+        buildTypes.release.signingConfig = signingConfigs.debug
+        buildTypes.discoverTest.signingConfig = signingConfigs.debug
     }
     lint { abortOnError true }
 }

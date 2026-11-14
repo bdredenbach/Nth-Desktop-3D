@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.1 — 2026-11-13
+
+- Negotiate the Google overlay service API, use legacy window/lifecycle methods only for older APIs, and send modern activity state once for current services.
+- Allow 15 seconds for cold startup and 8 seconds for display after readiness. Add a cancelable, nonmodal connection indicator and guard canceled/stale callbacks.
+- Preserve distinct missing-app, disabled-service, permission, null-binding, readiness, display and remote-error outcomes. Add local copyable reports with app/build versions, negotiated API and bounded connection events.
+- Add an explicitly labelled Discover Test build (debuggable), with the same package/version code and owner signing identity as the normal release. The release stays non-debuggable. Actual Google acceptance must be checked on the owner's Pixel; a protocol fixture is not a production Google test.
+- Exercise a delayed service beyond the former 2.5-second limit, strict modern and legacy protocols, null binding, silent/not-ready/display timeouts, report copying and cancel behavior. Verify release/test/release in-place installation preserves desktop layout and notes.
+
 ## 0.6.0 — 2026-11-13
 
 - Build Nth Feed into the main APK: RSS/Atom headlines, publisher attribution, local interests, unread/recent ordering, search, saved headlines, hide/restore, custom HTTPS sources and an offline cache.
