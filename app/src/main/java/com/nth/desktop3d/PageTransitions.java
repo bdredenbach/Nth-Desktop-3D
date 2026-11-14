@@ -34,7 +34,7 @@ final class PageTransitions {
     }
     static void canvas(android.graphics.Canvas canvas,Frame f,float w,float h){
         float px=w*f.px,py=h*f.py;
-        android.graphics.Camera camera=new android.graphics.Camera();android.graphics.Matrix matrix=new android.graphics.Matrix();camera.rotateX(f.rx);camera.rotateY(f.ry);camera.getMatrix(matrix);matrix.preTranslate(-px,-py);matrix.postTranslate(px,py);canvas.translate(w*f.tx,h*f.ty);canvas.concat(matrix);canvas.rotate(f.rz,px,py);canvas.scale(f.sx,f.sy,px,py);
+        android.graphics.Camera camera=new android.graphics.Camera();android.graphics.Matrix matrix=new android.graphics.Matrix();camera.setLocation(0,0,-Math.max(1,w*6)/72f);camera.rotateX(f.rx);camera.rotateY(f.ry);camera.getMatrix(matrix);matrix.preTranslate(-px,-py);matrix.postTranslate(px,py);canvas.translate(w*f.tx,h*f.ty);canvas.concat(matrix);canvas.rotate(f.rz,px,py);canvas.scale(f.sx,f.sy,px,py);
         if(f.clip<1)canvas.clipRect(f.fromRight?w*(1-f.clip):0,0,f.fromRight?w:w*f.clip,h);
     }
 }

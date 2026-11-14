@@ -40,7 +40,7 @@ public final class SmokeInstrumentation extends Instrumentation {
             ActivityMonitor monitor=addMonitor(MainActivity.class.getName(),null,false);
             getTargetContext().startActivity(new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);removeMonitor(monitor);check(activity!=null,"Cold launch timed out");idle(1200);
-            if(phase.equals("workspace")){new com.nth.desktop3d.Launcher070Smoke(this,activity,outputDirectory).run();Bundle result=new Bundle();result.putString("stream","OK (workspace integration test)\n");finish(Activity.RESULT_OK,result);return;}
+            if(phase.equals("workspace")){new com.nth.desktop3d.Launcher070Smoke(this,activity,outputDirectory).run();s.putString("stream","Workspace interaction checks passed.\n");sendStatus(0,s);Bundle result=new Bundle();result.putString("stream","OK (workspace integration test)\n");finish(Activity.RESULT_OK,result);return;}
             if(polishOnly){new PolishSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.FeedSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.DiscoverSmoke(this,activity,outputDirectory).run();s.putString("stream","Native feed refresh, offline cache, sources, interests, saved stories, internal reader, settings, card data and overlay checks passed.\n");sendStatus(0,s);Bundle result=new Bundle();result.putString("stream","OK (1 focused integration test)\n");finish(Activity.RESULT_OK,result);return;}
             assertRestoredGrid();capture("restored-desktop");
             monitor=addMonitor(MainActivity.class.getName(),null,false);main(()->activity.recreate());
