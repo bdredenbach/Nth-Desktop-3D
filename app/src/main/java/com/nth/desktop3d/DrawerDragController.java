@@ -21,8 +21,8 @@ final class DrawerDragController {
         tile.setOnTouchListener(new View.OnTouchListener(){float sx,sy;long downAt;boolean held,moved,started,canceled;void arm(){if(held||canceled)return;held=true;tile.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);if(tile.getParent()!=null)tile.getParent().requestDisallowInterceptTouchEvent(true);}
             final Runnable hold=this::arm;
             public boolean onTouch(View v,MotionEvent e){switch(e.getActionMasked()){
-                case MotionEvent.ACTION_DOWN:downAt=e.getEventTime();sx=e.getRawX();sy=e.getRawY();held=moved=started=canceled=false;tile.postDelayed(hold,android.view.ViewConfiguration.getLongPressTimeout());tile.setPressed(true);return true;
-                case MotionEvent.ACTION_MOVE:if(!held&&!canceled&&e.getEventTime()-downAt>=android.view.ViewConfiguration.getLongPressTimeout())arm();float distance=(float)Math.hypot(e.getRawX()-sx,e.getRawY()-sy);if(!held&&distance>android.view.ViewConfiguration.get(tile.getContext()).getScaledTouchSlop()){tile.removeCallbacks(hold);canceled=true;}if(held&&!started&&distance>Ui.dp(tile.getContext(),8)){moved=true;started=begin(tile,item);}return true;
+                case MotionEvent.ACTION_DOWN:downAt=e.getEventTime();sx=e.getRawX();sy=e.getRawY();held=moved=started=canceled=false;tile.postDelayed(hold,android.view.ViewConfiguration.getLongPressTimeout());tile.setPressed(true);if(tile.getParent()!=null)tile.getParent().requestDisallowInterceptTouchEvent(true);return true;
+                case MotionEvent.ACTION_MOVE:if(!held&&!canceled&&e.getEventTime()-downAt>=android.view.ViewConfiguration.getLongPressTimeout())arm();float distance=(float)Math.hypot(e.getRawX()-sx,e.getRawY()-sy);if(!held&&distance>android.view.ViewConfiguration.get(tile.getContext()).getScaledTouchSlop()){tile.removeCallbacks(hold);canceled=true;if(tile.getParent()!=null)tile.getParent().requestDisallowInterceptTouchEvent(false);}if(held&&!started&&distance>Ui.dp(tile.getContext(),8)){moved=true;started=begin(tile,item);}return true;
                 case MotionEvent.ACTION_UP:if(!held&&!canceled&&e.getEventTime()-downAt>=android.view.ViewConfiguration.getLongPressTimeout())arm();tile.removeCallbacks(hold);tile.setPressed(false);if(tile.getParent()!=null)tile.getParent().requestDisallowInterceptTouchEvent(false);if(!moved&&!canceled){if(held)menu.run();else tile.performClick();}return true;
                 case MotionEvent.ACTION_CANCEL:tile.removeCallbacks(hold);tile.setPressed(false);if(tile.getParent()!=null)tile.getParent().requestDisallowInterceptTouchEvent(false);return true;
                 default:return true;
@@ -32,7 +32,10 @@ final class DrawerDragController {
     private boolean begin(View tile,LauncherStore.Item item){
         if(store.preferences.getBoolean("lock_layout",false)){host.message("Unlock desktop layout to add or move shortcuts.");return false;}
         originalPage=store.page;originalCount=store.pageCount();created=-1;dropped=tracking=false;source=item;
-        boolean accepted=tile.startDragAndDrop(android.content.ClipData.newPlainText("Nth shortcut",item.label),new View.DragShadowBuilder(tile),this,0);
+        // The drawer is removed as dragging begins. Keep the source view attached
+        // for the complete system drag, including on newer Android releases.
+        tile.setPressed(false);
+        boolean accepted=root.startDragAndDrop(android.content.ClipData.newPlainText("Nth shortcut",item.label),new View.DragShadowBuilder(tile),this,0);
         if(!accepted){source=null;return false;}host.closeDrawer();showHint();return true;
     }
     private boolean drag(DragEvent e){

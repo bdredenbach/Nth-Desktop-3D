@@ -12,7 +12,7 @@ AppWidgetProviderInfo dimensions supplied by Android are already pixels. Grid
 span calculation uses them directly. Only the updateAppWidgetSize options are
 converted to dp. Target cell sizes and provider resize limits are respected.
 
-The Nova reference recording 226691.mp4 shows a temporary cell outline, direct
+The Reference recording 226691.mp4 shows a temporary cell outline, direct
 hold/drag, and resize grips. This implementation uses the same interaction pattern:
 
 - Tap normally to interact with the provider's content.

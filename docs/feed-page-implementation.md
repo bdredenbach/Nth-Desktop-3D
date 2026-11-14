@@ -22,7 +22,7 @@ Create a **Feed Page** section containing:
 Persist preferences per user; never reset on upgrade. If Google Discover companion is unavailable, retain the preferred choice while using the fallback; do not silently change the saved selection.
 
 ## Integration architecture
-Define FeedProvider interface with availability check, open action, and human-readable status. Use a DiscoverCompanionProvider only after a compatibility probe and successful handshake; do not assume Nova's companion is interoperable with Nth Desktop 3D. Google's native Discover integration is not a general public third-party launcher API. Do not promise embedded feed support until proven on target Android versions.
+Define FeedProvider interface with availability check, open action, and human-readable status. Use a DiscoverCompanionProvider only after a compatibility probe and successful handshake; do not assume another launcher’s companion is interoperable with Nth Desktop 3D. Google's native Discover integration is not a general public third-party launcher API. Do not promise embedded feed support until proven on target Android versions.
 
 Implement GoogleAppFallbackProvider using only documented, resolvable package/intent entry points and Android package visibility declarations as required. Avoid brittle private intents where possible. If Google app unavailable, offer Play Store/setup guidance rather than crashing.
 

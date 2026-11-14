@@ -68,8 +68,8 @@ protocol/window behavior, not the content of an installed production Google app.
 ## Remaining reference-video boundaries
 
 The concrete settings fixes, cards and overlay integration above are delivered.
-This is not a claim that every Nova feature/account integration has been cloned.
-Third-party icon packs, unlimited/custom dock pages, the complete Nova transition
+This is not a claim that every reference feature/account integration has been cloned.
+Third-party icon packs, unlimited/custom dock pages, the complete reference transition
 library, accessibility-based system gestures and remote provider account APIs
 remain outside this implementation. No unsupported integration is disguised as
 an active account connection.

@@ -446,8 +446,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void showAutoSort(){
         FolderSorter plan=new FolderSorter(new ArrayList<>(catalog.entries));
         LinearLayout body=scrollBody(openPanel("Auto pick and sort"));
-        paragraph(body,"Preview your Nova folder names and staggered arrangement. Sort "+plan.appCount+" shortcuts using Android categories, app names and package hints on this phone. Some guesses will need manual changes. A new desktop is added; your current screens stay in place.");
-        View preview=plan.preview(this,catalog);preview.setContentDescription("Nova folder arrangement preview");body.addView(preview,new LinearLayout.LayoutParams(-1,dp(420)));
+        paragraph(body,"Preview twenty category folders in a staggered arrangement. Sort "+plan.appCount+" shortcuts using Android categories, app names and package hints on this phone. Some guesses will need manual changes. A new desktop is added; your current screens stay in place.");
+        View preview=plan.preview(this,catalog);preview.setContentDescription("Category folder arrangement preview");body.addView(preview,new LinearLayout.LayoutParams(-1,dp(420)));
         action(body,"Create sorted desktop",()->{if(plan.apply(store)<0){toast("All 24 desktops are in use.");return;}closePanel();desktop.rebuild();pageChanged();toast("Sorted desktop added. Undo is in Auto pick and sort.");});
         if(FolderSorter.canUndo(store))action(body,"Undo last auto-sort",()->{FolderSorter.undo(store);shortcuts.syncRemoved();closePanel();desktop.rebuild();pageChanged();toast("Generated folders removed.");});
         for(LauncherStore.Item folder:plan.folders)paragraph(body,folder.label+" · "+folder.children.size()+" shortcuts");
@@ -466,7 +466,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
             float startY,startX;boolean dismissing;
             @Override public boolean onTouch(View v,MotionEvent e){
                 if(e.getActionMasked()==MotionEvent.ACTION_DOWN){
-                    startY=e.getY();startX=e.getX();dismissing=grid.getFirstVisiblePosition()==0;return false;
+                    startY=e.getY();startX=e.getX();dismissing=grid.getFirstVisiblePosition()==0&&grid.pointToPosition((int)startX,(int)startY)==android.widget.AdapterView.INVALID_POSITION;return false;
                 }
                 if(e.getActionMasked()==MotionEvent.ACTION_UP&&dismissing
                     &&e.getY()-startY>dp(90)&&Math.abs(e.getX()-startX)<dp(110)){
@@ -708,6 +708,15 @@ public final class MainActivity extends Activity implements MotionController.Lis
         toast(desktop.revealWidget(id)?"Widget placed on Desktop "+(page+1):"Widget saved, but its provider is unavailable. Hold the placeholder to retry or remove it.");
     }
     private void newFolder(){EditText edit=new EditText(this);edit.setSingleLine(true);edit.setHint("Folder name");Ui.pad(edit,16);new AlertDialog.Builder(this).setTitle("New folder").setView(edit).setNegativeButton("Cancel",null).setPositiveButton("Create",(d,w)->{String name=edit.getText().toString().trim();if(!name.isEmpty()&&store.pages.get(store.page).size()<60){store.pages.get(store.page).add(new LauncherStore.Item("folder",name));store.save();desktop.rebuild();pageChanged();closePanel();}}).show();}
+    private String editDesktop(boolean add){
+        if(store.preferences.getBoolean("lock_layout",false))return desktopMessage("Unlock desktop layout first.");
+        if(pendingWidgetId>=0)return desktopMessage("Finish placing the widget first.");
+        desktop.savePositions();String message;
+        if(add){int page=store.appendPage();if(page<0)return desktopMessage("All 24 desktops are in use.");store.page=page;store.save();message="Desktop "+(page+1)+" added.";}
+        else{if(!store.removeEmptyPage(store.page))return desktopMessage("Only an empty desktop can be removed. Keep at least one desktop.");message="Empty desktop removed.";}
+        desktop.rebuild();pageChanged();return desktopMessage(message);
+    }
+    private String desktopMessage(String text){toast(text);return text;}
 
     private void showModes(){
         LinearLayout p=openPanel("Scene studio");LinearLayout body=scrollBody(p);
@@ -725,7 +734,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void showSettings(){showSettings("root");}
     private void showSettings(String page){
         LinearLayout p=openPanel("3D settings");settingsStudio=new SettingsStudio(this,settingsModel(),catalog,new SettingsStudio.Host(){
-            public void home(){requestHome();}public void arrange(){desktop.arrange();toast("Desktop arranged");}public void recenter(){motion.recenter();toast("Tilt centered");}public void feed(){showNativeFeed();}public void reconnectFeed(){retryDiscover();}public void feedDetails(){showDiscoverDetails();}public String feedStatus(){return discover.status();}public void googleApp(){openGoogleFeed();}public void cards(){showCards("");}public void widgets(){showWidgets();}public void folder(){newFolder();}public void overview(){showDesktopOverview();}public void autoSort(){showAutoSort();}public void apps(){showStart();}public void about(){showAbout();}public void backup(boolean restore){settingsDocument(restore);}
+            public void home(){requestHome();}public void arrange(){desktop.arrange();toast("Desktop arranged");}public void recenter(){motion.recenter();toast("Tilt centered");}public void feed(){showNativeFeed();}public void reconnectFeed(){retryDiscover();}public void feedDetails(){showDiscoverDetails();}public String feedStatus(){return discover.status();}public void googleApp(){openGoogleFeed();}public void cards(){showCards("");}public void widgets(){showWidgets();}public void folder(){newFolder();}public void overview(){showDesktopOverview();}public void autoSort(){showAutoSort();}public String desktop(boolean add){return editDesktop(add);}public void apps(){showStart();}public void about(){showAbout();}public void backup(boolean restore){settingsDocument(restore);}
             public boolean openApp(String query){List<AppCatalog.Entry> matches=catalog.filter(query,false);if(matches.size()==1){launch(matches.get(0).key);return true;}if(matches.size()>1){showStart();appSearch.setText(query);toast("Choose an app from the matching shortcuts.");return true;}return false;}
         },page);p.addView(settingsStudio,new LinearLayout.LayoutParams(-1,0,1));
     }

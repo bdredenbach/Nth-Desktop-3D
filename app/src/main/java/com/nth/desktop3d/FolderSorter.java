@@ -29,7 +29,7 @@ final class FolderSorter {
         android.content.SharedPreferences.Editor edit=store.preferences.edit().remove("sort_undo_ids").remove("sort_undo_page");
         if(page>=0&&page<store.pageCount()&&store.pages.get(page).isEmpty()){
             edit.remove("folder_pattern_page_"+page);
-            if(page==store.pageCount()-1&&page>=LauncherStore.PAGE_COUNT&&store.preferences.getString("widget_ids_page_"+page,"").isEmpty())store.pages.remove(page);
+            if(page==store.pageCount()-1&&page>=1&&store.preferences.getString("widget_ids_page_"+page,"").isEmpty())store.pages.remove(page);
         }edit.apply();store.page=Math.min(store.page,store.pageCount()-1);store.save();
     }
     android.view.View preview(android.content.Context context,AppCatalog catalog){return new android.view.View(context){

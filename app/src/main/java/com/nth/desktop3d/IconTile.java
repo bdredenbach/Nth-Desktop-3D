@@ -16,12 +16,12 @@ import android.widget.TextView;
 @android.annotation.SuppressLint("ViewConstructor") // Created with an explicit app identity, never inflated from XML.
 final class IconTile extends LinearLayout {
     final TextView label;
-    private int desiredSize;
+    private int desiredSize;private final boolean folder;
     IconTile(Context c,String name,Drawable drawable,String key) {
-        super(c);desiredSize=Ui.dp(c,60);setOrientation(VERTICAL);setGravity(Gravity.CENTER);setClipChildren(false);setClipToPadding(false);
+        super(c);folder="folder".equals(key);desiredSize=Ui.dp(c,60);setOrientation(VERTICAL);setGravity(Gravity.CENTER);setClipChildren(false);setClipToPadding(false);
         setPadding(Ui.dp(c,3),Ui.dp(c,8),Ui.dp(c,3),Ui.dp(c,6));
         setBackground(Ui.touch(c,null,18));setCameraDistance(Ui.dp(c,1800));
-        FrameLayout plinth=new FrameLayout(c);plinth.setBackground(Ui.satin(c,0xA348A3C3,0xB4132B49,"folder".equals(key)?60:18));plinth.setElevation(Ui.dp(c,9));
+        FrameLayout plinth=new FrameLayout(c);plinth.setBackground(Ui.iconSurface(c,folder));plinth.setElevation(Ui.dp(c,9));
         ImageView image=new ImageView(c);image.setImageDrawable(drawable==null?new BuiltinIcon(key):drawable);image.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
         image.setScaleType(ImageView.ScaleType.FIT_CENTER);FrameLayout.LayoutParams ip=new FrameLayout.LayoutParams(Ui.dp(c,45),Ui.dp(c,45),Gravity.CENTER);plinth.addView(image,ip);addView(plinth,new LayoutParams(Ui.dp(c,60),Ui.dp(c,60)));
         label=Ui.text(c,IconLabel.display(name),12,Ui.TEXT);label.setGravity(Gravity.CENTER);label.setSingleLine(true);label.setLines(1);label.setEllipsize(android.text.TextUtils.TruncateAt.END);

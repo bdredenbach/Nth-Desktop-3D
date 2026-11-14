@@ -24,6 +24,7 @@ final class SettingsModel {
         pref("grid_columns","home","Desktop grid columns","Apps, folders and widgets share this grid.",3,8,1,4,true);
         pref("grid_row_dp","home","Grid row height","Vertical cell spacing in dp. Dense layouts remain scrollable.",88,144,4,112,true);
         pref("icon_size","home","Desktop icon size","Percentage of the standard icon size, constrained to its cell.",70,130,5,100,true);
+        enumeration("icon_shape","look","App icon shape","Shape of the Crystal surface around app icons on Home and in the drawer.",new String[]{"Rounded square","Circle","Square"},0,true);
         bool("desktop_labels","home","Desktop labels","Show shortcut and folder names.",true,true);
         pref("label_size","home","Label text size","Text size in sp, with system font scaling.",10,18,1,12,true);
         pref("desktop_padding","home","Desktop side padding","Space beside the workspace in dp.",0,24,2,0,true);
@@ -36,6 +37,7 @@ final class SettingsModel {
         pref("dock_padding","dock","Dock padding","Space inside the dock in dp.",4,14,1,7,false);
         pref("dock_radius","dock","Dock corner radius","Round the dock surface in dp.",0,36,2,24,false);
         pref("folder_columns","folders","Folder columns","Number of icon columns inside folders.",2,6,1,3,false);
+        enumeration("folder_shape","folders","Folder icon shape","Shape of folder thumbnails on Home and in the drawer.",new String[]{"Circle","Rounded square","Square"},0,true);
         pref("folder_icon_size","folders","Folder icon size","Icon size inside a folder, as a percentage.",70,130,5,100,false);
         bool("folder_labels","folders","Folder labels","Show shortcut names inside folders.",true,false);
         bool("folder_title","folders","Show folder name","Show the folder's title above its contents.",true,false);

@@ -1,10 +1,10 @@
 # Development handoff
 
-## 0.7.0 primary APK
+## 0.7.1 primary APK
 
-Use the `google` build type and the signing helper `--google` flag for the primary APK. It deliberately enables app debugging to retain the phone-tested all-in-one Google connector. Normal app name, same package, existing R2 certificate, code 10085. Do not generate a key. Standard release still builds non-debuggable for comparison. The owner confirmed Google works in 0.6.2 Discover Test; preserving the activity window token was the successful correction.
+Use the `google` build type and the signing helper `--google` flag for the primary APK. It deliberately enables app debugging to retain the phone-tested all-in-one Google connector. Normal app name, same package, existing R2 certificate, code 10086. Do not generate a key. Standard release still builds non-debuggable for comparison. The owner confirmed Google works in 0.6.2 Discover Test; preserving the activity window token was the successful correction. The 0.7.0 recording shows a silent connection with Google 17.74.18. Version 0.7.1 retains the same build mode and adds bounded registration/rebind recovery. Actual Google content must be checked on the owner’s phone.
 
-Desktop page count is now persisted (3–24). Folder-pattern pages have their own five-column ten-row grid, including two empty top rows. Auto-sort adds a separate page and records generated folder IDs for Undo. Drawer native drag local state never accepts another app's payload. Edge-created empty pages roll back on cancel. All app keys retain profile serial identity. Folder previews use real first-four child icons.
+Desktop page count is now persisted (1–24; three initially). Folder-pattern pages have their own five-column ten-row grid, including two empty top rows. Auto-sort adds a separate page and records generated folder IDs for Undo. Drawer native drag local state never accepts another app's payload. Edge-created empty pages roll back on cancel. All app keys retain profile serial identity. Folder previews use real first-four child icons.
 
 ## Current update signing (0.3.0 onward)
 

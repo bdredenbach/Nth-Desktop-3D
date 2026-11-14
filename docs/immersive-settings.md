@@ -2,7 +2,7 @@
 
 Reference: owner recording 226768.mp4. Home/Dock live previews at 00:14–01:14,
 Folders at 01:16–01:48, Search at 01:52–02:12, appearance/gestures/feed afterward.
-Nova Mobile and subscription promotion are omitted.
+Mobile plan and subscription promotion are omitted.
 
 ## Delivered in this pass
 
@@ -68,9 +68,9 @@ private signing material or cloud consent. It is not a full .nthdesktop migratio
 ## Remaining reference-video scope
 
 This is the native settings and assistant foundation, not a claim of reproducing
-every Nova feature. External service cards (Spotify/Outlook/Twitch/Discord/Drive,
+every reference feature. External service cards (Spotify/Outlook/Twitch/Discord/Drive,
 etc.), embedded Discover, third-party icon packs, unlimited/custom dock pages,
-the full Nova transition library and accessibility-based system gesture actions
+the full reference transition library and accessibility-based system gesture actions
 are not implemented. Unsupported integrations are not presented as working toggles.
 The feed continues to open the installed Google app. App, folder and widget
 collision handling from 0.3.2 remains authoritative.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.1 — 2026-11-14
+
+- Remove references to another launcher from current app text, accessibility descriptions and project documentation. Keep the category sorting feature under Nth Desktop wording.
+- Keep drawer drags attached to the activity root when removing the drawer. Protect the initial hold from parent interception and restrict downward dismissal to empty drawer space, preserving scrolling from app icons.
+- Retain the Google-enabled build and activity token. If the service sends no readiness response, refresh the window registration after four seconds, then make one fresh connection with the legacy attachment at eight seconds. Preserve modern lifecycle negotiation, ignore superseded callbacks, keep a strong current callback reference, and retain the original 15-second startup limit. Explicit permission/content errors and cancellation do not trigger recovery. The owner's 0.7.0 recording shows Google 17.74.18 connects silently; this is a recovery attempt, not proof of Google acceptance.
+- Add Crystal app/folder icon shape controls and local Nth Nota navigation for shape, size and transition requests without a value. Understand large/smaller phrasing and preserve folder/drawer setting scope. Offer explicit desktop add and empty-only remove actions; keep at least one screen and shift widget/pattern page assignments safely.
+- Show labelled sample icons in settings when the current desktop is empty or its icons are below the preview. Keep transition previews and their shared transforms.
+- Extend native regression to the recorded downward drawer gesture, empty previews, shape/Nota controls, page removal preservation, silent window recovery and delayed superseded Google callbacks.
+
 ## 0.7.0 — 2026-11-14
 
 - Promote the owner-phone-verified Google connector to the default provider. Ship the Google-enabled build under the normal app name with the existing R2 key; this build deliberately enables app debugging, as the successful 0.6.2 Discover Test did. Preserve feed-off and Google-app choices.

@@ -48,7 +48,7 @@ public final class LauncherStore {
     }
     public LauncherStore(Context context) {
         preferences = context.getSharedPreferences("desktop3d", Context.MODE_PRIVATE);
-        for (int n = 0; n < Math.max(PAGE_COUNT,Math.min(MAX_PAGES,preferences.getInt("page_count",PAGE_COUNT))); n++) pages.add(new ArrayList<>());
+        for (int n = 0; n < Math.max(1,Math.min(MAX_PAGES,preferences.getInt("page_count",PAGE_COUNT))); n++) pages.add(new ArrayList<>());
         mode = Math.max(0, Math.min(3, preferences.getInt("mode", 0)));
         transition = Math.max(0, Math.min(TRANSITIONS.length-1, preferences.getInt("transition", 0)));
         menuStyle = Math.max(0, Math.min(2, preferences.getInt("menuStyle", 0)));
@@ -79,6 +79,14 @@ public final class LauncherStore {
     }
     public int pageCount(){return pages.size();}
     public int appendPage(){if(pages.size()>=MAX_PAGES)return -1;pages.add(new ArrayList<>());save();return pages.size()-1;}
+    public boolean removeEmptyPage(int index){
+        if(pages.size()<=1||index<0||index>=pages.size()||!pages.get(index).isEmpty()||!preferences.getString("widget_ids_page_"+index,"").isEmpty())return false;
+        int last=pages.size()-1;SharedPreferences.Editor edit=preferences.edit();
+        for(int n=index;n<last;n++)edit.putString("widget_ids_page_"+n,preferences.getString("widget_ids_page_"+(n+1),"")).putBoolean("folder_pattern_page_"+n,preferences.getBoolean("folder_pattern_page_"+(n+1),false));
+        edit.remove("widget_ids_page_"+last).remove("folder_pattern_page_"+last);
+        int sorted=preferences.getInt("sort_undo_page",-1);if(sorted==index)edit.remove("sort_undo_page");else if(sorted>index)edit.putInt("sort_undo_page",sorted-1);
+        edit.apply();pages.remove(index);if(page>index)page--;page=Math.min(page,pages.size()-1);save();return true;
+    }
     public boolean add(int page, String key, String label) {
         List<Item> items = pages.get(SceneMath.wrap(page, pages.size()));
         for (Item i : items) if (i.key.equals(key) && !i.folder()) return false;

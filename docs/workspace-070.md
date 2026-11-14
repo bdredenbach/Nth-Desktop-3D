@@ -1,6 +1,6 @@
-# Nova reference pass — 0.7.0
+# Workspace reference pass — 0.7.0
 
-References: owner videos 226912.mp4 (99 seconds), 226913.mp4 (56 seconds), and screenshots 226914–226917. The first video shows Nova padding/resize then Nth's hard-to-grab widget edges; the second shows hold/move from drawer and edge paging. The folder reference uses twenty categories in a staggered five-column arrangement.
+References: owner videos 226912.mp4 (99 seconds), 226913.mp4 (56 seconds), and screenshots 226914–226917. The first video shows reference padding/resize then Nth's hard-to-grab widget edges; the second shows hold/move from drawer and edge paging. The folder reference uses twenty categories in a staggered five-column arrangement.
 
 Folders: Stores; Recipes; Browser; Weather; AI; Projects; Readers; Shopping; Emulation; Work; Google; Social; Fitness; Games; DnD; Camera; Phone; Finances; Stream; Utilities. Names stay complete in storage, search and accessibility; displayed labels keep the existing eight-code-point shortening policy.
 

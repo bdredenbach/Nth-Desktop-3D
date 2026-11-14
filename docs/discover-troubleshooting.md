@@ -1,4 +1,4 @@
-# Google Discover overlay troubleshooting — 0.7.0
+# Google Discover overlay troubleshooting — 0.7.1
 
 ## Primary Google-enabled build
 
@@ -45,3 +45,9 @@ https://github.com/LawnchairLauncher/lawnchair/blob/16-dev/lawnchair/src/com/goo
 ## Validation boundaries
 
 The native separate-UID fixture enforces modern versus legacy method selection, delays readiness by 3.5 seconds, simulates null/silent/not-ready/refused-display connections, and renders a real TYPE_APPLICATION window using the activity token. The modern fixture exposes API 11; a view-window token cannot satisfy this window contract. Native checks cover report copying and cancel. Full widget, shortcut, settings and native-feed regression remains enabled. Google app acceptance and actual Google content still require the owner-phone test above.
+
+## Silent service recovery in 0.7.1
+
+The owner recording 226925.mp4 shows 0.7.0 (code 10085) is correctly debuggable, binds Google 17.74.18 API 11, and submits a distinct activity token, but receives no readiness callback (`NO_STATUS`, bits -1). This does not identify a permission denial or establish that the launcher update caused the failure. The protocol code differs from the working 0.6.2 only in report text; Google's installed version also differs from the earlier diagnostic.
+
+For a missing readiness callback only, 0.7.1 refreshes registration at four seconds and reconnects with the legacy window-attachment entry point at eight seconds. Modern API lifecycle calls remain modern. Both stages share the original 15-second startup budget; no infinite reconnect loop. Each attachment has its own callback epoch so an old response cannot clear a newer ready session. A strong callback reference lives with the active connection. Explicit status 0, permission errors, display errors and canceled requests retain their own result. Separate-UID fixtures exercise the two recoverable cases and a delayed stale callback, but are not the real Google app.
