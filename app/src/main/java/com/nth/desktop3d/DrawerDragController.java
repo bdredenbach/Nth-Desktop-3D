@@ -29,6 +29,7 @@ final class DrawerDragController {
             }}
         });
     }
+    boolean beginDesktop(View tile,LauncherStore.Item item){return begin(tile,item);}
     private boolean begin(View tile,LauncherStore.Item item){
         if(store.preferences.getBoolean("lock_layout",false)){host.message("Unlock desktop layout to add or move shortcuts.");return false;}
         originalPage=store.page;originalCount=store.pageCount();created=-1;dropped=tracking=false;source=item;

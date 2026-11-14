@@ -1,1 +1,2 @@
-<resources><string name="app_name">Nth Desktop 3D</string><string name="app_name_discover_test">Nth Desktop 3D · Discover Test</string></resources>
+<resources><string name="app_name">Nth Desktop 3D</string><string name="app_name_discover_test">Nth Desktop 3D · Discover Test</string>    <string name="gesture_access_description">Optional launcher gestures for notifications, quick settings, recent apps and screen lock. Does not read screen contents or typing.</string>
+</resources>
