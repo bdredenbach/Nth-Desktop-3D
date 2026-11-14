@@ -213,7 +213,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     @Override protected void onStart(){super.onStart();if(discover!=null)discover.start();try{widgetHost.startListening();widgetListening=true;}catch(RuntimeException error){android.util.Log.e("NthWidgets","Could not listen for widget updates",error);}}
     @Override protected void onStop(){if(discover!=null)discover.stop();if(widgetListening){widgetHost.stopListening();widgetListening=false;}super.onStop();}
     @Override protected void onResume(){super.onResume();resumed=true;previousFrame=lastRender=0;scene.onResume();applySettings(false);Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);handler.removeCallbacks(clockTick);clockTick.run();if(loaded)reloadApps();if(discover!=null)discover.resume();if(cardsView!=null)cardsView.refresh();if(nativeFeed!=null)nativeFeed.resume();}
-    @Override protected void onPause(){resumed=false;Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();if(settingsStudio!=null)settingsStudio.pause();if(cardsView!=null)cardsView.pause();if(nativeFeed!=null)nativeFeed.pause();if(discover!=null)discover.pause();super.onPause();}
+    @Override protected void onPause(){if(drawerDrags!=null)drawerDrags.cancel();resumed=false;Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();if(settingsStudio!=null)settingsStudio.pause();if(cardsView!=null)cardsView.pause();if(nativeFeed!=null)nativeFeed.pause();if(discover!=null)discover.pause();super.onPause();}
     @Override protected void onDestroy(){destroyed=true;handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();widgetHost.releaseViews();if(shortcuts!=null)shortcuts.destroy();if(settingsStudio!=null)settingsStudio.dispose();if(cardsView!=null)cardsView.dispose();if(nativeFeed!=null)nativeFeed.dispose();if(discover!=null)discover.destroy();super.onDestroy();}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);closePanel();motion.recenter();shortcuts.handle(intent);}
     @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);if(drawerDrags!=null)drawerDrags.cancel();String page=settingsStudio==null?null:settingsStudio.page();boolean cards=cardsView!=null;Bundle feedState=nativeFeed==null?null:nativeFeed.state();closePanel();if(discover!=null)discover.configurationChanged();motion.recenter();clock.setTextSize(compact()?30:54);desktop.rebuild();root.requestApplyInsets();if(page!=null)handler.post(()->showSettings(page));else if(cards)handler.post(()->showCards(cardsQuery));else if(feedState!=null)handler.post(()->{showNativeFeed();nativeFeed.restore(feedState);});}
@@ -448,9 +448,9 @@ public final class MainActivity extends Activity implements MotionController.Lis
         LinearLayout body=scrollBody(openPanel("Auto pick and sort"));
         paragraph(body,"Preview your Nova folder names and staggered arrangement. Sort "+plan.appCount+" shortcuts using Android categories, app names and package hints on this phone. Some guesses will need manual changes. A new desktop is added; your current screens stay in place.");
         View preview=plan.preview(this,catalog);preview.setContentDescription("Nova folder arrangement preview");body.addView(preview,new LinearLayout.LayoutParams(-1,dp(420)));
-        for(LauncherStore.Item folder:plan.folders)paragraph(body,folder.label+" · "+folder.children.size()+" shortcuts");
         action(body,"Create sorted desktop",()->{if(plan.apply(store)<0){toast("All 24 desktops are in use.");return;}closePanel();desktop.rebuild();pageChanged();toast("Sorted desktop added. Undo is in Auto pick and sort.");});
         if(FolderSorter.canUndo(store))action(body,"Undo last auto-sort",()->{FolderSorter.undo(store);shortcuts.syncRemoved();closePanel();desktop.rebuild();pageChanged();toast("Generated folders removed.");});
+        for(LauncherStore.Item folder:plan.folders)paragraph(body,folder.label+" · "+folder.children.size()+" shortcuts");
     }
     private void showStart(){
         LinearLayout p=openPanel("Your apps");panelKind=1;
@@ -581,7 +581,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void showDiscoverEntry(){
         LinearLayout body=scrollBody(openPanel("Google Discover",true));
         paragraph(body,discover.status());
-        paragraph(body,"Direct Google Discover is experimental and depends on the installed Google app accepting this launcher. Nth Feed works inside Nth Desktop without Google or a companion app.");
+        paragraph(body,"Google Discover uses the Google app. Reconnect, check its settings, or choose Nth Feed below.");
         action(body,"Reconnect Google Discover",this::retryDiscover);
         action(body,"Connection details",this::showDiscoverDetails);
         action(body,"Google app info",this::googleAppInfo);

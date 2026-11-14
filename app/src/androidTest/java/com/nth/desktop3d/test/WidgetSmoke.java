@@ -37,7 +37,7 @@ final class WidgetSmoke {
     void run() throws Exception {
         check(instrumentation.getTargetContext().getPackageManager().getApplicationInfo(FIXTURE,0).uid!=android.os.Process.myUid(),"Widget fixture must have a different UID");
         shell("appwidget grantbind --package com.nth.desktop3d --user 0");
-        main(()->{LauncherStore store=store();store.mode=0;store.page=0;store.save();invokeDesktop("rebuild");});idle(700);
+        main(()->{LauncherStore store=store();store.mode=0;store.page=0;store.save();try{java.lang.reflect.Method apply=MainActivity.class.getDeclaredMethod("applySettings",boolean.class);apply.setAccessible(true);apply.invoke(activity,true);}catch(Exception error){throw new AssertionError(error);}});idle(700);
         holdEmptyBackground();await(()->findIn(activity.getWindow().getDecorView(),v->v instanceof Button&&((Button)v).getText().toString().endsWith("Widgets"))!=null,"Desktop hold did not expose the widget picker action");main(()->activity.onBackPressed());idle(300);
         int first=previewAndAddWidget();
         await(()->hasText("Hosted widget ready"),"Initial provider RemoteViews were not displayed");assertOccupancy();capture("widget-visible");
