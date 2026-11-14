@@ -17,6 +17,7 @@ public final class Launcher070Smoke {
     public void run()throws Exception{
         store=(LauncherStore)field("store");desktop=(DesktopView)field("desktop");Map<String,?> before=new HashMap<>(store.preferences.getAll());String layout=store.preferences.getString("layout","[]");int oldPage=store.page,oldTransition=store.transition,oldMode=store.mode;boolean oldReduced=store.reducedMotion;int oldCount=store.pageCount();
         try{
+            await(()->Boolean.TRUE.equals(field("loaded")),"App catalog was not loaded before workspace tests");
             defaultFeed();
             main(()->{invoke("closePanel");store.mode=0;store.reducedMotion=false;store.preferences.edit().putBoolean("lock_layout",false).commit();store.page=0;invoke("applySettings",new Class[]{boolean.class},true);});
             AtomicReference<FolderSorter> sorted=new AtomicReference<>();main(()->{FolderSorter plan=new FolderSorter(new ArrayList<>(((AppCatalog)field("catalog")).entries));sorted.set(plan);check(plan.folders.size()==20,"Auto-sort changed the reference's 20 names");check(plan.folders.stream().mapToInt(f->f.children.size()).sum()==plan.appCount,"Auto-sort lost an app");invoke("showAutoSort");});
@@ -25,13 +26,13 @@ public final class Launcher070Smoke {
             main(()->{for(int i=0;i<20;i++){LauncherStore.Item folder=store.pages.get(store.page).get(i);check(folder.label.equals(FolderRules.NAMES[i])&&folder.cellX==FolderRules.X[i]&&folder.cellY==FolderRules.Y[i],"Folder arrangement moved: "+folder.label);}LauncherStore reloaded=new LauncherStore(activity);check(reloaded.pageCount()==oldCount+1&&reloaded.pages.get(reloaded.page).size()==20,"Sorted folders did not survive reload");});capture("nova-sorted-folder-pattern");
             main(()->{FolderSorter.undo(store);check(store.pageCount()==oldCount,"Auto-sort Undo left its empty screen");store.page=oldCount-1;desktop.rebuild();});
             // Stationary hold still opens a menu; moving after the same hold starts a native drag.
-            openFiltered("Scene studio");View tile=find(v->v instanceof IconTile&&"Scene studio".contentEquals(v.getContentDescription()));hold(tile);await(()->find(v->v instanceof TextView&&"Add to this desktop".contentEquals(((TextView)v).getText()))!=null,"Stationary drawer hold did not open its menu");main(()->invoke("closePanel"));
-            openFiltered("Scene studio");tile=find(v->v instanceof IconTile&&"Scene studio".contentEquals(v.getContentDescription()));dragToEdge(tile,false);
+            openFiltered("Scene studio");View tile=drawerTile("Scene studio");hold(tile);await(()->find(v->v instanceof TextView&&"Add to this desktop".contentEquals(((TextView)v).getText()))!=null,"Stationary drawer hold did not open its menu");main(()->invoke("closePanel"));
+            openFiltered("Scene studio");tile=drawerTile("Scene studio");dragToEdge(tile,false);
             await(()->store.pageCount()==oldCount+1&&store.pages.get(oldCount).stream().anyMatch(i->i.key.equals("builtin:modes")),"Drawer drag did not create a screen and place the shortcut");capture("drawer-drag-new-desktop");
-            openFiltered("Scene studio");tile=find(v->v instanceof IconTile&&"Scene studio".contentEquals(v.getContentDescription()));dragToEdge(tile,true);
+            openFiltered("Scene studio");tile=drawerTile("Scene studio");dragToEdge(tile,true);
             await(()->store.pageCount()==oldCount+1&&!((DrawerDragController)field("drawerDrags")).active(),"Canceled drag left an empty new screen");
             LauncherStore.Item folder=store.folders().get(0);String folderId=folder.id;int children=folder.children.size();
-            main(()->invoke("showStart"));click("Folders");View folderTile=find(v->v instanceof IconTile&&folder.label.contentEquals(v.getContentDescription()));check(folderTile!=null,"Drawer Folders tab did not expose existing folders");dragToCenter(folderTile);
+            main(()->invoke("showStart"));click("Folders");View folderTile=drawerTile(folder.label);check(folderTile!=null,"Drawer Folders tab did not expose existing folders");dragToCenter(folderTile);
             await(()->store.pages.get(store.page).stream().anyMatch(i->i.id.equals(folderId)&&i.children.size()==children),"Folder drawer drag lost its identity or contents");
             check(store.pages.stream().flatMap(Collection::stream).filter(i->i.id.equals(folderId)).count()==1,"Folder drag duplicated its identity");
             main(()->invoke("showSettings"));SettingsModel model=(SettingsModel)field("settingsModel");SettingsStudio studio=(SettingsStudio)field("settingsStudio");Field f=SettingsStudio.class.getDeclaredField("preview");f.setAccessible(true);SettingsPreview preview=(SettingsPreview)f.get(studio);
@@ -45,7 +46,8 @@ public final class Launcher070Smoke {
         }
     }
     private void defaultFeed(){SharedPreferences prefs=activity.getSharedPreferences("desktop3d_crystal",0);Map<String,?> before=new HashMap<>(prefs.getAll());try{prefs.edit().clear().commit();check(new CrystalPreferences(activity).feedProvider()==0,"Fresh install does not default to Google");for(int provider:new int[]{0,1,2,3}){prefs.edit().clear().putInt("feed_provider",provider).putBoolean("feed_enabled",false).commit();CrystalPreferences migrated=new CrystalPreferences(activity);check(migrated.feedProvider()==(provider==2?0:provider)&&!migrated.feedEnabled(),"Google migration overwrote explicit feed-off or another provider");}}finally{restore(prefs,before);}}
-    private void openFiltered(String name){main(()->{invoke("showStart");((EditText)field("appSearch")).setText(name);});await(()->find(v->v instanceof IconTile&&name.contentEquals(v.getContentDescription()))!=null,"Filtered drawer shortcut missing");SystemClock.sleep(350);}
+    private void openFiltered(String name){main(()->{invoke("showStart");((EditText)field("appSearch")).setText(name);});await(()->drawerTile(name)!=null,"Filtered drawer shortcut missing");SystemClock.sleep(350);}
+    private View drawerTile(String name){View grid=find(v->v instanceof GridView);return grid==null?null:find(grid,v->v instanceof IconTile&&name.contentEquals(v.getContentDescription()));}
     private void hold(View v){check(v!=null,"Held drawer item missing");int[] p=point(v);long t=SystemClock.uptimeMillis();pointer(t,MotionEvent.ACTION_DOWN,p[0],p[1]);SystemClock.sleep(ViewConfiguration.getLongPressTimeout()+180);pointer(t,MotionEvent.ACTION_UP,p[0],p[1]);}
     private void startDrag(View v){int[] p=point(v);long t=SystemClock.uptimeMillis();dragTime=t;pointer(t,0,p[0],p[1]);SystemClock.sleep(ViewConfiguration.getLongPressTimeout()+180);pointer(t,2,p[0]+30,p[1]+5);await(()->((DrawerDragController)field("drawerDrags")).tracking(),"Drawer native drag did not start after hold/move");}
     private long dragTime;

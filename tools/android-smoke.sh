@@ -24,6 +24,10 @@ done
 if [ "$nth_smoke_status" -eq 0 ]; then
     # Reset only the disposable emulator's seeded replacement-proof data.
     adb shell pm clear com.nth.desktop3d || exit $?
+    timeout 3m ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=workspace
+    nth_smoke_status=$?
+fi
+if [ "$nth_smoke_status" -eq 0 ]; then
     timeout 6m ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=polish
     nth_smoke_status=$?
 fi
