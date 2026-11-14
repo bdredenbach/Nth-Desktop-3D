@@ -16,7 +16,7 @@ final class SetupGuide extends LinearLayout {
     int step(){return step;}
     private void text(String value){addView(Ui.text(activity,value,15,Ui.TEXT),new LayoutParams(-1,-2));}
     private void button(String label,Runnable action){addView(Ui.quiet(activity,label,action),new LayoutParams(-1,Ui.dp(activity,52)));}
-    private void launch(Intent intent){try{activity.startActivity(intent);}catch(RuntimeException e){android.widget.Toast.makeText(activity,"This Android settings page is unavailable. Open App info instead.",0).show();}}
+    private void launch(Intent intent){try{activity.startActivity(intent);}catch(RuntimeException e){android.widget.Toast.makeText(activity,"This Android settings page is unavailable. Open App info instead.",android.widget.Toast.LENGTH_SHORT).show();}}
     private void appInfo(){launch(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+activity.getPackageName())));}
     void refresh(){removeAllViews();store.preferences.edit().putInt("setup_step",step).apply();String[] titles={"Choose your Home app","Media controls access","System gesture access","Calendar card","Weather location","Ready to explore"};text("Step "+(step+1)+" of 6 · "+titles[step]);
         if(step==0){boolean held=activity.getPackageManager().resolveActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),0)!=null&&activity.getPackageName().equals(activity.getPackageManager().resolveActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),0).activityInfo.packageName);text(held?"Nth Desktop 3D is your default Home app.":"Choose Nth Desktop 3D as Home, or explore before making it your default.");button("Set as Home app",home);}

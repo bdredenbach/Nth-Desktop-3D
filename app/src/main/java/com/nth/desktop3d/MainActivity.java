@@ -131,7 +131,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         String pendingProvider=store.preferences.getString("pending_widget_provider",null);
         if(pendingProvider!=null)pendingWidgetProvider=android.content.ComponentName.unflattenFromString(pendingProvider);
         widgetManager=android.appwidget.AppWidgetManager.getInstance(this);catalog=new AppCatalog(this);motion=new MotionController(this,this);
-        root=new FrameLayout(this);root.setBackgroundColor(0xFF061326);setContentView(root);discover=new DiscoverClient(this,root,this::showDiscoverEntry,this::showDiscoverConnecting);
+        root=new FrameLayout(this);root.setBackgroundColor(0xFF061326);setContentView(root);discover=new DiscoverClient(this,root,this::showDiscoverEntry,this::showDiscoverConnecting);discover.onDesktopReturn(this::restoreDesktopMotion);
         scene=new SceneSurface(this);root.addView(scene,new FrameLayout.LayoutParams(-1,-1));
         shell=Ui.column(this);shell.setClipChildren(false);shell.setClipToPadding(false);root.addView(shell,new FrameLayout.LayoutParams(-1,-1));
         buildHeader();
