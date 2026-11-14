@@ -14,10 +14,14 @@ fi
 # Prove release -> Discover Test -> release replacement at the same code keeps app data.
 # Both are signed with the emulator's debug key only in this compatibility check.
 if [ "$nth_smoke_status" -eq 0 ]; then
-    timeout 3m ./gradlew :app:assembleRelease :app:assembleDiscoverTest -PnthCompatibilitySigning=true
+    timeout 3m ./gradlew :app:assembleRelease :app:assembleDiscoverTest :app:assembleDebugAndroidTest -PnthCompatibilitySigning=true
     nth_smoke_status=$?
 fi
 if [ "$nth_smoke_status" -eq 0 ]; then
+    # Connected-test cleanup removes the instrumentation APK. Install it explicitly
+    # for the independent package-replacement experiment.
+    adb install -r app/build/outputs/apk/release/app-release.apk || exit $?
+    adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk || exit $?
     for nth_phase in compat_seed compat_normal compat_discover compat_normal; do
         case "$nth_phase" in
             compat_normal) adb install -r app/build/outputs/apk/release/app-release.apk || { nth_smoke_status=1; break; } ;;
