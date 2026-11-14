@@ -120,6 +120,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
         getWindow().setStatusBarColor(Color.TRANSPARENT);getWindow().setNavigationBarColor(0xE60A1428);
         store=new LauncherStore(this);crystal=new CrystalPreferences(this);
+        if(state==null&&Intent.ACTION_MAIN.equals(getIntent().getAction())&&getIntent().hasCategory(Intent.CATEGORY_HOME)){store.page=store.homePage();store.save();}
         widgetHost=new LauncherWidgetHost(this);
         pendingWidgetId=store.preferences.getInt("pending_widget_id",-1);
         pendingWidgetPage=store.preferences.getInt("pending_widget_page",store.page);
@@ -203,7 +204,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private void updateMenuGlass(){
         if(menuGlass==null||panel==null)return;long now=System.nanoTime();if(now-lastGlassUpdate<33_000_000L)return;float dt=lastGlassUpdate==0?.05f:Math.min(.1f,(now-lastGlassUpdate)/1_000_000_000f);lastGlassUpdate=now;
-        menuGlass.update(desktop.backdropRects(panel),store.preferences.getInt("glass_strength",90),store.preferences.getInt("glass_feather",80),store.preferences.getInt("glass_empty",0),store.reducedMotion||systemReduced,dt);
+        menuGlass.update(desktopManager==null?desktop.backdropRects(panel):java.util.Collections.emptyList(),store.preferences.getInt("glass_strength",90),store.preferences.getInt("glass_feather",80),store.preferences.getInt("glass_empty",0),store.reducedMotion||systemReduced,dt);
     }
     private void updateClock(){
         Date now=new Date();String pattern=android.text.format.DateFormat.is24HourFormat(this)?"HH:mm":"h:mm";
@@ -266,7 +267,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void closePanel(){
         savePanel();if(desktopManager!=null){desktopManager.dispose();desktopManager=null;}if(nativeFeed!=null){nativeFeed.dispose();nativeFeed=null;}if(discover!=null)discover.close();if(cardsView!=null){cardsView.dispose();cardsView=null;}if(settingsStudio!=null){settingsStudio.dispose();settingsStudio=null;}menuGlass=null;lastGlassUpdate=0;onPanelClose=null;panelKind=0;appsAdapter=null;appSearch=null;
         if(overlay!=null){((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(overlay.getWindowToken(),0);root.removeView(overlay);overlay=null;panel=null;}
-        desktop.setModal(false);startButton.setSelected(false);scene.requestRender();
+        desktop.setModal(false);desktop.setAlpha(1);startButton.setSelected(false);scene.requestRender();
     }
     private LinearLayout openPanel(String title){return openPanel(title,false);}
     private LinearLayout openPanel(String title,boolean flyout){
@@ -634,7 +635,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
             public void open(int page){store.page=page;store.save();closePanel();desktop.rebuild();pageChanged();}
             public void changed(){desktop.rebuild();pageChanged();}
             public void widgets(){showWidgets();}public void scenes(){showModes();}public void settings(){showSettings();}public void message(String text){toast(text);}
-        });p.addView(desktopManager,new LinearLayout.LayoutParams(-1,0,1));
+        });desktop.setAlpha(0);p.addView(desktopManager,new LinearLayout.LayoutParams(-1,0,1));
     }
     private void showDesktopActions(){
         LinearLayout body=scrollBody(openPanel("Desktop settings",true));
