@@ -23,7 +23,7 @@ public final class SmokeInstrumentation extends Instrumentation {
     @Override public void onCreate(Bundle args){super.onCreate(args);outputDirectory=args==null?null:args.getString("additionalTestOutputDir");phase=args==null?"":args.getString("phase","");polishOnly="polish".equals(phase);start();}
     private Bundle status(){Bundle b=new Bundle();b.putString("id","InstrumentationTestRunner");b.putInt("numtests",1);b.putInt("current",1);b.putString("class","com.nth.desktop3d.LauncherSmoke");b.putString("test","scenesMenusPersistenceAndLandscape");return b;}
     @Override public void onStart(){
-        Bundle s=status();sendStatus(1,s);
+        Bundle s=status();sendStatus(1,s);android.util.Log.i("NthSmoke","Starting suite: "+(phase.isEmpty()?"full":phase));
         try{
             if(phase.startsWith("compat_")){replacementCheck();return;}
             android.accessibilityservice.AccessibilityServiceInfo accessibility=getUiAutomation().getServiceInfo();
@@ -42,6 +42,17 @@ public final class SmokeInstrumentation extends Instrumentation {
             activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);removeMonitor(monitor);check(activity!=null,"Cold launch timed out");idle(1200);
             if(phase.equals("workspace")){new com.nth.desktop3d.Launcher070Smoke(this,activity,outputDirectory).run();s.putString("stream","Workspace interaction checks passed.\n");sendStatus(0,s);Bundle result=new Bundle();result.putString("stream","OK (workspace integration test)\n");finish(Activity.RESULT_OK,result);return;}
             if(polishOnly){new PolishSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.FeedSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.DiscoverSmoke(this,activity,outputDirectory).run();s.putString("stream","Native feed refresh, offline cache, sources, interests, saved stories, internal reader, settings, card data and overlay checks passed.\n");sendStatus(0,s);Bundle result=new Bundle();result.putString("stream","OK (1 focused integration test)\n");finish(Activity.RESULT_OK,result);return;}
+            if(phase.equals("settings")){
+                // A saved user note is the settings-only fixture. The core suite
+                // separately verifies creating and reopening it through the UI.
+                check(getTargetContext().getSharedPreferences("desktop3d",0).edit().putString("note","3D persistence smoke test").commit(),"Could not seed the saved note");
+                activity=new SettingsSmoke(this,activity,outputDirectory).run();
+                passed(s,"Settings preview, Nota, Undo, rotation, persistence and document backup checks passed.");return;
+            }
+            if(phase.equals("widgets")){
+                new WidgetSmoke(this,activity,outputDirectory).run();
+                passed(s,"Cross-process widget content, placement, padding, resize, lifecycle, rotation and pinned shortcut checks passed.");return;
+            }
             assertRestoredGrid();capture("restored-desktop");
             monitor=addMonitor(MainActivity.class.getName(),null,false);main(()->activity.recreate());
             activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);removeMonitor(monitor);check(activity!=null,"Activity recreation timed out");idle(700);assertRestoredGrid();
@@ -66,6 +77,9 @@ public final class SmokeInstrumentation extends Instrumentation {
             assertRestoredGrid();capture("landscape");
             invoke("showControls");check(find(v->v instanceof Button&&"Internet".contentEquals(((Button)v).getText()))!=null,"Device flyout missing");back();
             main(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));idle(900);
+            if(phase.equals("core")){
+                passed(s,"Restored grid, recreation, all four scenes, tools, notes, shortcut menu, paging, landscape and device controls passed.");return;
+            }
             activity=new SettingsSmoke(this,activity,outputDirectory).run();
             // All four scenes and their screenshots were verified above. Keep
             // unrelated native control checks off the software GPU's Pond load.
@@ -76,6 +90,7 @@ public final class SmokeInstrumentation extends Instrumentation {
             Bundle result=new Bundle();result.putString("stream","OK (1 integration test)\n");finish(Activity.RESULT_OK,result);
         }catch(Throwable error){try{capture("failure");}catch(Throwable ignored){}s.putString("stack",android.util.Log.getStackTraceString(error));s.putString("stream",error.toString());sendStatus(-2,s);Bundle result=new Bundle();result.putString("shortMsg",error.toString());finish(Activity.RESULT_CANCELED,result);}
     }
+    private void passed(Bundle status,String message){status.putString("stream",message+"\n");sendStatus(0,status);Bundle result=new Bundle();result.putString("stream","OK ("+phase+" integration test)\n");finish(Activity.RESULT_OK,result);}
     private void replacementCheck()throws Exception{
         android.content.SharedPreferences data=getTargetContext().getSharedPreferences("desktop3d",0),proof=getTargetContext().getSharedPreferences("discover_replace_check",0);
         if(phase.equals("compat_seed")){com.nth.desktop3d.LauncherStore saved=new com.nth.desktop3d.LauncherStore(getTargetContext());saved.pages.get(0).add(new com.nth.desktop3d.LauncherStore.Item("builtin:notes","Replacement proof"));saved.save();check(data.edit().putString("note","Saved note across release and Discover Test").commit(),"Could not seed a saved note");check(data.getString("layout","").contains("Replacement proof"),"Replacement proof layout was not stored");check(proof.edit().putString("token","same-app-kept-data").putString("layout",data.getString("layout","")).putString("note",data.getString("note","")).commit(),"Could not save replacement sentinel");}
@@ -114,7 +129,7 @@ public final class SmokeInstrumentation extends Instrumentation {
     private void clickButton(String text){main(()->{View v=find(x->x instanceof Button&&(((Button)x).getText().toString().equals(text)||((Button)x).getText().toString().equals("✓  "+text)));check(v!=null,"Button missing: "+text);v.performClick();});idle(350);}
     private void optionalButton(String text){main(()->{View v=find(x->x instanceof Button&&text.contentEquals(((Button)x).getText()));if(v!=null)v.performClick();});}
     private void clickDescription(String description,boolean required){main(()->{View v=find(x->android.text.TextUtils.equals(description,x.getContentDescription())||(x instanceof Button&&description.contentEquals(((Button)x).getText())));if(required)check(v!=null,"Control missing: "+description);if(v!=null)v.performClick();});idle(350);}
-    private void capture(String name){
+    private void capture(String name){android.util.Log.i("NthSmoke","Checkpoint: "+name);
         android.graphics.Bitmap bitmap=getUiAutomation().takeScreenshot();check(bitmap!=null,"Cannot capture Android screen");
         java.io.File directory=outputDirectory==null?new java.io.File(getTargetContext().getExternalFilesDir(null),"verification"):new java.io.File(outputDirectory);
         directory.mkdirs();try(java.io.FileOutputStream stream=new java.io.FileOutputStream(new java.io.File(directory,name+".png"))){bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,stream);}catch(java.io.IOException e){throw new AssertionError(e);}finally{bitmap.recycle();}
