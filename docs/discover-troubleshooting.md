@@ -1,4 +1,4 @@
-# Google Discover overlay troubleshooting — 0.7.1
+# Google Discover overlay troubleshooting — 0.7.2
 
 ## Primary Google-enabled build
 
@@ -51,3 +51,11 @@ The native separate-UID fixture enforces modern versus legacy method selection, 
 The owner recording 226925.mp4 shows 0.7.0 (code 10085) is correctly debuggable, binds Google 17.74.18 API 11, and submits a distinct activity token, but receives no readiness callback (`NO_STATUS`, bits -1). This does not identify a permission denial or establish that the launcher update caused the failure. The protocol code differs from the working 0.6.2 only in report text; Google's installed version also differs from the earlier diagnostic.
 
 For a missing readiness callback only, 0.7.1 refreshes registration at four seconds and reconnects with the legacy window-attachment entry point at eight seconds. Modern API lifecycle calls remain modern. Both stages share the original 15-second startup budget; no infinite reconnect loop. Each attachment has its own callback epoch so an old response cannot clear a newer ready session. A strong callback reference lives with the active connection. Explicit status 0, permission errors, display errors and canceled requests retain their own result. Separate-UID fixtures exercise the two recoverable cases and a delayed stale callback, but are not the real Google app.
+
+## Healthy session behavior in 0.7.2
+
+Recording 226944.mp4 shows real Google content while the launcher still displays Connecting and later reports display timeout. Version 0.7.2 separates readiness from visibility: a valid active-request scroll callback is accepted even before status bit 1; transient status 0 cannot restore desktop icons over a visible feed. Startup recovery stops once the session is usable. The client sends a completed scroll sequence as well as openOverlay, using the existing protocol.
+
+When display confirmation remains absent for eight seconds, keep the binding and pause automatic recovery. The nonmodal strip offers Keep feed open, Retry and Close. Keep feed open is a manual acknowledgement when the feed is already visible; it clears launcher visuals without rebuilding Google's connection. Pause during startup also keeps the bind, with Retry available later. Back/Close restores the launcher. Actual service disconnection and startup errors remain distinct outcomes; there is no infinite timer-based reconnect.
+
+Separate-UID fixtures cover visible-before-ready, status changing while visible, a gesture-only provider, missing-display confirmation retained, manual pause/retry, and cancellation. Their content is not Google's production feed; final Pixel behavior remains a phone check.

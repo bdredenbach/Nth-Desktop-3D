@@ -15,17 +15,19 @@ import java.util.ArrayDeque;
 final class DiscoverClient {
     static final String GOOGLE="com.google.android.googlequicksearchbox";
     private static final long STARTUP_MS=15000, DISPLAY_MS=8000;
-    private final Activity activity;private final View desktop;private final Runnable unavailable;
+    private final Activity activity;private final View desktop;private final Runnable unavailable,attention;
     private final Handler main=new Handler(Looper.getMainLooper());private final ArrayDeque<String> events=new ArrayDeque<>();
     private ILauncherOverlay overlay;private ServiceConnection connection;private ILauncherOverlayCallback activeCallback;
-    private boolean bound,ready,requested,resumed,started,destroyed,showing,opening,allowScroll,attached,failed,reporting;
+    private boolean bound,ready,usable,requested,resumed,started,destroyed,showing,opening,allowScroll,attached,failed,reporting;
     private int generation,attempt,attachment,apiVersion=1,serviceStatus=-1,recoveryStep;private String status="Not connected",result="NOT_TRIED",targetOverride,componentOverride,serviceName="Not resolved",servicePermission="None",googleVersion="Not checked";
     private long began;private Runnable deadline,recovery;private boolean legacyAttach;private String windowContract="Not submitted";
-    DiscoverClient(Activity activity,View desktop,Runnable unavailable){this.activity=activity;this.desktop=desktop;this.unavailable=unavailable;}
+    DiscoverClient(Activity activity,View desktop,Runnable unavailable,Runnable attention){this.activity=activity;this.desktop=desktop;this.unavailable=unavailable;this.attention=attention;}
     private long versionCode(PackageInfo info){return Build.VERSION.SDK_INT>=28?info.getLongVersionCode():info.versionCode;}
     String status(){return status;}
     boolean showing(){return showing;}
-    boolean isConnecting(){return requested&&!showing;}
+    boolean isConnecting(){return requested&&!showing&&!usable;}
+    boolean needsAttention(){return !showing&&(result.equals("OPEN_UNCONFIRMED")||result.equals("PAUSED"));}
+    boolean canKeepOpen(){return overlay!=null&&attached&&!failed;}
     private String target(){return targetOverride==null?GOOGLE:targetOverride;}
     private Intent intent(){Intent value=new Intent("com.android.launcher3.WINDOW_OVERLAY").setPackage(target()).setData(new Uri.Builder().scheme("app").encodedAuthority(activity.getPackageName()+":"+android.os.Process.myUid()).appendQueryParameter("v","7").appendQueryParameter("cv","9").build());if(componentOverride!=null)value.setClassName(target(),componentOverride);return value;}
     private void event(String text){long elapsed=began==0?0:SystemClock.elapsedRealtime()-began;events.addLast(elapsed+" ms · "+text);while(events.size()>40)events.removeFirst();}
@@ -46,15 +48,15 @@ final class DiscoverClient {
     void configurationChanged(){close();if(overlay!=null){quiet(()->overlay.windowDetached(true));attached=false;attach(generation);}}
     void open(){
         if(destroyed)return;
-        if(requested)return;
+        if(requested||showing)return;
         if(failed||(bound&&overlay==null))disconnect();
-        requested=true;opening=false;allowScroll=false;failed=false;reporting=false;legacyAttach=false;recoveryStep=0;began=SystemClock.elapsedRealtime();events.clear();attempt++;result="CONNECTING";event("User requested Google Discover");
+        requested=true;opening=false;allowScroll=false;failed=false;reporting=false;if(!bound)legacyAttach=false;recoveryStep=0;began=SystemClock.elapsedRealtime();events.clear();attempt++;result="CONNECTING";event("User requested Google Discover");
         if(!bound&&!connect())return;
-        if(ready&&overlay!=null){openReady();return;}
-        status="Connecting to Google Discover… Allowing up to 15 seconds for startup.";schedule(STARTUP_MS,false);scheduleRecovery();
+        if(usable&&overlay!=null){openReady();return;}
+        status="Connecting to Google Discover Allowing up to 15 seconds for startup.";schedule(STARTUP_MS,false);scheduleRecovery();
     }
     private boolean connect(){
-        final int token=++generation;apiVersion=1;serviceStatus=-1;attached=false;ready=false;serviceName="Not resolved";servicePermission="None";windowContract="Not submitted";
+        final int token=++generation;apiVersion=1;serviceStatus=-1;attached=false;ready=usable=false;serviceName="Not resolved";servicePermission="None";windowContract="Not submitted";
         PackageManager pm=activity.getPackageManager();
         try{PackageInfo info=pm.getPackageInfo(target(),0);googleVersion=info.versionName+" ("+versionCode(info)+")";if(!info.applicationInfo.enabled){fail("APP_DISABLED","The Google app is disabled. Enable it in App info, then retry.");return false;}}
         catch(PackageManager.NameNotFoundException absent){googleVersion="Not installed";fail("APP_MISSING","The Google app is not installed or is unavailable in this Android profile.");return false;}
@@ -75,9 +77,27 @@ final class DiscoverClient {
         catch(SecurityException denied){bound=false;event(denied.getClass().getSimpleName()+": "+safe(denied));fail("PERMISSION_DENIED","Google or Android rejected this launcher’s access to the overlay service.");return false;}
         catch(RuntimeException error){bound=false;remoteFailure("Bind",error);return false;}
     }
+    private void visible(String reason){
+        showing=true;requested=false;opening=false;ready=usable=true;allowScroll=true;cancelDeadline();cancelRecovery();result="VISIBLE";status="Google Discover overlay is visible";event(reason);persist();
+    }
     private ILauncherOverlayCallback callback(int token,int attachToken){return new ILauncherOverlayCallback.Stub(){
-        public void overlayScrollChanged(float progress){main.post(()->{if(destroyed||token!=generation||attachToken!=attachment||failed||!ready||!resumed||!allowScroll)return;float p=Float.isFinite(progress)?Math.max(0,Math.min(1,progress)):0;boolean before=showing;showing=p>.01f;desktop.setTranslationX(desktop.getWidth()*p);if(showing&&!before){requested=false;opening=false;cancelDeadline();cancelRecovery();result="VISIBLE";status="Google Discover overlay is visible";event("Google reported visible content");persist();}else if(!showing&&before){allowScroll=false;event("Google overlay closed");persist();}});}
-        public void overlayStatusChanged(int value){main.post(()->{if(destroyed||token!=generation||attachToken!=attachment||overlay==null||failed)return;cancelRecovery();serviceStatus=value;ready=(value&1)!=0;event("Google status bits: "+value);if(!requested&&result.equals("CANCELED")){persist();return;}if(ready){status=showing?"Google Discover overlay is visible":"Google Discover connected";result=showing?"VISIBLE":"READY";if(requested)openReady();}else{showing=false;desktop.setTranslationX(0);status="Google connected, but has not marked feed content ready.";}persist();});}
+        public void overlayScrollChanged(float progress){main.post(()->{
+            if(destroyed||token!=generation||attachToken!=attachment||failed||!resumed||(!requested&&!allowScroll&&!showing))return;
+            float p=Float.isFinite(progress)?Math.max(0,Math.min(1,progress)):0;boolean before=showing;
+            if(p>.01f){desktop.setTranslationX(desktop.getWidth()*p);if(!before)visible("Google reported visible content; startup recovery stopped");}
+            else if(before){showing=false;requested=false;opening=false;allowScroll=false;cancelDeadline();cancelRecovery();desktop.setTranslationX(0);result=ready?"READY":"IDLE";status="Google Discover overlay closed";event("Google overlay closed");persist();}
+        });}
+        public void overlayStatusChanged(int value){main.post(()->{
+            if(destroyed||token!=generation||attachToken!=attachment||overlay==null||failed)return;
+            cancelRecovery();serviceStatus=value;ready=(value&1)!=0;if(ready)usable=true;event("Google status bits: "+value);
+            if(!requested&&result.equals("CANCELED")){persist();return;}
+            // Readiness may temporarily clear while a visible feed refreshes.
+            // Its scroll/close callback, rather than status bits, owns visibility.
+            if(showing){cancelDeadline();status="Google Discover overlay is visible";result="VISIBLE";}
+            else if(ready){usable=true;status="Google Discover connected";if(requested)openReady();else if(!needsAttention())result="READY";}
+            else status="Google connected, but has not marked feed content ready.";
+            persist();
+        });}
     };}
     private void attach(int token){
         if(destroyed||token!=generation||overlay==null||failed)return;
@@ -90,7 +110,7 @@ final class DiscoverClient {
         event("Window contract · "+windowContract);
         activeCallback=callback(token,++attachment);
         if(!remote("Attach window",()->{if(apiVersion<3||legacyAttach)overlay.windowAttached(params,activeCallback,15);else{Bundle bundle=new Bundle();bundle.putParcelable("layout_params",params);bundle.putParcelable("configuration",activity.getResources().getConfiguration());bundle.putInt("client_options",15);bundle.putInt("system_ui_visibility",desktop.getSystemUiVisibility());overlay.windowAttached2(bundle,activeCallback);}}))return;
-        attached=true;event("Submitted activity window attributes · "+(apiVersion<3||legacyAttach?"legacy":"bundle"));state();persist();
+        attached=true;if(needsAttention())allowScroll=true;event("Submitted activity window attributes · "+(apiVersion<3||legacyAttach?"legacy":"bundle"));state();persist();
     }
     // A stale service or window registration can silently accept oneway calls.
     // Recover only a missing callback, never an explicit content/permission error.
@@ -112,18 +132,27 @@ final class DiscoverClient {
         };main.postDelayed(recovery,4000);
     }
     private void cancelRecovery(){if(recovery!=null)main.removeCallbacks(recovery);recovery=null;}
-    private void openReady(){if(opening||overlay==null||!attached||!resumed||failed)return;opening=true;allowScroll=true;status="Google connected. Waiting for the overlay to appear…";event("Sent openOverlay");if(remote("Open overlay",()->overlay.openOverlay(new CrystalPreferences(activity).feed3dTransition()?1:0)))schedule(DISPLAY_MS,true);}
-    private void schedule(long delay,boolean display){cancelDeadline();int token=generation,request=attempt;deadline=()->{if(destroyed||token!=generation||request!=attempt||!requested||showing||failed)return;if(display)fail("DISPLAY_TIMEOUT","Google accepted the connection but did not show its overlay within 8 seconds.");else if(overlay==null)fail("SERVICE_TIMEOUT","Android accepted the bind request but Google did not return a service within 15 seconds.");else if(serviceStatus<0)fail("NO_STATUS","Google connected but sent no readiness response within 15 seconds. Its access rules may reject this build.");else fail("CONTENT_NOT_READY","Google connected but reported that feed content was not ready after 15 seconds. Check Discover in the Google app, then retry.");};main.postDelayed(deadline,delay);}
+    private void openReady(){
+        if(opening||showing||overlay==null||!attached||!resumed||failed)return;
+        opening=true;allowScroll=true;cancelRecovery();status="Google connected. Opening the feed";event("Sent completed feed swipe and openOverlay");
+        if(remote("Open overlay",()->{overlay.startScroll();overlay.onScroll(1f);overlay.endScroll();overlay.openOverlay(new CrystalPreferences(activity).feed3dTransition()?1:0);}))schedule(DISPLAY_MS,true);
+    }
+    void pauseRetries(){
+        if(failed||showing)return;requested=false;opening=false;allowScroll=attached;cancelDeadline();cancelRecovery();result="PAUSED";status="Automatic retries paused. The Google connection is kept; Retry remains available.";event("User paused automatic retries without disconnecting");persist();attention.run();
+    }
+    void keepOpen(){if(overlay==null||!attached||!resumed||failed)return;desktop.setTranslationX(desktop.getWidth());visible("User kept the connected Google feed open");}
+
+    private void schedule(long delay,boolean display){cancelDeadline();int token=generation,request=attempt;deadline=()->{if(destroyed||token!=generation||request!=attempt||!requested||showing||failed)return;if(display){requested=false;opening=false;result="OPEN_UNCONFIRMED";status="Google is connected. Automatic retries are paused because display confirmation is missing. Keep the feed open or retry when needed.";event("Display confirmation missing; kept connection and paused automatic recovery");persist();attention.run();}else if(overlay==null)fail("SERVICE_TIMEOUT","Android accepted the bind request but Google did not return a service within 15 seconds.");else if(serviceStatus<0)fail("NO_STATUS","Google connected but sent no readiness response within 15 seconds. Its access rules may reject this build.");else fail("CONTENT_NOT_READY","Google connected but reported that feed content was not ready after 15 seconds. Check Discover in the Google app, then retry.");};main.postDelayed(deadline,delay);}
     private void cancelDeadline(){if(deadline!=null)main.removeCallbacks(deadline);deadline=null;}
-    boolean close(){boolean was=showing||requested||opening;boolean canceled=requested&&!failed;requested=false;opening=false;allowScroll=false;cancelDeadline();cancelRecovery();if(overlay!=null)quiet(()->overlay.closeOverlay(0));showing=false;desktop.setTranslationX(0);if(canceled){result="CANCELED";status="Google Discover connection canceled";event("User left or canceled the pending connection");persist();}return was;}
-    private void lost(int token,String code,String message){if(destroyed||token!=generation)return;boolean waiting=requested;ready=false;overlay=null;attached=false;showing=false;desktop.setTranslationX(0);event(code);if(waiting)fail(code,message);else{if(!result.equals("CANCELED")){result=code;status=message;}persist();}}
+    boolean close(){boolean was=showing||requested||opening||needsAttention();boolean canceled=requested&&!failed;boolean wasVisible=showing;requested=false;opening=false;allowScroll=false;cancelDeadline();cancelRecovery();if(overlay!=null)quiet(()->overlay.closeOverlay(0));showing=false;desktop.setTranslationX(0);if(canceled){result="CANCELED";status="Google Discover connection canceled";event("User left or canceled the pending connection");persist();}else if(!failed&&(wasVisible||needsAttention())){result=ready?"READY":"IDLE";status=ready?"Google Discover connected":"Google Discover closed";event("User closed the feed");persist();}return was;}
+    private void lost(int token,String code,String message){if(destroyed||token!=generation)return;boolean waiting=requested;ready=usable=false;overlay=null;attached=false;showing=false;desktop.setTranslationX(0);event(code);if(waiting)fail(code,message);else{if(!result.equals("CANCELED")){result=code;status=message;}persist();}}
     private void fail(String code,String message){boolean notify=requested&&!destroyed;failed=true;requested=false;opening=false;allowScroll=false;ready=false;cancelDeadline();cancelRecovery();result=code;status=message;event(code+" · "+message);if(overlay!=null)quiet(()->overlay.closeOverlay(0));showing=false;desktop.setTranslationX(0);persist();if(notify&&!reporting){reporting=true;main.post(()->{reporting=false;if(!destroyed&&failed)unavailable.run();});}}
     private interface Remote {void run()throws RemoteException;}
     private boolean remote(String stage,Remote work){try{work.run();return true;}catch(RemoteException|RuntimeException error){remoteFailure(stage,error);return false;}}
     private void quiet(Remote work){try{work.run();}catch(RemoteException|RuntimeException ignored){}}
     private void remoteFailure(String stage,Exception error){event(stage+" · "+error.getClass().getSimpleName()+": "+safe(error));fail(error instanceof SecurityException?"PERMISSION_DENIED":"REMOTE_ERROR",stage+" failed. The connection report contains the error type and details.");}
     private String safe(Exception error){String message=error.getMessage();if(message==null)return "No further message";return message.replace('\n',' ').replace('\r',' ').substring(0,Math.min(300,message.length()));}
-    private void disconnect(){cancelDeadline();cancelRecovery();allowScroll=false;++generation;++attachment;if(overlay!=null)quiet(()->{overlay.closeOverlay(0);overlay.windowDetached(activity.isChangingConfigurations());});overlay=null;activeCallback=null;attached=false;ready=false;showing=false;desktop.setTranslationX(0);if(bound&&connection!=null)try{activity.unbindService(connection);}catch(IllegalArgumentException ignored){}connection=null;bound=false;}
+    private void disconnect(){cancelDeadline();cancelRecovery();allowScroll=false;++generation;++attachment;if(overlay!=null)quiet(()->{overlay.closeOverlay(0);overlay.windowDetached(activity.isChangingConfigurations());});overlay=null;activeCallback=null;attached=false;ready=usable=false;showing=false;desktop.setTranslationX(0);if(bound&&connection!=null)try{activity.unbindService(connection);}catch(IllegalArgumentException ignored){}connection=null;bound=false;}
     void disable(){requested=false;opening=false;disconnect();}
     void destroy(){destroyed=true;main.removeCallbacksAndMessages(null);disconnect();}
 }

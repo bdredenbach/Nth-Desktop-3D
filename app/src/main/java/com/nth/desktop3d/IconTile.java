@@ -16,9 +16,9 @@ import android.widget.TextView;
 @android.annotation.SuppressLint("ViewConstructor") // Created with an explicit app identity, never inflated from XML.
 final class IconTile extends LinearLayout {
     final TextView label;
-    private int desiredSize;private final boolean folder;
+    private int desiredSize;private final boolean folder;private final String fullName;private boolean menuLabel;
     IconTile(Context c,String name,Drawable drawable,String key) {
-        super(c);folder="folder".equals(key);desiredSize=Ui.dp(c,60);setOrientation(VERTICAL);setGravity(Gravity.CENTER);setClipChildren(false);setClipToPadding(false);
+        super(c);fullName=IconLabel.menu(name);folder="folder".equals(key);desiredSize=Ui.dp(c,60);setOrientation(VERTICAL);setGravity(Gravity.CENTER);setClipChildren(false);setClipToPadding(false);
         setPadding(Ui.dp(c,3),Ui.dp(c,8),Ui.dp(c,3),Ui.dp(c,6));
         setBackground(Ui.touch(c,null,18));setCameraDistance(Ui.dp(c,1800));
         FrameLayout plinth=new FrameLayout(c);plinth.setBackground(Ui.iconSurface(c,folder));plinth.setElevation(Ui.dp(c,9));
@@ -29,6 +29,7 @@ final class IconTile extends LinearLayout {
         label.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);setContentDescription(name);setFocusable(true);setClickable(true);setLongClickable(true);
     }
     void appearance(android.content.SharedPreferences prefs,String scope){
+        menuLabel=!scope.equals("desktop");if(menuLabel){label.setSingleLine(false);label.setMaxLines(Integer.MAX_VALUE);label.setEllipsize(null);label.setText(fullName);setGravity(Gravity.TOP|Gravity.CENTER_HORIZONTAL);setMinimumHeight(Ui.dp(getContext(),132));}
         int size=Math.max(70,Math.min(130,prefs.getInt(scope.equals("desktop")?"icon_size":scope+"_icon_size",100)));desiredSize=Ui.dp(getContext(),60*size/100f);
         label.setVisibility(prefs.getBoolean(scope+"_labels",true)?VISIBLE:GONE);label.setTextSize(Math.max(10,Math.min(18,prefs.getInt("label_size",12))));int color=Math.max(0,Math.min(3,prefs.getInt("label_color",0)));label.setTextColor(SettingsModel.TEXT_COLORS[color]);
         FrameLayout plinth=(FrameLayout)getChildAt(0);plinth.setElevation(new CrystalPreferences(getContext()).shadows()?Ui.dp(getContext(),9):0);plinth.setLayoutParams(new LayoutParams(desiredSize,desiredSize));int icon=desiredSize*3/4;plinth.getChildAt(0).setLayoutParams(new FrameLayout.LayoutParams(icon,icon,Gravity.CENTER));
@@ -41,9 +42,9 @@ final class IconTile extends LinearLayout {
         setBackground(Ui.touch(getContext(),Ui.satin(getContext(),0xEF2B3752,0xEE172137,18),18));setElevation(new CrystalPreferences(getContext()).shadows()?Ui.dp(getContext(),6):0);}
     void fitCell(int width,int height){
         setClipChildren(true);setClipToPadding(false);
-        int lines=1;label.setMaxLines(lines);
+        int lines=1;if(!menuLabel)label.setMaxLines(lines);
         int labelHeight=(int)Math.ceil(label.getVisibility()==GONE?0:label.getPaint().getFontSpacing()*lines);
-        int size=Math.max(Ui.dp(getContext(),22),Math.min(desiredSize,Math.min(width-Ui.dp(getContext(),6),height-labelHeight-Ui.dp(getContext(),21))));
+        int size=Math.max(Ui.dp(getContext(),22),Math.min(desiredSize,menuLabel?width-Ui.dp(getContext(),6):Math.min(width-Ui.dp(getContext(),6),height-labelHeight-Ui.dp(getContext(),21))));
         FrameLayout plinth=(FrameLayout)getChildAt(0);LayoutParams p=(LayoutParams)plinth.getLayoutParams();
         if(p.width!=size||p.height!=size){p.width=size;p.height=size;plinth.setLayoutParams(p);}
         int icon=Math.max(1,size*3/4);android.view.View image=plinth.getChildAt(0);FrameLayout.LayoutParams imageParams=(FrameLayout.LayoutParams)image.getLayoutParams();

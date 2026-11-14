@@ -44,6 +44,7 @@ final class DesktopView extends FrameLayout {
     private float downX,downY,tiltX,tiltY;
     private final float gestureSlop;
     private boolean swiping,animating,touching,modal,reduced,powerSave,held,verticalGesture,startedOnItem;
+    private boolean pinching,pinchWanted;private float pinchDistance;
     private ValueAnimator animator;
     private int width,height;
     private final Runnable backgroundHold;
@@ -408,6 +409,13 @@ final class DesktopView extends FrameLayout {
     private void resetTransform(){stage.setRotationX(0);stage.setRotationY(0);stage.setTranslationX(0);stage.setTranslationY(0);stage.setRotation(0);stage.setClipBounds(null);stage.setScaleX(1);stage.setScaleY(1);stage.setAlpha(1);}
     @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){super.onSizeChanged(w,h,oldw,oldh);post(this::updateLayout);}
     @Override public boolean dispatchTouchEvent(MotionEvent e){
+        if(!modal&&e.getActionMasked()==MotionEvent.ACTION_POINTER_DOWN&&e.getPointerCount()==2&&dragId==null&&(workspace==null||!workspace.resizing())&&!itemAt(e.getX(0),e.getY(0))&&!itemAt(e.getX(1),e.getY(1))){
+            pinchDistance=(float)Math.hypot(e.getX(1)-e.getX(0),e.getY(1)-e.getY(0));pinching=true;pinchWanted=false;touching=false;removeCallbacks(backgroundHold);MotionEvent cancel=MotionEvent.obtain(e);cancel.setAction(MotionEvent.ACTION_CANCEL);super.dispatchTouchEvent(cancel);cancel.recycle();return true;
+        }
+        if(pinching){
+            if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&e.getPointerCount()>=2&&Math.hypot(e.getX(1)-e.getX(0),e.getY(1)-e.getY(0))<pinchDistance*.78f)pinchWanted=true;
+            if(e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL){boolean show=pinchWanted&&e.getActionMasked()==MotionEvent.ACTION_UP;pinching=pinchWanted=false;touching=false;if(show)post(host::backgroundMenu);}return true;
+        }
         if(e.getActionMasked()==MotionEvent.ACTION_DOWN){
             touching=true;held=false;verticalGesture=false;downX=e.getX();downY=e.getY();
             if(!itemAt(downX,downY)&&(workspace==null||!workspace.resizing())){removeCallbacks(backgroundHold);postDelayed(backgroundHold,ViewConfiguration.getLongPressTimeout());host.ripple(downX,downY);}

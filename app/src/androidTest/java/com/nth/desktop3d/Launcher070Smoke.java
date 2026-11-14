@@ -44,6 +44,7 @@ public final class Launcher070Smoke {
             main(()->{store.reducedMotion=false;model.set("home_rotation",3);});await(()->activity.getWindow().getDecorView().getWidth()>activity.getWindow().getDecorView().getHeight(),"Landscape setting did not rotate Home");capture("home-rotation-landscape");
             main(()->model.set("home_rotation",2));await(()->activity.getWindow().getDecorView().getHeight()>activity.getWindow().getDecorView().getWidth(),"Portrait setting did not rotate Home");
             recordingRegression();
+            new DesktopManagementSmoke(test,activity,output).run();
         }finally{
             main(()->{((DrawerDragController)field("drawerDrags")).cancel();invoke("closePanel");restore(store.preferences,before);store.pages.clear();try{org.json.JSONArray all=new org.json.JSONArray(layout);for(int p=0;p<oldCount;p++){List<LauncherStore.Item> items=new ArrayList<>();org.json.JSONArray array=all.getJSONArray(p);for(int n=0;n<array.length();n++)items.add(LauncherStore.Item.read(array.getJSONObject(n),0));store.pages.add(items);}}catch(org.json.JSONException e){throw new AssertionError(e);}store.page=oldPage;store.transition=oldTransition;store.mode=oldMode;store.reducedMotion=oldReduced;store.save();invoke("applySettings",new Class[]{boolean.class},true);});
         }

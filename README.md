@@ -1,7 +1,7 @@
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and four original GPU scenes. Current test release: **0.7.1**.
+animated Start menus and four original GPU scenes. Current test release: **0.7.2**.
 
 Install the supplied signed release APK for continued updates. Version 0.3.2
 uses the owner's replacement **R2** signing certificate. Moving from the lost
@@ -17,7 +17,9 @@ Settings now use searchable categories, a live 3D preview and content-aware fadi
 
 Nth Feed is now built into the launcher: publisher RSS/Atom headlines, local interests, saved headlines, offline cache and an internal publisher reader. Swipe right on Desktop 1. No companion APK is required. See [native feed](docs/native-feed.md) for sources and behavior.
 
-The primary APK uses the built-in Google connector and enables app debugging. Google Discover is the default provider, with Nth Feed available in settings. Silent Google startup now tries a refreshed window registration and a fresh legacy attachment within the original 15-second allowance. The copyable connection report identifies the outcome; the production Google service still needs phone testing. See [Discover troubleshooting](docs/discover-troubleshooting.md).
+The primary APK uses the built-in Google connector and enables app debugging. Google Discover is the default provider, with Nth Feed available in settings. Silent Google startup tries a refreshed window registration and a fresh legacy attachment within the original 15-second allowance. Once ready or visible, automatic recovery stops. Missing display confirmation keeps the connection and offers manual Retry or Keep feed open. The copyable connection report identifies the outcome; the production Google service still needs phone testing. See [Discover troubleshooting](docs/discover-troubleshooting.md).
+
+Hold empty space or pinch empty space to manage desktop miniatures, reorder screens, add/remove empty screens and choose Home. Folder hold menus can move an app directly to another folder. Menu names wrap in full; desktop icons keep compact labels. See [desktop management](docs/desktop-management-072.md).
 
 ## Included
 

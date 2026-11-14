@@ -29,13 +29,13 @@ final class FolderSorter {
         android.content.SharedPreferences.Editor edit=store.preferences.edit().remove("sort_undo_ids").remove("sort_undo_page");
         if(page>=0&&page<store.pageCount()&&store.pages.get(page).isEmpty()){
             edit.remove("folder_pattern_page_"+page);
-            if(page==store.pageCount()-1&&page>=1&&store.preferences.getString("widget_ids_page_"+page,"").isEmpty())store.pages.remove(page);
+            if(page==store.pageCount()-1&&page>=1&&store.preferences.getString("widget_ids_page_"+page,"").isEmpty())store.removeEmptyPage(page);
         }edit.apply();store.page=Math.min(store.page,store.pageCount()-1);store.save();
     }
     android.view.View preview(android.content.Context context,AppCatalog catalog){return new android.view.View(context){
         final android.graphics.Paint paint=new android.graphics.Paint(3);
         @Override protected void onDraw(android.graphics.Canvas c){super.onDraw(c);float cw=getWidth()/5f,ch=getHeight()/10f;
-            for(int n=0;n<20;n++){LauncherStore.Item folder=folders.get(n);float x=(FolderRules.X[n]+.5f)*cw,y=FolderRules.Y[n]*ch;float size=Math.min(cw*.62f,ch*.60f);android.graphics.drawable.Drawable icon=catalog.icon(folder);icon.setBounds(Math.round(x-size/2),Math.round(y),Math.round(x+size/2),Math.round(y+size));icon.draw(c);paint.setColor(Ui.TEXT);paint.setTextAlign(android.graphics.Paint.Align.CENTER);paint.setTextSize(Math.min(Ui.dp(context,11),cw/7));c.drawText(IconLabel.display(folder.label),x,y+size+paint.getTextSize()+2,paint);}
+            for(int n=0;n<20;n++){LauncherStore.Item folder=folders.get(n);float x=(FolderRules.X[n]+.5f)*cw,y=FolderRules.Y[n]*ch;float size=Math.min(cw*.62f,ch*.60f);android.graphics.drawable.Drawable icon=catalog.icon(folder);icon.setBounds(Math.round(x-size/2),Math.round(y),Math.round(x+size/2),Math.round(y+size));icon.draw(c);paint.setColor(Ui.TEXT);paint.setTextAlign(android.graphics.Paint.Align.CENTER);paint.setTextSize(Math.min(Ui.dp(context,11),cw/7));Ui.drawMenuLabel(c,folder.label,x,y+size+2,cw-4,ch-size-2,paint.getTextSize(),Ui.TEXT);}
         }
     };}
 }

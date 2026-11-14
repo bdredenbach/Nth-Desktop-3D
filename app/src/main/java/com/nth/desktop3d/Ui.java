@@ -33,7 +33,7 @@ final class Ui {
     }
     static Button button(Context c,String s,Runnable action) {
         Button b=new Button(c);b.setText(s);b.setTextSize(14);b.setTextColor(TEXT);b.setAllCaps(false);b.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
-        b.setMinHeight(dp(c,48));b.setMinimumHeight(dp(c,48));b.setMinWidth(0);b.setMinimumWidth(0);b.setStateListAnimator(null);
+        b.setMinHeight(dp(c,48));b.setMinimumHeight(dp(c,48));b.setMinWidth(0);b.setMinimumWidth(0);b.setStateListAnimator(null);b.setSingleLine(false);b.setEllipsize(null);
         b.setBackground(touch(c,satin(c,0xB52D5268,0xC016273E,14),14));
         b.setPadding(dp(c,16),dp(c,8),dp(c,16),dp(c,8));b.setOnClickListener(v->action.run());return b;
     }
@@ -49,4 +49,11 @@ final class Ui {
     static LinearLayout column(Context c){LinearLayout l=new LinearLayout(c);l.setOrientation(LinearLayout.VERTICAL);return l;}
     static LinearLayout row(Context c){LinearLayout l=new LinearLayout(c);l.setOrientation(LinearLayout.HORIZONTAL);l.setGravity(Gravity.CENTER_VERTICAL);return l;}
     static void pad(View v,int p){int d=dp(v.getContext(),p);v.setPadding(d,d,d,d);}
+    static void drawMenuLabel(android.graphics.Canvas canvas,String name,float center,float top,float width,float height,float size,int color){
+        String text=IconLabel.menu(name);if(width<=0||height<=0||text.isEmpty())return;
+        android.text.TextPaint paint=new android.text.TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG);paint.setTextSize(size);paint.setColor(color);paint.setShadowLayer(1,0,1,0xCC000000);
+        android.text.StaticLayout layout=android.text.StaticLayout.Builder.obtain(text,0,text.length(),paint,Math.max(1,Math.round(width))).setAlignment(android.text.Layout.Alignment.ALIGN_CENTER).setIncludePad(false).build();
+        int saved=canvas.save();canvas.clipRect(center-width/2,top,center+width/2,top+height);canvas.translate(center-width/2,top);layout.draw(canvas);canvas.restoreToCount(saved);
+    }
+
 }

@@ -66,6 +66,7 @@ public final class LauncherStore {
             }
         } catch (JSONException e) { for (List<Item> p : pages) p.clear(); }
         if (!preferences.getBoolean("seeded", false)) {
+            while(pages.size()<PAGE_COUNT)pages.add(new ArrayList<>());
             pages.get(0).add(new Item("builtin:notes", "Nth Notes"));
             pages.get(0).add(new Item("builtin:calculator", "Calculator"));
             Item folder = new Item("folder", "Nth tools");
@@ -78,14 +79,26 @@ public final class LauncherStore {
         }
     }
     public int pageCount(){return pages.size();}
-    public int appendPage(){if(pages.size()>=MAX_PAGES)return -1;pages.add(new ArrayList<>());save();return pages.size()-1;}
+    public int homePage(){return Math.max(0,Math.min(pages.size()-1,preferences.getInt("home_page",0)));}
+    public void setHomePage(int index){if(index>=0&&index<pages.size())preferences.edit().putInt("home_page",index).apply();}
+    public String pageName(int index){String name=preferences.getString("desktop_name_"+index,"");return name.isEmpty()?"Desktop "+(index+1):name;}
+    public boolean emptyPage(int index){return index>=0&&index<pages.size()&&pages.get(index).isEmpty()&&preferences.getString("widget_ids_page_"+index,"").isEmpty();}
+    public int appendPage(){if(pages.size()>=MAX_PAGES)return -1;int index=pages.size();preferences.edit().remove("desktop_name_"+index).remove("widget_ids_page_"+index).remove("folder_pattern_page_"+index).apply();pages.add(new ArrayList<>());save();return pages.size()-1;}
+    public boolean movePage(int from,int to){
+        if(from<0||to<0||from>=pages.size()||to>=pages.size()||from==to)return false;
+        List<Integer> order=new ArrayList<>();for(int n=0;n<pages.size();n++)order.add(n);Integer moved=order.remove(from);order.add(to,moved);applyPageOrder(order);return true;
+    }
     public boolean removeEmptyPage(int index){
-        if(pages.size()<=1||index<0||index>=pages.size()||!pages.get(index).isEmpty()||!preferences.getString("widget_ids_page_"+index,"").isEmpty())return false;
-        int last=pages.size()-1;SharedPreferences.Editor edit=preferences.edit();
-        for(int n=index;n<last;n++)edit.putString("widget_ids_page_"+n,preferences.getString("widget_ids_page_"+(n+1),"")).putBoolean("folder_pattern_page_"+n,preferences.getBoolean("folder_pattern_page_"+(n+1),false));
-        edit.remove("widget_ids_page_"+last).remove("folder_pattern_page_"+last);
-        int sorted=preferences.getInt("sort_undo_page",-1);if(sorted==index)edit.remove("sort_undo_page");else if(sorted>index)edit.putInt("sort_undo_page",sorted-1);
-        edit.apply();pages.remove(index);if(page>index)page--;page=Math.min(page,pages.size()-1);save();return true;
+        if(pages.size()<=1||!emptyPage(index))return false;
+        List<Integer> order=new ArrayList<>();for(int n=0;n<pages.size();n++)if(n!=index)order.add(n);applyPageOrder(order);return true;
+    }
+    private void applyPageOrder(List<Integer> order){
+        List<List<Item>> previous=new ArrayList<>(pages),next=new ArrayList<>();int home=homePage(),sorted=preferences.getInt("sort_undo_page",-1),oldPage=page;
+        SharedPreferences.Editor edit=preferences.edit();for(int n=0;n<previous.size();n++)edit.remove("widget_ids_page_"+n).remove("folder_pattern_page_"+n).remove("desktop_name_"+n);
+        for(int n=0;n<order.size();n++){int old=order.get(n);next.add(previous.get(old));edit.putString("widget_ids_page_"+n,preferences.getString("widget_ids_page_"+old,"")).putBoolean("folder_pattern_page_"+n,preferences.getBoolean("folder_pattern_page_"+old,false)).putString("desktop_name_"+n,preferences.getString("desktop_name_"+old,""));}
+        page=order.indexOf(oldPage);if(page<0)page=Math.min(oldPage,order.size()-1);int newHome=order.indexOf(home);edit.putInt("home_page",newHome<0?Math.min(home,order.size()-1):newHome);
+        int newSorted=order.indexOf(sorted);if(newSorted<0)edit.remove("sort_undo_page");else edit.putInt("sort_undo_page",newSorted);
+        edit.apply();pages.clear();pages.addAll(next);save();
     }
     public boolean add(int page, String key, String label) {
         List<Item> items = pages.get(SceneMath.wrap(page, pages.size()));
@@ -95,6 +108,15 @@ public final class LauncherStore {
     }
     public void remove(Item item) { for (List<Item> p : pages) { p.remove(item); for (Item i : p) i.children.remove(item); } save(); }
     public List<Item> folders() { List<Item> out = new ArrayList<>(); for (List<Item> p : pages) for (Item i : p) if (i.folder()) out.add(i); return out; }
+    public Item folderContaining(Item source){for(Item folder:folders())if(folder.children.contains(source))return folder;return null;}
+    public boolean moveToFolder(Item source,Item destination){
+        if(source==null||source.folder()||destination==null||!destination.folder()||!folders().contains(destination))return false;
+        List<Item> owner=null;for(List<Item> p:pages){if(p.contains(source))owner=p;for(Item folder:p)if(folder.folder()&&folder.children.contains(source))owner=folder.children;}
+        if(owner==null||owner==destination.children)return false;
+        boolean duplicate=false;for(Item child:destination.children)if(child.key.equals(source.key)){duplicate=true;break;}
+        if(!duplicate&&destination.children.size()>=1000)return false;
+        owner.remove(source);if(!duplicate){source.x=source.y=-1;source.cellX=source.cellY=-1;destination.children.add(source);}save();return true;
+    }
     public void save() {
         JSONArray all = new JSONArray();
         try { for (List<Item> p : pages) { JSONArray a = new JSONArray(); for (Item i : p) a.put(i.json()); all.put(a); } }

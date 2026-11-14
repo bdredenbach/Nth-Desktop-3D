@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.2 — 2026-11-14
+
+- Add a 3D desktop manager from an empty-space hold, an empty-space pinch or Home screen settings. Swipe miniatures, tap to open, mark Home with the house, add screens, drag screens to reorder, use accessible move arrows, and remove empty screens. Preserve shortcuts, folder contents, widget assignments, pattern flags and sorting Undo when indexes change. Home and Back return to the selected Home screen.
+- Accept Google overlay progress during an active request before readiness arrives. Keep a visible feed steady through transient status changes, stop startup recovery on visibility/readiness, and retain the connection when display confirmation is missing. Offer Pause, Keep feed open, Retry and Close; real startup failures still use bounded recovery and retain a connection report. Use the completed overlay swipe protocol alongside the explicit open request.
+- Add Move to folder immediately below Add to folder for apps held inside a folder. Transfer the original shortcut, check capacity before removing it, and merge an already-present app without duplicates. Show the destination folder afterward.
+- Remove ellipsis punctuation from launcher menus. Show full, wrapping folder and drawer names and menu titles; retain compact eight-character desktop icon labels. Wrap labels in settings and desktop miniatures.
+- Exercise native screen drag/reordering, Home selection, add/remove, pinch entry, metadata preservation, folder moves/capacity/deduplication, full labels, early Google progress, transient readiness, paused display confirmation and manual Retry, alongside prior regression.
+
 ## 0.7.1 — 2026-11-14
 
 - Remove references to another launcher from current app text, accessibility descriptions and project documentation. Keep the category sorting feature under Nth Desktop wording.
