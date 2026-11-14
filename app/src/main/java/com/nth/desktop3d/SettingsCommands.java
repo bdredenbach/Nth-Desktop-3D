@@ -26,7 +26,7 @@ public final class SettingsCommands {
             int effect=-1,length=0;for(int i=0;i<PageTransitions.NAMES.length;i++){String name=PageTransitions.NAMES[i].toLowerCase(Locale.ROOT);if(name.length()>length&&s.matches(".*\\b"+Pattern.quote(name)+"\\b.*")){effect=i;length=name.length();}}if(effect>=0)return new Command("transition",effect,null);
             return page("choice:transition");
         }
-        if((action||navigate)&&has(s,"shape","folder icon")&&!has(s,"size","radius")){
+        if((action||navigate)&&has(s,"shape","folder icon")&&!has(s,"size","radius","large","bigger","small","increase","decrease")){
             String id=folder?"folder_shape":"icon_shape";
             if(has(s,"rounded","round square"))return new Command(id,folder?1:0,null);
             if(has(s,"circle","circular","round icons"))return new Command(id,folder?0:1,null);
