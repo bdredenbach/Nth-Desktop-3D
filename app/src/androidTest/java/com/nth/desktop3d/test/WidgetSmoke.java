@@ -145,7 +145,7 @@ final class WidgetSmoke {
         shell("am start -W -f 0x10008000 -n "+FIXTURE+"/.FixtureShortcutActivity --es shortcutId pot-roast");idle(300);requestShortcutPin();idle(600);if(field(field(activity,"shortcuts"),"confirmation")!=null)clickSystemText("Add");idle(400);check(store().pages.get(2).size()==count+1,"Repeated pin request duplicated the desktop shortcut");
         instrumentation.getTargetContext().startActivity(new Intent(instrumentation.getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));idle(500);
         final LauncherStore.Item selected=store().pages.get(2).get(count);
-        main(()->activity.menu(selected));clickSystemText("Add to folder…");clickSystemText("Nth tools");idle(300);
+        main(()->activity.menu(selected));clickSystemText("Add to folder");clickSystemText("Nth tools");idle(300);
         LauncherStore.Item copy=null;for(LauncherStore.Item child:store().folders().get(0).children)if("pot-roast".equals(child.shortcutId))copy=child;check(copy!=null,"Copying a website shortcut into a folder lost its launch identity");
         main(()->activity.menu(selected));clickSystemText("Remove shortcut");idle(300);check(store().pages.get(2).size()==count,"Shortcut removal did not remove the desktop item");
         // Its folder copy must remain launchable after the desktop copy is removed.
