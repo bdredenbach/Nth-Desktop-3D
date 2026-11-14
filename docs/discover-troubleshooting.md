@@ -1,6 +1,14 @@
-# Google Discover overlay troubleshooting — 0.6.2
+# Google Discover overlay troubleshooting — 0.7.0
 
-## What changed
+## Primary Google-enabled build
+
+The owner confirmed real Discover content works on the Pixel 10 with 0.6.2 Discover Test after preserving the activity token. Version 0.7.0 makes Google the default feed and promotes the same direct-client build mode into the primary APK, with the regular Nth Desktop 3D app name. The primary APK enables Android app debugging. No USB-debugging setting or separate companion is needed. Google still supplies the content and controls availability on other phones.
+
+Use `:app:assembleGoogle` / `:app:lintGoogle` and privately sign the exact unsigned Google artifact with `tools/build-signed-apk.py --google`. It keeps package `com.nth.desktop3d` and the existing R2 key. Standard release and Discover Test variants remain buildable for comparison; they are not the primary 0.7.0 download. CI also checks standard -> Discover Test -> Google-enabled -> standard replacement without losing saved data.
+
+A one-time provider migration changes the old built-in-news default to Google. Explicit feed-off, Google-app and already-Google choices survive. The built-in Nth Feed stays selectable.
+
+## 0.6.2 investigation and owner test
 
 The owner's Pixel 10 report from 0.6.1 showed successful binding to Google app 17.72.17 / overlay API 11, followed by status 0. This does not prove that Google created an overlay window. Comparison with the reference client found that Nth replaced the activity token in the window attributes with `View.getWindowToken()`. Version 0.6.2 preserves the original activity token. The report records the token source, window type and whether it differs from the view token, without recording Binder identifiers. A missing token has its own outcome. Attachment now means the one-way request was sent, not that Google acknowledged a surface. Whether this mismatch caused Google's status 0 remains an owner-phone test.
 

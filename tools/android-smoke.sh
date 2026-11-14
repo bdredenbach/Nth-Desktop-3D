@@ -5,14 +5,15 @@ adb shell wm size 540x1200
 adb shell wm density 210
 # Run the independent replacement experiment first. Connected-test cleanup
 # removes its own instrumentation APK, so install our harness explicitly here.
-./gradlew :widgetfixture:assembleDebug :app:assembleRelease :app:assembleDiscoverTest :app:assembleDebugAndroidTest -PnthCompatibilitySigning=true || exit $?
+./gradlew :widgetfixture:assembleDebug :app:assembleRelease :app:assembleDiscoverTest :app:assembleGoogle :app:assembleDebugAndroidTest -PnthCompatibilitySigning=true || exit $?
 adb install -r widgetfixture/build/outputs/apk/debug/widgetfixture-debug.apk || exit $?
 adb install -r app/build/outputs/apk/release/app-release.apk || exit $?
 adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk || exit $?
 nth_smoke_status=0
-for nth_phase in compat_seed compat_normal compat_discover compat_normal; do
+for nth_phase in compat_seed compat_normal compat_discover compat_google compat_normal; do
     case "$nth_phase" in
         compat_normal) adb install -r app/build/outputs/apk/release/app-release.apk || { nth_smoke_status=1; break; } ;;
+        compat_google) adb install -r app/build/outputs/apk/google/app-google.apk || { nth_smoke_status=1; break; } ;;
         compat_discover) adb install -r app/build/outputs/apk/discoverTest/app-discoverTest.apk || { nth_smoke_status=1; break; } ;;
     esac
     timeout 30s adb shell am instrument -w -e phase "$nth_phase" com.nth.desktop3d.test/com.nth.desktop3d.test.SmokeInstrumentation > app/build/replacement-check.log 2>&1

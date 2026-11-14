@@ -72,7 +72,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private PinnedShortcuts shortcuts;
     private MotionController motion;
     private SceneSurface scene;
-    private DesktopView desktop;
+    private DesktopView desktop;private DrawerDragController drawerDrags;private int appliedHomeRotation=-1;
     private FrameLayout root,overlay;
     private LinearLayout shell,header,bar,panel,dock,paging;
     private TextView clock,date,modeLabel,pageLabel,status;
@@ -134,6 +134,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         buildHeader();
         desktop=new DesktopView(this,store,catalog,this,widgetHost,widgetManager);shell.addView(desktop,new LinearLayout.LayoutParams(-1,0,1));
         shortcuts=new PinnedShortcuts(this,store,catalog.launcher,id->{desktop.rebuild();if(id!=null)desktop.revealItem(id);pageChanged();});catalog.shortcuts=shortcuts;
+        drawerDrags=new DrawerDragController(root,desktop,store,new DrawerDragController.Host(){public void closeDrawer(){closePanel();}public void changed(){pageChanged();}public void message(String text){toast(text);}});
         buildTaskbar();
         // Immersive home: gestures replace persistent desktop chrome.
         header.setVisibility(View.GONE);bar.setVisibility(View.GONE);
@@ -215,12 +216,13 @@ public final class MainActivity extends Activity implements MotionController.Lis
     @Override protected void onPause(){resumed=false;Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();if(settingsStudio!=null)settingsStudio.pause();if(cardsView!=null)cardsView.pause();if(nativeFeed!=null)nativeFeed.pause();if(discover!=null)discover.pause();super.onPause();}
     @Override protected void onDestroy(){destroyed=true;handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();widgetHost.releaseViews();if(shortcuts!=null)shortcuts.destroy();if(settingsStudio!=null)settingsStudio.dispose();if(cardsView!=null)cardsView.dispose();if(nativeFeed!=null)nativeFeed.dispose();if(discover!=null)discover.destroy();super.onDestroy();}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);closePanel();motion.recenter();shortcuts.handle(intent);}
-    @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);String page=settingsStudio==null?null:settingsStudio.page();boolean cards=cardsView!=null;Bundle feedState=nativeFeed==null?null:nativeFeed.state();closePanel();if(discover!=null)discover.configurationChanged();motion.recenter();clock.setTextSize(compact()?30:54);desktop.rebuild();root.requestApplyInsets();if(page!=null)handler.post(()->showSettings(page));else if(cards)handler.post(()->showCards(cardsQuery));else if(feedState!=null)handler.post(()->{showNativeFeed();nativeFeed.restore(feedState);});}
+    @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);if(drawerDrags!=null)drawerDrags.cancel();String page=settingsStudio==null?null:settingsStudio.page();boolean cards=cardsView!=null;Bundle feedState=nativeFeed==null?null:nativeFeed.state();closePanel();if(discover!=null)discover.configurationChanged();motion.recenter();clock.setTextSize(compact()?30:54);desktop.rebuild();root.requestApplyInsets();if(page!=null)handler.post(()->showSettings(page));else if(cards)handler.post(()->showCards(cardsQuery));else if(feedState!=null)handler.post(()->{showNativeFeed();nativeFeed.restore(feedState);});}
     @Override protected void onSaveInstanceState(Bundle state){if(settingsStudio!=null)state.putString("settings_page",settingsStudio.page());if(nativeFeed!=null)state.putBundle("native_feed",nativeFeed.state());super.onSaveInstanceState(state);}
-    @Override public void onBackPressed(){if(discover!=null&&discover.close())return;if(settingsStudio!=null&&settingsStudio.back())return;if(nativeFeed!=null&&nativeFeed.back())return;if(overlay!=null)closePanel();else if(store.page!=0){store.page=0;desktop.rebuild();pageChanged();store.save();}}
+    @Override public void onBackPressed(){if(drawerDrags!=null&&drawerDrags.active()){drawerDrags.cancel();return;}if(discover!=null&&discover.close())return;if(settingsStudio!=null&&settingsStudio.back())return;if(nativeFeed!=null&&nativeFeed.back())return;if(overlay!=null)closePanel();else if(store.page!=0){store.page=0;desktop.rebuild();pageChanged();store.save();}}
     @Override public int displayRotation(){return getWindowManager().getDefaultDisplay().getRotation();}
     @Override public void onTilt(float x,float y){if(Math.abs(x-currentX)>.002f||Math.abs(y-currentY)>.002f)sceneDirty=true;currentX=x;currentY=y;if(scene!=null)scene.tilt(x,y);if(desktop!=null)desktop.tilt(x,y);if(settingsStudio!=null)settingsStudio.tilt(x,y);if(cardsView!=null)cardsView.tilt(x,y);if(nativeFeed!=null)nativeFeed.tilt(x,y);}
     private void applySettings(boolean rebuild){
+        int rotation=store.preferences.getInt("home_rotation",0);int requested=new int[]{android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER,android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR,android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE}[Math.max(0,Math.min(3,rotation))];if(appliedHomeRotation!=rotation){appliedHomeRotation=rotation;if(getRequestedOrientation()!=requested)setRequestedOrientation(requested);}
         powerSave=getSystemService(PowerManager.class).isPowerSaveMode();
         systemReduced=Settings.Global.getFloat(getContentResolver(),Settings.Global.ANIMATOR_DURATION_SCALE,1)==0;
         boolean reduced=store.reducedMotion||systemReduced;
@@ -245,7 +247,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         });
     }
     @Override public void pageChanged(){
-        int count=store.pages.get(store.page).size();pageLabel.setText("Desktop "+(store.page+1)+" of "+LauncherStore.PAGE_COUNT+"  ·  "+count+" shortcut"+(count==1?"":"s"));
+        int count=store.pages.get(store.page).size();pageLabel.setText("Desktop "+(store.page+1)+" of "+store.pageCount()+"  ·  "+count+" shortcut"+(count==1?"":"s"));
     }
     @Override public void ripple(float x,float y){
         if(store.mode==3&&store.ripples&&!store.reducedMotion&&!systemReduced)rippleUntil=android.os.SystemClock.uptimeMillis()+3600;
@@ -441,13 +443,23 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void section(LinearLayout body,String name){TextView h=Ui.text(this,name,16,Ui.TEXT);h.setTypeface(null,Typeface.BOLD);h.setPadding(0,dp(16),0,dp(8));body.addView(h);}
     void toast(String text){Toast.makeText(this,text,Toast.LENGTH_SHORT).show();}
 
+    private void showAutoSort(){
+        FolderSorter plan=new FolderSorter(new ArrayList<>(catalog.entries));
+        LinearLayout body=scrollBody(openPanel("Auto pick and sort"));
+        paragraph(body,"Preview your Nova folder names and staggered arrangement. Sort "+plan.appCount+" shortcuts using Android categories, app names and package hints on this phone. Some guesses will need manual changes. A new desktop is added; your current screens stay in place.");
+        View preview=plan.preview(this,catalog);preview.setContentDescription("Nova folder arrangement preview");body.addView(preview,new LinearLayout.LayoutParams(-1,dp(420)));
+        for(LauncherStore.Item folder:plan.folders)paragraph(body,folder.label+" · "+folder.children.size()+" shortcuts");
+        action(body,"Create sorted desktop",()->{if(plan.apply(store)<0){toast("All 24 desktops are in use.");return;}closePanel();desktop.rebuild();pageChanged();toast("Sorted desktop added. Undo is in Auto pick and sort.");});
+        if(FolderSorter.canUndo(store))action(body,"Undo last auto-sort",()->{FolderSorter.undo(store);shortcuts.syncRemoved();closePanel();desktop.rebuild();pageChanged();toast("Generated folders removed.");});
+    }
     private void showStart(){
         LinearLayout p=openPanel("Your apps");panelKind=1;
         appSearch=new EditText(this);appSearch.setSingleLine(true);appSearch.setHint("Search apps and Nth tools");appSearch.setTextColor(Ui.TEXT);appSearch.setHintTextColor(Ui.MUTED);appSearch.setTextSize(16);appSearch.setSelectAllOnFocus(true);appSearch.setContentDescription("Search installed apps");
         appSearch.setBackground(Ui.surface(0xFF0B172B,14,this));appSearch.setPadding(dp(14),0,dp(14),0);LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(-1,dp(50));ep.setMargins(0,dp(10),0,dp(10));p.addView(appSearch,ep);
         LinearLayout shortcuts=Ui.row(this);
-        Button all=Ui.button(this,"All apps",()->{if(appsAdapter!=null){appsAdapter.onlyBuiltins=false;appsAdapter.filter(appSearch.getText().toString());}});
-        Button nth=Ui.button(this,"Nth tools",()->{if(appsAdapter!=null){appsAdapter.onlyBuiltins=true;appsAdapter.filter(appSearch.getText().toString());}});
+        Button all=Ui.button(this,"All apps",()->{if(appsAdapter!=null){appsAdapter.onlyBuiltins=false;appsAdapter.onlyFolders=false;appsAdapter.filter(appSearch.getText().toString());}});
+        Button nth=Ui.button(this,"Nth tools",()->{if(appsAdapter!=null){appsAdapter.onlyBuiltins=true;appsAdapter.onlyFolders=false;appsAdapter.filter(appSearch.getText().toString());}});
+        Button folders=Ui.button(this,"Folders",()->{if(appsAdapter!=null){appsAdapter.onlyBuiltins=false;appsAdapter.onlyFolders=true;appsAdapter.filter(appSearch.getText().toString());}});shortcuts.addView(folders,new LinearLayout.LayoutParams(0,dp(44),1));
         shortcuts.addView(all,new LinearLayout.LayoutParams(0,dp(44),1));LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(0,dp(44),1);np.leftMargin=dp(8);shortcuts.addView(nth,np);if(store.preferences.getBoolean("cards_in_search",true)){Button cards=Ui.button(this,"Cards",()->showCards(appSearch==null?"":appSearch.getText().toString()));LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(0,dp(44),1);cp.leftMargin=dp(8);shortcuts.addView(cards,cp);}p.addView(shortcuts);
         GridView grid=new GridView(this);
         grid.setOnTouchListener(new View.OnTouchListener(){
@@ -466,17 +478,17 @@ public final class MainActivity extends Activity implements MotionController.Lis
         grid.setNumColumns(Math.min(8,store.preferences.getInt("drawer_columns",3)+(compact()?2:0)));grid.setVerticalSpacing(dp(10));grid.setHorizontalSpacing(dp(8));grid.setPadding(0,dp(16),0,dp(10));grid.setClipToPadding(false);grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);grid.setSelector(android.R.color.transparent);
         appsAdapter=new AppsAdapter();grid.setAdapter(appsAdapter);p.addView(grid,new LinearLayout.LayoutParams(-1,0,1));appsAdapter.filter("");
         grid.setOnItemClickListener((a,v,pos,id)->openDrawerItem(pos,false));
-        grid.setOnItemLongClickListener((a,v,pos,id)->{openDrawerItem(pos,true);return true;});
+        grid.setLongClickable(false);
         appSearch.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int count,int after){}public void onTextChanged(CharSequence s,int st,int before,int count){if(appsAdapter!=null)appsAdapter.filter(s.toString());}public void afterTextChanged(Editable e){}});
         appSearch.setOnEditorActionListener((v,action,event)->{if(appsAdapter!=null&&appsAdapter.getCount()==1){openDrawerItem(0,false);return true;}return false;});
-        TextView tip=Ui.text(this,"Hold an app for shortcuts, App info, or uninstall.",12,Ui.MUTED);tip.setPadding(0,dp(6),0,0);p.addView(tip);p.setFocusableInTouchMode(true);p.requestFocus();if(store.preferences.getBoolean("search_keyboard",false)){EditText field=appSearch;handler.postDelayed(()->{if(appSearch==field&&overlay!=null){field.requestFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(field,InputMethodManager.SHOW_IMPLICIT);}},280);}
+        TextView tip=Ui.text(this,"Hold and move an app or folder to place it on a desktop. Hold still for its menu.",12,Ui.MUTED);tip.setPadding(0,dp(6),0,0);p.addView(tip);p.setFocusableInTouchMode(true);p.requestFocus();if(store.preferences.getBoolean("search_keyboard",false)){EditText field=appSearch;handler.postDelayed(()->{if(appSearch==field&&overlay!=null){field.requestFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(field,InputMethodManager.SHOW_IMPLICIT);}},280);}
     }
     private void openDrawerItem(int position,boolean held){if(position<appsAdapter.items.size()){AppCatalog.Entry entry=appsAdapter.items.get(position);if(held)appMenu(entry,null);else launch(entry.key);}else{LauncherStore.Item folder=appsAdapter.folders.get(position-appsAdapter.items.size());if(held)menu(folder);else showFolder(folder);}}
     private final class AppsAdapter extends BaseAdapter {
-        final List<AppCatalog.Entry> items=new ArrayList<>();final List<LauncherStore.Item> folders=new ArrayList<>();boolean onlyBuiltins;
-        void filter(String q){items.clear();items.addAll(catalog.filter(q,onlyBuiltins));folders.clear();if(!onlyBuiltins&&store.preferences.getBoolean("search_folders",true)&&!q.trim().isEmpty())for(LauncherStore.Item folder:store.folders())if(folder.label.toLowerCase(Locale.ROOT).contains(q.toLowerCase(Locale.ROOT).trim()))folders.add(folder);notifyDataSetChanged();}
+        final List<AppCatalog.Entry> items=new ArrayList<>();final List<LauncherStore.Item> folders=new ArrayList<>();boolean onlyBuiltins,onlyFolders;
+        void filter(String q){items.clear();if(!onlyFolders)items.addAll(catalog.filter(q,onlyBuiltins));folders.clear();if(!onlyBuiltins&&(onlyFolders||(store.preferences.getBoolean("search_folders",true)&&!q.trim().isEmpty())))for(LauncherStore.Item folder:store.folders())if(folder.label.toLowerCase(Locale.ROOT).contains(q.toLowerCase(Locale.ROOT).trim()))folders.add(folder);notifyDataSetChanged();}
         @Override public int getCount(){return items.size()+folders.size();}@Override public Object getItem(int n){return n<items.size()?items.get(n):folders.get(n-items.size());}@Override public long getItemId(int n){return n;}
-        @Override public View getView(int n,View old,ViewGroup parent){AppCatalog.Entry e=n<items.size()?items.get(n):null;LauncherStore.Item folder=e==null?folders.get(n-items.size()):null;IconTile tile=new IconTile(MainActivity.this,e==null?folder.label:e.label,e==null?null:e.icon,e==null?"folder":e.key);tile.appearance(store.preferences,"drawer");tile.fitCell(Math.max(dp(30),(root.getWidth()-dp(64))/Math.min(8,store.preferences.getInt("drawer_columns",3)+(compact()?2:0))),dp(132));tile.setFocusable(false);tile.setClickable(false);tile.setLongClickable(false);tile.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1,dp(132)));return tile;}
+        @Override public View getView(int n,View old,ViewGroup parent){AppCatalog.Entry e=n<items.size()?items.get(n):null;LauncherStore.Item folder=e==null?folders.get(n-items.size()):null;IconTile tile=new IconTile(MainActivity.this,e==null?folder.label:e.label,e==null?catalog.icon(folder):e.icon,e==null?"folder":e.key);tile.appearance(store.preferences,"drawer");tile.fitCell(Math.max(dp(30),(root.getWidth()-dp(64))/Math.min(8,store.preferences.getInt("drawer_columns",3)+(compact()?2:0))),dp(132));tile.setFocusable(false);drawerDrags.install(tile,e==null?folder:new LauncherStore.Item(e.key,e.label),()->openDrawerItem(n,false),()->openDrawerItem(n,true));tile.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1,dp(132)));return tile;}
     }
 
     @Override public void menu(LauncherStore.Item item){
@@ -505,13 +517,14 @@ public final class MainActivity extends Activity implements MotionController.Lis
         new AlertDialog.Builder(this).setTitle("Rename").setView(edit).setNegativeButton("Cancel",null).setPositiveButton("Save",(d,w)->{String s=edit.getText().toString().trim();if(!s.isEmpty()){item.label=s;store.save();desktop.rebuild();closePanel();}}).show();
     }
     private void move(LauncherStore.Item item){
-        new AlertDialog.Builder(this).setTitle("Move shortcut").setItems(new String[]{"Desktop 1","Desktop 2","Desktop 3"},(d,w)->{if(store.pages.get(w).size()>=60){toast("That desktop is full.");return;}store.remove(item);store.pages.get(w).add(item);item.x=item.y=-1;item.cellX=item.cellY=-1;store.save();desktop.rebuild();pageChanged();closePanel();}).show();
+        String[] destinations=new String[store.pageCount()];for(int n=0;n<destinations.length;n++)destinations[n]="Desktop "+(n+1);
+        new AlertDialog.Builder(this).setTitle("Move shortcut").setItems(destinations,(d,w)->{if(store.pages.get(w).size()>=60){toast("That desktop is full.");return;}store.remove(item);store.pages.get(w).add(item);item.x=item.y=-1;item.cellX=item.cellY=-1;store.save();desktop.rebuild();pageChanged();closePanel();}).show();
     }
     private void confirmRemove(LauncherStore.Item item){new AlertDialog.Builder(this).setTitle("Remove "+item.label+"?").setMessage("This removes the folder and its shortcuts. Installed apps remain on your device.").setNegativeButton("Cancel",null).setPositiveButton("Remove",(d,w)->{store.remove(item);shortcuts.syncRemoved();desktop.rebuild();pageChanged();closePanel();}).show();}
     private void chooseFolder(LauncherStore.Item source){
         String key=source.key;
         List<LauncherStore.Item> folders=store.folders();String[] names=new String[folders.size()];for(int i=0;i<names.length;i++)names[i]=folders.get(i).label;
-        new AlertDialog.Builder(this).setTitle("Add to folder").setItems(names,(d,w)->{LauncherStore.Item folder=folders.get(w);for(LauncherStore.Item c:folder.children)if(c.key.equals(key)){toast("Already in this folder.");return;}if(folder.children.size()>=100){toast("This folder is full.");return;}folder.children.add(source.copy());store.save();toast("Added to "+folder.label);closePanel();}).show();
+        new AlertDialog.Builder(this).setTitle("Add to folder").setItems(names,(d,w)->{LauncherStore.Item folder=folders.get(w);for(LauncherStore.Item c:folder.children)if(c.key.equals(key)){toast("Already in this folder.");return;}if(folder.children.size()>=1000){toast("This folder is full.");return;}folder.children.add(source.copy());store.save();toast("Added to "+folder.label);closePanel();}).show();
     }
     private void showFolder(LauncherStore.Item folder){
         LinearLayout folderPanel=openPanel(store.preferences.getBoolean("folder_title",true)?folder.label:"Folder");folderPanel.setTag("folder");applyCrystalAppearance();
@@ -544,7 +557,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private void showDesktopOverview(){
         LinearLayout body=scrollBody(openPanel("Desktop shortcuts"));
-        for(int i=0;i<LauncherStore.PAGE_COUNT;i++){section(body,"Desktop "+(i+1));if(store.pages.get(i).isEmpty())paragraph(body,"No shortcuts yet.");for(LauncherStore.Item item:store.pages.get(i)){Button b=Ui.button(this,item.label,()->open(item));b.setOnLongClickListener(v->{menu(item);return true;});LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(48));p.bottomMargin=dp(6);body.addView(b,p);}}
+        for(int i=0;i<store.pageCount();i++){section(body,"Desktop "+(i+1));if(store.pages.get(i).isEmpty())paragraph(body,"No shortcuts yet.");for(LauncherStore.Item item:store.pages.get(i)){Button b=Ui.button(this,item.label,()->open(item));b.setOnLongClickListener(v->{menu(item);return true;});LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(48));p.bottomMargin=dp(6);body.addView(b,p);}}
     }
     @Override public void startMenu(){showStart();}
     @Override public boolean feed(){
@@ -636,7 +649,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         }catch(RuntimeException error){releasePendingWidget();toast("This widget could not be added. Please try again.");}
     }
     private boolean knownWidget(int id){
-        for(int page=0;page<LauncherStore.PAGE_COUNT;page++)for(String raw:store.preferences.getString("widget_ids_page_"+page,"").split(","))if(raw.equals(String.valueOf(id)))return true;
+        for(int page=0;page<store.pageCount();page++)for(String raw:store.preferences.getString("widget_ids_page_"+page,"").split(","))if(raw.equals(String.valueOf(id)))return true;
         return false;
     }
     private void releasePendingWidget(){
@@ -687,7 +700,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
             catch(RuntimeException error){releasePendingWidget();toast("Widget setup could not open. Please choose the widget again.");}
             return;
         }
-        int page=Math.max(0,Math.min(LauncherStore.PAGE_COUNT-1,pendingWidgetPage));String key="widget_ids_page_"+page;
+        int page=Math.max(0,Math.min(store.pageCount()-1,pendingWidgetPage));String key="widget_ids_page_"+page;
         String previous=store.preferences.getString(key,"");
         if(!knownWidget(id))store.preferences.edit().putString(key,previous.isEmpty()?String.valueOf(id):previous+","+id).apply();
         pendingWidgetId=-1;pendingWidgetPage=-1;pendingWidgetRequest=0;pendingWidgetProvider=null;savePendingWidget();
@@ -712,7 +725,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void showSettings(){showSettings("root");}
     private void showSettings(String page){
         LinearLayout p=openPanel("3D settings");settingsStudio=new SettingsStudio(this,settingsModel(),catalog,new SettingsStudio.Host(){
-            public void home(){requestHome();}public void arrange(){desktop.arrange();toast("Desktop arranged");}public void recenter(){motion.recenter();toast("Tilt centered");}public void feed(){showNativeFeed();}public void reconnectFeed(){retryDiscover();}public void feedDetails(){showDiscoverDetails();}public String feedStatus(){return discover.status();}public void googleApp(){openGoogleFeed();}public void cards(){showCards("");}public void widgets(){showWidgets();}public void folder(){newFolder();}public void overview(){showDesktopOverview();}public void apps(){showStart();}public void about(){showAbout();}public void backup(boolean restore){settingsDocument(restore);}
+            public void home(){requestHome();}public void arrange(){desktop.arrange();toast("Desktop arranged");}public void recenter(){motion.recenter();toast("Tilt centered");}public void feed(){showNativeFeed();}public void reconnectFeed(){retryDiscover();}public void feedDetails(){showDiscoverDetails();}public String feedStatus(){return discover.status();}public void googleApp(){openGoogleFeed();}public void cards(){showCards("");}public void widgets(){showWidgets();}public void folder(){newFolder();}public void overview(){showDesktopOverview();}public void autoSort(){showAutoSort();}public void apps(){showStart();}public void about(){showAbout();}public void backup(boolean restore){settingsDocument(restore);}
             public boolean openApp(String query){List<AppCatalog.Entry> matches=catalog.filter(query,false);if(matches.size()==1){launch(matches.get(0).key);return true;}if(matches.size()>1){showStart();appSearch.setText(query);toast("Choose an app from the matching shortcuts.");return true;}return false;}
         },page);p.addView(settingsStudio,new LinearLayout.LayoutParams(-1,0,1));
     }

@@ -21,7 +21,7 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
       - name: Build, lint and unit tests
-        run: ./gradlew :app:assembleDebug :app:assembleRelease :app:assembleDiscoverTest :app:lintDiscoverTest :app:lintDebug :app:lintRelease :app:testDebugUnitTest
+        run: ./gradlew :app:assembleDebug :app:assembleRelease :app:assembleDiscoverTest :app:assembleGoogle :app:lintGoogle :app:lintDiscoverTest :app:lintDebug :app:lintRelease :app:testDebugUnitTest
       - uses: actions/upload-artifact@v4
         with:
           name: Nth-Desktop-3D-${{ github.sha }}-debug
@@ -37,6 +37,12 @@ jobs:
         with:
           name: Nth-Desktop-3D-${{ github.sha }}-unsigned-discover-test
           path: app/build/outputs/apk/discoverTest/app-discoverTest-unsigned.apk
+          if-no-files-found: error
+      - name: Upload unsigned primary Google-enabled build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nth-Desktop-3D-${{ github.sha }}-unsigned-google
+          path: app/build/outputs/apk/google/app-google-unsigned.apk
           if-no-files-found: error
   android-smoke:
     runs-on: ubuntu-latest

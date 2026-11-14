@@ -37,7 +37,7 @@ final class DesktopView extends FrameLayout {
     private java.util.List<DesktopGrid.Cell> obstaclePlan;
     private float[][] widgetObstacles=new float[0][];
 
-    private boolean gravity(){return store.mode==1&&!reduced;}
+    private boolean gravity(){return store.mode==1&&!reduced&&!folderPattern();}
     private String widgetKey(int id){return "widget:"+id;}
     private int top(){return Ui.dp(getContext(),24);}
 
@@ -94,6 +94,7 @@ final class DesktopView extends FrameLayout {
             try{
                 if(info==null)throw new IllegalStateException("Widget provider is unavailable");
                 LauncherWidgetView widget=(LauncherWidgetView)widgetHost.createView(getContext(),id,info);
+                widget.padding(store.preferences.getBoolean("widget_padding_"+id,true));
                 widget.setGestures(new LauncherWidgetView.Gestures(){
                     public void start(){startDrag(widgetKey(id));}
                     public void move(float dx,float dy){previewDrag(dx,dy);}
@@ -118,8 +119,9 @@ final class DesktopView extends FrameLayout {
         }
         return result;
     }
-    private int gridColumns(){return Math.max(3,Math.min(8,store.preferences.getInt("grid_columns",4)));}
-    private int cellHeight(){return Ui.dp(getContext(),store.preferences.getInt("grid_row_dp",112)+Math.max(0,getResources().getConfiguration().fontScale-1)*30);}
+    private boolean folderPattern(){return store.preferences.getBoolean("folder_pattern_page_"+store.page,false);}
+    private int gridColumns(){if(folderPattern())return 5;return Math.max(3,Math.min(8,store.preferences.getInt("grid_columns",4)));}
+    private int cellHeight(){if(folderPattern())return Math.max(Ui.dp(getContext(),48),(Math.max(height,getHeight())-top()-Ui.dp(getContext(),12))/10);return Ui.dp(getContext(),store.preferences.getInt("grid_row_dp",112)+Math.max(0,getResources().getConfiguration().fontScale-1)*30);}
     private android.graphics.RectF rectangle(DesktopGrid.Cell cell){
         return new android.graphics.RectF(cell.x*width/(float)columns,top()+cell.y*ch,(cell.x+cell.w)*width/(float)columns,top()+(cell.y+cell.h)*ch);
     }
@@ -224,6 +226,26 @@ final class DesktopView extends FrameLayout {
         workspace.preview(null,true);if(!cancel&&!valid)android.widget.Toast.makeText(getContext(),"That space is occupied",android.widget.Toast.LENGTH_SHORT).show();
         originalPlan=previewPlan=null;dragStart=null;dragId=null;workspace.requestDisallowInterceptTouchEvent(false);
     }
+    void dragPage(int page){savePositions();store.page=Math.max(0,Math.min(store.pageCount()-1,page));rebuild();host.pageChanged();}
+    private DesktopGrid.Cell externalTarget(LauncherStore.Item item,float x,float y){
+        if(workspace==null||columns<=0||x<0||x>=width||y<0||y>=height)return null;
+        float scroll=scroller==null?0:scroller.getScrollY();int cx=Math.max(0,Math.min(columns-1,(int)(x/cw))),cy=Math.max(0,(int)((y+scroll-top())/ch));
+        java.util.List<DesktopGrid.Cell> occupied=new ArrayList<>();for(DesktopGrid.Cell cell:cells)if(!cell.id.equals(item.id))occupied.add(cell);
+        return DesktopGrid.nearest(new DesktopGrid.Cell(item.id,false,cx,cy,1,1),occupied,columns,Math.max(rows,visibleRows));
+    }
+    void previewExternal(LauncherStore.Item item,float x,float y){if(workspace==null)return;DesktopGrid.Cell target=externalTarget(item,x,y);workspace.preview(target==null?null:rectangle(target),target!=null);}
+    void clearExternal(){if(workspace!=null)workspace.preview(null,true);}
+    boolean dropExternal(LauncherStore.Item item,float x,float y){
+        if(store.preferences.getBoolean("lock_layout",false))return false;
+        DesktopGrid.Cell target=externalTarget(item,x,y);if(target==null)return false;
+        if(!item.folder()){
+            float scroll=scroller==null?0:scroller.getScrollY();int cx=(int)(x/cw),cy=(int)((y+scroll-top())/ch);
+            for(LauncherStore.Item folder:store.pages.get(store.page))if(folder.folder()&&folder.cellX==cx&&folder.cellY==cy){for(LauncherStore.Item child:folder.children)if(child.key.equals(item.key))return false;if(folder.children.size()>=1000)return false;folder.children.add(item.copy());store.save();rebuild();return true;}
+            for(LauncherStore.Item existing:store.pages.get(store.page))if(!existing.folder()&&existing.key.equals(item.key)){item=existing;break;}
+        }
+        if(!store.pages.get(store.page).contains(item)&&store.pages.get(store.page).size()>=60)return false;
+        for(java.util.List<LauncherStore.Item> page:store.pages)page.remove(item);store.pages.get(store.page).add(item);item.cellX=target.x;item.cellY=target.y;item.x=item.y=-1;store.save();rebuild();return true;
+    }
     boolean revealWidget(int id){
         View view=cellViews.get(widgetKey(id));if(!(view instanceof LauncherWidgetView))return false;
         pendingRevealId=id;post(this::revealPendingWidget);return true;
@@ -241,17 +263,19 @@ final class DesktopView extends FrameLayout {
         if(info!=null&&info.resizeMode!=android.appwidget.AppWidgetProviderInfo.RESIZE_NONE)popup.getMenu().add("Resize");
         if(info!=null&&info.configure!=null)popup.getMenu().add("Widget settings");
         if(info!=null)popup.getMenu().add("App info");else popup.getMenu().add("Retry");
+        popup.getMenu().add("Padding").setCheckable(true).setChecked(store.preferences.getBoolean("widget_padding_"+id,true));
         popup.getMenu().add("Remove");
         popup.setOnMenuItemClickListener(action->{
             switch(action.getTitle().toString()){
                 case "Resize":beginResize(id);break;
+                case "Padding":boolean padding=!store.preferences.getBoolean("widget_padding_"+id,true);store.preferences.edit().putBoolean("widget_padding_"+id,padding).apply();if(widget instanceof LauncherWidgetView)((LauncherWidgetView)widget).padding(padding);beginResize(id);break;
                 case "Widget settings":host.configureWidget(id);break;
                 case "App info":getContext().startActivity(new android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:"+info.provider.getPackageName())));break;
                 case "Retry":rebuild();break;
                 case "Remove":
                     java.util.List<String> kept=new ArrayList<>();for(int other:widgetIds())if(other!=id)kept.add(String.valueOf(other));
                     android.content.SharedPreferences.Editor edit=store.preferences.edit().putString("widget_ids_page_"+store.page,android.text.TextUtils.join(",",kept));
-                    for(String prefix:new String[]{"widget_cell_x_","widget_cell_y_","widget_span_x_","widget_span_y_","widget_left_","widget_top_","widget_width_","widget_height_"})edit.remove(prefix+id);
+                    for(String prefix:new String[]{"widget_cell_x_","widget_cell_y_","widget_span_x_","widget_span_y_","widget_left_","widget_top_","widget_width_","widget_height_","widget_padding_"})edit.remove(prefix+id);
                     edit.apply();widgetHost.deleteAppWidgetId(id);rebuild();break;
             }return true;
         });popup.show();
@@ -265,17 +289,18 @@ final class DesktopView extends FrameLayout {
             public void start(int edge){this.edge=edge;initial=DesktopGrid.find(cells,widgetKey(id));before=new ArrayList<>(cells);plan=before;}
             public void move(float dx,float dy){
                 int deltaX=Math.round(dx/cw),deltaY=Math.round(dy/ch),x=initial.x,y=initial.y,w=initial.w,h=initial.h;
-                android.graphics.Rect padding=android.appwidget.AppWidgetHostView.getDefaultPaddingForWidget(getContext(),info.provider,null);
+                android.graphics.Rect padding=store.preferences.getBoolean("widget_padding_"+id,true)?android.appwidget.AppWidgetHostView.getDefaultPaddingForWidget(getContext(),info.provider,null):new android.graphics.Rect();
                 int minW=Math.min(columns,span(Math.max(1,info.minResizeWidth>0?Math.min(info.minWidth,info.minResizeWidth):info.minWidth)+padding.left+padding.right,cw));
                 int minH=Math.min(12,span(Math.max(1,info.minResizeHeight>0?Math.min(info.minHeight,info.minResizeHeight):info.minHeight)+padding.top+padding.bottom,ch));
                 int maxW=columns,maxH=Math.max(minH,Math.max(initial.h,visibleRows));
                 if(android.os.Build.VERSION.SDK_INT>=31){if(info.maxResizeWidth>=info.minWidth&&info.maxResizeWidth>0)maxW=Math.max(minW,Math.min(columns,info.maxResizeWidth/cw));if(info.maxResizeHeight>=info.minHeight&&info.maxResizeHeight>0)maxH=Math.max(minH,Math.min(visibleRows,info.maxResizeHeight/ch));}
-                if(edge==1){w=Math.max(minW,Math.min(maxW,initial.w-deltaX));x=initial.x+initial.w-w;}
-                if(edge==2)w=Math.max(minW,Math.min(maxW,initial.w+deltaX));
-                if(edge==3){h=Math.max(minH,Math.min(maxH,initial.h-deltaY));y=initial.y+initial.h-h;}
-                if(edge==4)h=Math.max(minH,Math.min(maxH,initial.h+deltaY));
-                DesktopGrid.Cell target=new DesktopGrid.Cell(widgetKey(id),true,x,y,w,h);plan=DesktopGrid.move(before,target,columns,rows);
-                positionCells(plan==null?before:plan,false);workspace.preview(rectangle(target),plan!=null);workspace.select(rectangle(plan==null?initial:target),this);
+                if((edge&1)!=0){w=Math.max(minW,Math.min(maxW,initial.w-deltaX));x=initial.x+initial.w-w;}
+                if((edge&2)!=0)w=Math.max(minW,Math.min(maxW,initial.w+deltaX));
+                if((edge&4)!=0){h=Math.max(minH,Math.min(maxH,initial.h-deltaY));y=initial.y+initial.h-h;}
+                if((edge&8)!=0)h=Math.max(minH,Math.min(maxH,initial.h+deltaY));
+                if(x<0){w+=x;x=0;}if(y<0){h+=y;y=0;}w=Math.min(w,columns-x);h=Math.min(h,rows-y);
+                DesktopGrid.Cell target=new DesktopGrid.Cell(widgetKey(id),true,x,y,w,h);java.util.List<DesktopGrid.Cell> candidate=DesktopGrid.move(before,target,columns,rows);
+                if(candidate!=null&&w>=minW&&h>=minH){plan=candidate;positionCells(plan,false);workspace.select(rectangle(target),this);}workspace.preview(rectangle(target),candidate!=null);
             }
             public void end(boolean cancel){cells=!cancel&&plan!=null?plan:before;positionCells(cells,!cancel&&plan!=null);workspace.preview(null,true);workspace.select(rectangle(DesktopGrid.find(cells,widgetKey(id))),this);}
         });
@@ -341,7 +366,7 @@ final class DesktopView extends FrameLayout {
     }
     void frame(float dt){
         if(modal||touching||animating)return;
-        if(store.mode!=1||reduced){stage.setRotationY(reduced?0:tiltX*store.strength*3);stage.setRotationX(reduced?0:-tiltY*store.strength*2);return;}
+        if(!gravity()){stage.setRotationY(reduced?0:tiltX*store.strength*3);stage.setRotationX(reduced?0:-tiltY*store.strength*2);return;}
         if(powerSave)return;
         float scale=getResources().getDisplayMetrics().density;float time=Math.min(dt,.025f);
         for(Body b:bodies){
@@ -370,19 +395,17 @@ final class DesktopView extends FrameLayout {
     }
     void arrange(){for(LauncherStore.Item i:store.pages.get(store.page)){i.x=i.y=-1;i.cellX=i.cellY=-1;}rebuild();store.save();}
     void changePage(int direction){
-        if(animating||modal)return;if(!store.preferences.getBoolean("infinite_scroll",false)&&(store.page+direction<0||store.page+direction>=LauncherStore.PAGE_COUNT))return;savePositions();
-        if(reduced){store.page=SceneMath.wrap(store.page+direction,LauncherStore.PAGE_COUNT);rebuild();store.save();host.pageChanged();return;}
-        animating=true;int next=SceneMath.wrap(store.page+direction,LauncherStore.PAGE_COUNT);final boolean[] switched={false};
+        if(animating||modal)return;if(!store.preferences.getBoolean("infinite_scroll",false)&&(store.page+direction<0||store.page+direction>=store.pageCount()))return;savePositions();
+        if(reduced||store.transition==15){store.page=SceneMath.wrap(store.page+direction,store.pageCount());rebuild();store.save();host.pageChanged();return;}
+        animating=true;int next=SceneMath.wrap(store.page+direction,store.pageCount());final boolean[] switched={false};
         animator=ValueAnimator.ofFloat(0,1);animator.setDuration(470);animator.setInterpolator(new DecelerateInterpolator());
         animator.addUpdateListener(a->{float progress=(float)a.getAnimatedValue();if(progress>=.5f&&!switched[0]){switched[0]=true;store.page=next;ValueAnimator keep=animator;animator=null;rebuild();animator=keep;animating=true;host.pageChanged();}
             float local=progress<.5f?progress*2:(progress-.5f)*2;boolean incoming=progress>=.5f;float amount=incoming?(1-local):local;float sign=(incoming?-direction:direction);
-            stage.setPivotX(store.transition==0?(sign>0?0:width):width*.5f);stage.setPivotY(height*.5f);
-            stage.setRotationY(store.transition==2?0:sign*amount*(store.transition==0?78:45));stage.setRotationX(store.transition==2?sign*amount*68:0);
-            stage.setTranslationX(store.transition==1?-sign*amount*width*.35f:0);stage.setScaleX(1-amount*.12f);stage.setScaleY(1-amount*.12f);stage.setAlpha(1-amount*.6f);
+            PageTransitions.apply(stage,store.transition,amount,direction,incoming);
         });
         animator.addListener(new AnimatorListenerAdapter(){@Override public void onAnimationEnd(Animator a){animating=false;resetTransform();store.save();}});animator.start();
     }
-    private void resetTransform(){stage.setRotationX(0);stage.setRotationY(0);stage.setTranslationX(0);stage.setScaleX(1);stage.setScaleY(1);stage.setAlpha(1);}
+    private void resetTransform(){stage.setRotationX(0);stage.setRotationY(0);stage.setTranslationX(0);stage.setTranslationY(0);stage.setRotation(0);stage.setClipBounds(null);stage.setScaleX(1);stage.setScaleY(1);stage.setAlpha(1);}
     @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){super.onSizeChanged(w,h,oldw,oldh);post(this::updateLayout);}
     @Override public boolean dispatchTouchEvent(MotionEvent e){
         if(e.getActionMasked()==MotionEvent.ACTION_DOWN){
@@ -426,7 +449,7 @@ final class DesktopView extends FrameLayout {
                 else if(Math.abs(endDy)>gestureSlop&&Math.abs(endDy)>Math.abs(endDx)*1.4f&&endDy>0){host.gesture(store.preferences.getInt("gesture_down",3));}
                 else if(swiping&&Math.abs(endDx)>gestureSlop){
                     if(endDx>0&&store.page==0&&host.feed()){}
-                    else if(endDx<0&&store.page==LauncherStore.PAGE_COUNT-1&&!store.preferences.getBoolean("infinite_scroll",false)){
+                    else if(endDx<0&&store.page==store.pageCount()-1&&!store.preferences.getBoolean("infinite_scroll",false)){
                         float tilt=endDx>0?12f:-12f;
                         stage.animate().rotationY(tilt).setDuration(110).withEndAction(()->stage.animate().rotationY(0).setDuration(240).start()).start();
                     }else changePage(endDx<0?1:-1);

@@ -40,6 +40,12 @@ android {
     }
     // Same package/version/key: a tester can replace the release and return without data loss.
     buildTypes {
+        google {
+            initWith release
+            debuggable true
+            signingConfig null
+            manifestPlaceholders = [launcherLabel:'@string/app_name']
+        }
         discoverTest {
             initWith release
             debuggable true
@@ -52,6 +58,7 @@ android {
     if (project.hasProperty('nthCompatibilitySigning')) {
         buildTypes.release.signingConfig = signingConfigs.debug
         buildTypes.discoverTest.signingConfig = signingConfigs.debug
+        buildTypes.google.signingConfig = signingConfigs.debug
     }
     lint { abortOnError true }
 }

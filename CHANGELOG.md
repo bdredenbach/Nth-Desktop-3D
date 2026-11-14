@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0 — 2026-11-14
+
+- Promote the owner-phone-verified Google connector to the default provider. Ship the Google-enabled build under the normal app name with the existing R2 key; this build deliberately enables app debugging, as the successful 0.6.2 Discover Test did. Preserve feed-off and Google-app choices.
+- Make widget resize borders and corners easy to grab, keep the last valid snapped rectangle when another widget blocks a resize, and add a persistent Padding toggle to the widget hold menu. Report the actual padded or unpadded content size to providers through public APIs.
+- Add optional Auto pick and sort with a layout preview, twenty reference folder names, local Android category/name/package hints and four-icon folder previews. Add the staggered arrangement on a new desktop, keep existing screens and offer Undo.
+- Drag apps and folders directly from the drawer after holding; a stationary hold retains the menu. Hold at an edge to change desktops or create a new one, with a 24-screen limit and cancel rollback. Keep folder identity and children when moving it.
+- Add system, sensor, portrait and landscape Home rotation choices. Preserve layout through orientation changes.
+- Expand desktop transitions to Cube, Carousel, Fold, Slide, Card stack, Tablet, Revolving door, Flip, Flip vertical, In and out, Accordion, Glass, Wipe, Zoom fade, Throw and None. Drive real pages and a clipped, replayable preview from shared transforms; honor Reduced motion.
+
 ## 0.6.2 — 2026-11-13
 
 - Preserve the activity token in the launcher window attributes sent to Google. Do not replace it with the view-window token, which belongs to Android subwindows.

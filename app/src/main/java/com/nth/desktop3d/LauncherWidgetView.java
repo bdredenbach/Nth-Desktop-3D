@@ -11,7 +11,7 @@ final class LauncherWidgetView extends AppWidgetHostView {
     interface Gestures {void start();void move(float dx,float dy);void end(boolean cancel);void menu();}
     private Gestures gestures;
     private float downX,downY;
-    private boolean armed,moving,eligible;
+    private boolean armed,moving,eligible,paddingEnabled=true;
     private final int slop;
     private final Runnable hold=()->{
         if(!eligible||gestures==null)return;
@@ -23,19 +23,15 @@ final class LauncherWidgetView extends AppWidgetHostView {
     };
     LauncherWidgetView(Context context){super(context);setClickable(true);slop=ViewConfiguration.get(context).getScaledTouchSlop();}
     void setGestures(Gestures gestures){this.gestures=gestures;}
-    @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){
-        super.onSizeChanged(w,h,oldw,oldh);
-        if(w<=0||h<=0)return;
-        post(()->{
-            if(!isAttachedToWindow())return;
-            float density=getResources().getDisplayMetrics().density;
-            android.os.Bundle options=new android.os.Bundle();
-            options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_HOST_CATEGORY,android.appwidget.AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN);
-            // Provider dimensions are already pixels. Only the options bundle is expressed in dp.
-            try{updateAppWidgetSize(options,Math.round(getWidth()/density),Math.round(getHeight()/density),Math.round(getWidth()/density),Math.round(getHeight()/density));}
-            catch(RuntimeException error){android.util.Log.e("NthWidgets","Could not report widget size",error);}
-        });
+    void padding(boolean enabled){paddingEnabled=enabled;android.appwidget.AppWidgetProviderInfo info=getAppWidgetInfo();android.graphics.Rect p=enabled&&info!=null?getDefaultPaddingForWidget(getContext(),info.provider,null):new android.graphics.Rect();setPadding(p.left,p.top,p.right,p.bottom);post(this::reportSize);}
+    private void reportSize(){
+        if(!isAttachedToWindow()||getWidth()<=0||getHeight()<=0)return;float density=getResources().getDisplayMetrics().density;android.os.Bundle options=new android.os.Bundle();options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_HOST_CATEGORY,android.appwidget.AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN);
+        int w=Math.max(1,Math.round((getWidth()-getPaddingLeft()-getPaddingRight())/density)),h=Math.max(1,Math.round((getHeight()-getPaddingTop()-getPaddingBottom())/density));
+        options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,w);options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH,w);options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT,h);options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT,h);
+        if(android.os.Build.VERSION.SDK_INT>=31){java.util.ArrayList<android.util.SizeF> sizes=new java.util.ArrayList<>();sizes.add(new android.util.SizeF(w,h));options.putParcelableArrayList(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_SIZES,sizes);}
+        try{android.appwidget.AppWidgetManager.getInstance(getContext()).updateAppWidgetOptions(getAppWidgetId(),options);}catch(RuntimeException error){android.util.Log.e("NthWidgets","Could not report widget size",error);}
     }
+    @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){super.onSizeChanged(w,h,oldw,oldh);if(w>0&&h>0)post(this::reportSize);}
     @Override public boolean dispatchTouchEvent(MotionEvent event){
         switch(event.getActionMasked()){
             case MotionEvent.ACTION_DOWN:

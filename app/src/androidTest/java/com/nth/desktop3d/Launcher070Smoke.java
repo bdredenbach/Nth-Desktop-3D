@@ -1,0 +1,61 @@
+package com.nth.desktop3d;
+
+import android.app.Instrumentation;
+import android.content.SharedPreferences;
+import android.os.SystemClock;
+import android.view.*;
+import android.widget.*;
+import java.lang.reflect.*;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
+
+/** Real drawer drag, page creation/cancel, sort preservation, rotation and preview regression. */
+public final class Launcher070Smoke {
+    private final Instrumentation test;private final MainActivity activity;private final String output;private LauncherStore store;private DesktopView desktop;
+    public Launcher070Smoke(Instrumentation test,MainActivity activity,String output){this.test=test;this.activity=activity;this.output=output;}
+    public void run()throws Exception{
+        store=(LauncherStore)field("store");desktop=(DesktopView)field("desktop");Map<String,?> before=new HashMap<>(store.preferences.getAll());String layout=store.preferences.getString("layout","[]");int oldPage=store.page,oldTransition=store.transition,oldMode=store.mode;boolean oldReduced=store.reducedMotion;int oldCount=store.pageCount();
+        try{
+            defaultFeed();
+            main(()->{invoke("closePanel");store.mode=0;store.reducedMotion=false;store.preferences.edit().putBoolean("lock_layout",false).commit();store.page=0;desktop.rebuild();});
+            AtomicReference<FolderSorter> sorted=new AtomicReference<>();main(()->{FolderSorter plan=new FolderSorter(new ArrayList<>(((AppCatalog)field("catalog")).entries));sorted.set(plan);check(plan.folders.size()==20,"Auto-sort changed the reference's 20 names");check(plan.folders.stream().mapToInt(f->f.children.size()).sum()==plan.appCount,"Auto-sort lost an app");check(plan.apply(store)>=0,"Could not create sorted desktop");desktop.rebuild();});
+            await(()->desktop.getWidth()>0&&store.pages.get(store.page).size()==20,"Sorted desktop was not displayed");SystemClock.sleep(700);
+            main(()->{for(int i=0;i<20;i++){LauncherStore.Item folder=store.pages.get(store.page).get(i);check(folder.label.equals(FolderRules.NAMES[i])&&folder.cellX==FolderRules.X[i]&&folder.cellY==FolderRules.Y[i],"Folder arrangement moved: "+folder.label);}LauncherStore reloaded=new LauncherStore(activity);check(reloaded.pageCount()==oldCount+1&&reloaded.pages.get(reloaded.page).size()==20,"Sorted folders did not survive reload");});capture("nova-sorted-folder-pattern");
+            main(()->{FolderSorter.undo(store);check(store.pageCount()==oldCount,"Auto-sort Undo left its empty screen");store.page=oldCount-1;desktop.rebuild();});
+            // Stationary hold still opens a menu; moving after the same hold starts a native drag.
+            openFiltered("Scene studio");View tile=find(v->v instanceof IconTile&&"Scene studio".contentEquals(v.getContentDescription()));hold(tile);await(()->find(v->v instanceof TextView&&"Add to this desktop".contentEquals(((TextView)v).getText()))!=null,"Stationary drawer hold did not open its menu");main(()->invoke("closePanel"));
+            openFiltered("Scene studio");tile=find(v->v instanceof IconTile&&"Scene studio".contentEquals(v.getContentDescription()));dragToEdge(tile,false);
+            await(()->store.pageCount()==oldCount+1&&store.pages.get(oldCount).stream().anyMatch(i->i.key.equals("builtin:modes")),"Drawer drag did not create a screen and place the shortcut");capture("drawer-drag-new-desktop");
+            openFiltered("Scene studio");tile=find(v->v instanceof IconTile&&"Scene studio".contentEquals(v.getContentDescription()));dragToEdge(tile,true);
+            await(()->store.pageCount()==oldCount+1&&!((DrawerDragController)field("drawerDrags")).active(),"Canceled drag left an empty new screen");
+            LauncherStore.Item folder=store.folders().get(0);String folderId=folder.id;int children=folder.children.size();
+            main(()->invoke("showStart"));click("Folders");View folderTile=find(v->v instanceof IconTile&&folder.label.contentEquals(v.getContentDescription()));check(folderTile!=null,"Drawer Folders tab did not expose existing folders");dragToCenter(folderTile);
+            await(()->store.pages.get(store.page).stream().anyMatch(i->i.id.equals(folderId)&&i.children.size()==children),"Folder drawer drag lost its identity or contents");
+            check(store.pages.stream().flatMap(Collection::stream).filter(i->i.id.equals(folderId)).count()==1,"Folder drag duplicated its identity");
+            main(()->invoke("showSettings"));SettingsModel model=(SettingsModel)field("settingsModel");SettingsStudio studio=(SettingsStudio)field("settingsStudio");Field f=SettingsStudio.class.getDeclaredField("preview");f.setAccessible(true);SettingsPreview preview=(SettingsPreview)f.get(studio);
+            main(()->studio.showPage("motion"));
+            for(int effect=0;effect<LauncherStore.TRANSITIONS.length;effect++){final int value=effect;main(()->{model.set("transition",value);preview.playTransition();});SystemClock.sleep(140);check(store.transition==effect,"Transition choice was not saved");if(effect==0||effect==10||effect==12||effect==14)capture("transition-preview-"+effect);}
+            main(()->{store.reducedMotion=true;preview.playTransition();});Field running=SettingsPreview.class.getDeclaredField("transitionRunning");running.setAccessible(true);check(!(Boolean)running.get(preview),"Reduced motion allowed preview animation");
+            main(()->{store.reducedMotion=false;model.set("home_rotation",3);});await(()->activity.getWindow().getDecorView().getWidth()>activity.getWindow().getDecorView().getHeight(),"Landscape setting did not rotate Home");capture("home-rotation-landscape");
+            main(()->model.set("home_rotation",2));await(()->activity.getWindow().getDecorView().getHeight()>activity.getWindow().getDecorView().getWidth(),"Portrait setting did not rotate Home");
+        }finally{
+            main(()->{((DrawerDragController)field("drawerDrags")).cancel();invoke("closePanel");restore(store.preferences,before);store.pages.clear();try{org.json.JSONArray all=new org.json.JSONArray(layout);for(int p=0;p<oldCount;p++){List<LauncherStore.Item> items=new ArrayList<>();org.json.JSONArray array=all.getJSONArray(p);for(int n=0;n<array.length();n++)items.add(LauncherStore.Item.read(array.getJSONObject(n),0));store.pages.add(items);}}catch(org.json.JSONException e){throw new AssertionError(e);}store.page=oldPage;store.transition=oldTransition;store.mode=oldMode;store.reducedMotion=oldReduced;store.save();invoke("applySettings",new Class[]{boolean.class},true);});
+        }
+    }
+    private void defaultFeed(){SharedPreferences prefs=activity.getSharedPreferences("desktop3d_crystal",0);Map<String,?> before=new HashMap<>(prefs.getAll());try{prefs.edit().clear().commit();check(new CrystalPreferences(activity).feedProvider()==0,"Fresh install does not default to Google");for(int provider:new int[]{0,1,2,3}){prefs.edit().clear().putInt("feed_provider",provider).putBoolean("feed_enabled",false).commit();CrystalPreferences migrated=new CrystalPreferences(activity);check(migrated.feedProvider()==(provider==2?0:provider)&&!migrated.feedEnabled(),"Google migration overwrote explicit feed-off or another provider");}}finally{restore(prefs,before);}}
+    private void openFiltered(String name){main(()->{invoke("showStart");((EditText)field("appSearch")).setText(name);});await(()->find(v->v instanceof IconTile&&name.contentEquals(v.getContentDescription()))!=null,"Filtered drawer shortcut missing");SystemClock.sleep(350);}
+    private void hold(View v){check(v!=null,"Held drawer item missing");int[] p=point(v);long t=SystemClock.uptimeMillis();pointer(t,MotionEvent.ACTION_DOWN,p[0],p[1]);SystemClock.sleep(ViewConfiguration.getLongPressTimeout()+180);pointer(t,MotionEvent.ACTION_UP,p[0],p[1]);}
+    private void dragToCenter(View v){int[] p=point(v),d=point(desktop);long t=SystemClock.uptimeMillis();pointer(t,0,p[0],p[1]);SystemClock.sleep(ViewConfiguration.getLongPressTimeout()+180);pointer(t,2,p[0]+30,p[1]+5);SystemClock.sleep(300);pointer(t,2,d[0],d[1]);SystemClock.sleep(250);pointer(t,1,d[0],d[1]);SystemClock.sleep(400);}
+    private void dragToEdge(View v,boolean cancel){int[] p=point(v),d=point(desktop);View root=(View)field("root");int[] r=new int[2];main(()->root.getLocationOnScreen(r));long t=SystemClock.uptimeMillis();pointer(t,0,p[0],p[1]);SystemClock.sleep(ViewConfiguration.getLongPressTimeout()+180);pointer(t,2,p[0]+30,p[1]+5);SystemClock.sleep(300);pointer(t,2,r[0]+root.getWidth()-4,d[1]);SystemClock.sleep(850);if(cancel){main(()->activity.onBackPressed());SystemClock.sleep(150);}else{pointer(t,2,d[0],d[1]);SystemClock.sleep(200);}pointer(t,1,d[0],d[1]);SystemClock.sleep(400);}
+    private int[] point(View v){check(v!=null,"Drag view missing");int[] p=new int[2];main(()->v.getLocationOnScreen(p));p[0]+=v.getWidth()/2;p[1]+=Math.min(v.getHeight()/2,Ui.dp(activity,45));return p;}
+    private void pointer(long t,int action,float x,float y){MotionEvent e=MotionEvent.obtain(t,SystemClock.uptimeMillis(),action,x,y,0);e.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);check(test.getUiAutomation().injectInputEvent(e,true),"Native drag input rejected");e.recycle();SystemClock.sleep(40);}
+    private void click(String text){main(()->{View v=find(w->w instanceof TextView&&text.contentEquals(((TextView)w).getText()));check(v!=null,"Missing "+text);v.performClick();});SystemClock.sleep(250);}
+    private View find(java.util.function.Predicate<View> match){return find(activity.getWindow().getDecorView(),match);}private View find(View v,java.util.function.Predicate<View> match){if(v.getVisibility()!=View.VISIBLE)return null;if(match.test(v))return v;if(v instanceof android.view.ViewGroup)for(int i=0;i<((android.view.ViewGroup)v).getChildCount();i++){View child=find(((android.view.ViewGroup)v).getChildAt(i),match);if(child!=null)return child;}return null;}
+    private Object field(String name){try{Field f=MainActivity.class.getDeclaredField(name);f.setAccessible(true);return f.get(activity);}catch(Exception e){throw new AssertionError(e);}}
+    private Object invoke(String name){return invoke(name,new Class[0]);}private Object invoke(String name,Class[] types,Object... args){try{Method m=MainActivity.class.getDeclaredMethod(name,types);m.setAccessible(true);return m.invoke(activity,args);}catch(Exception e){throw new AssertionError(e);}}
+    private void main(Runnable work){test.runOnMainSync(work);}private void await(BooleanSupplier condition,String message){long end=SystemClock.uptimeMillis()+7000;while(SystemClock.uptimeMillis()<end){AtomicReference<Boolean> ok=new AtomicReference<>();main(()->ok.set(condition.getAsBoolean()));if(ok.get())return;SystemClock.sleep(100);}throw new AssertionError(message);}
+    private void check(boolean value,String message){if(!value)throw new AssertionError(message);}
+    private void capture(String name)throws Exception{android.graphics.Bitmap bitmap=test.getUiAutomation().takeScreenshot();check(bitmap!=null,"Screenshot missing");java.io.File dir=output==null?new java.io.File(activity.getExternalFilesDir(null),"verification"):new java.io.File(output);dir.mkdirs();try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(dir,name+".png"))){bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}finally{bitmap.recycle();}}
+    private void restore(SharedPreferences prefs,Map<String,?> values){SharedPreferences.Editor e=prefs.edit().clear();for(Map.Entry<String,?> v:values.entrySet()){Object x=v.getValue();if(x instanceof String)e.putString(v.getKey(),(String)x);else if(x instanceof Integer)e.putInt(v.getKey(),(Integer)x);else if(x instanceof Long)e.putLong(v.getKey(),(Long)x);else if(x instanceof Boolean)e.putBoolean(v.getKey(),(Boolean)x);else if(x instanceof Float)e.putFloat(v.getKey(),(Float)x);}check(e.commit(),"Could not restore test preferences");}
+}

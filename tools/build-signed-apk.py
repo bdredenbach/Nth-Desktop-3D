@@ -39,15 +39,16 @@ def main():
     parser.add_argument('--init-script', type=Path)
     parser.add_argument('--verify-only', type=Path, help='Verify and package an already built release APK.')
     parser.add_argument('--unsigned-apk', type=Path, help='Sign the exact unsigned release artifact from CI instead of rebuilding locally.')
+    parser.add_argument('--google', action='store_true', help='Sign the primary Google-enabled build, which enables app debugging for the built-in Discover connector.')
     parser.add_argument('--discover-test', action='store_true', help='Sign the explicitly labelled debuggable Discover test build using the existing owner key.')
     parser.add_argument('--companion', action='store_true', help='Sign the optional debuggable Discover bridge, keeping the launcher release non-debuggable.')
     parser.add_argument('--previous-apk', type=Path, help='Also verify the prior signed APK has the same identity and a lower version code.')
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'dist')
     args = parser.parse_args()
-    if args.discover_test and args.companion:
-        parser.error('--discover-test and --companion are mutually exclusive')
-    if args.discover_test and not (args.unsigned_apk or args.verify_only):
-        parser.error('--discover-test requires an exact unsigned CI artifact or --verify-only')
+    if sum((args.google,args.discover_test,args.companion))>1:
+        parser.error('--google, --discover-test and --companion are mutually exclusive')
+    if (args.google or args.discover_test) and not (args.unsigned_apk or args.verify_only):
+        parser.error('Google-enabled builds require an exact unsigned CI artifact or --verify-only')
     if args.verify_only and args.unsigned_apk:
         parser.error('--verify-only and --unsigned-apk are mutually exclusive')
     version = dict(line.split('=', 1) for line in (ROOT / 'version.properties').read_text().splitlines() if line and not line.startswith('#'))
@@ -102,7 +103,7 @@ def main():
         'applicationId': 'com.nth.desktop3d.discover' if args.companion else 'com.nth.desktop3d', 'versionCode': int(version['versionCode']),
         'versionName': version['versionName'] + ('-discover-test' if args.discover_test else ''),
         'certificateSha256': (ROOT / 'docs/test-update-certificate.sha256').read_text().strip(),
-        'debuggable': args.companion or args.discover_test,
+        'debuggable': args.google or args.companion or args.discover_test,
     }
     if metadata != expected:
         raise SystemExit('APK does not match the committed package, version, release mode and permanent test certificate.')

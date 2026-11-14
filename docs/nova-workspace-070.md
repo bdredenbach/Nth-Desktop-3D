@@ -1,0 +1,17 @@
+# Nova reference pass — 0.7.0
+
+References: owner videos 226912.mp4 (99 seconds), 226913.mp4 (56 seconds), and screenshots 226914–226917. The first video shows Nova padding/resize then Nth's hard-to-grab widget edges; the second shows hold/move from drawer and edge paging. The folder reference uses twenty categories in a staggered five-column arrangement.
+
+Folders: Stores; Recipes; Browser; Weather; AI; Projects; Readers; Shopping; Emulation; Work; Google; Social; Fitness; Games; DnD; Camera; Phone; Finances; Stream; Utilities. Names stay complete in storage, search and accessibility; displayed labels keep the existing eight-code-point shortening policy.
+
+Auto pick and sort is an explicit setting action in Home screen, Folders and App drawer. Preview groups current drawer entries using public Android category hints, package names and labels locally. Android does not supply universal Play Store tags. Unknown apps use Utilities; manual corrections are expected. Include accessible launcher entries across profiles, preserve component/profile keys, and retain installed apps. Each action creates a separate page; Undo removes only the generated folders and removes the generated screen only when empty and trailing. New manually added shortcuts survive Undo. Large folders support up to 1000 entries; excessive plans fail before changing the desktop.
+
+Pattern pages use a responsive 5x10 grid, preserving two empty top rows for widgets. Normal pages keep their configured grid. Widgets remain obstacles for manual placement and resizing. Pattern pages remain a grid even in Gravity mode so all twenty folders remain reachable. In landscape the page can scroll vertically if necessary.
+
+Drawer: tap launches; hold still then release opens its actions; hold and move starts an Android drag. Folders tab exposes all existing folders for moving without losing their children. A right/left edge dwell changes pages. The right edge creates one additional page per drag if needed, up to 24 total pages. Back cancels, restores the original screen and removes newly created empty trailing pages. Dropping an app on a folder adds a shortcut to that folder. Lock layout applies.
+
+Widget: full edges and corners have 24 dp hit regions; eight visible grips on two-axis providers. Resizing snaps to cells, observes provider axes and dimensions, moves obstructing app/folder shortcuts into free cells, and never overlaps another widget. If blocked, retain the most recent valid rectangle; cancel restores the initial rectangle. Padding in the hold menu toggles Android host padding and the actual content dimensions reported to the provider. Provider-internal margins remain under its control.
+
+Transitions: three legacy indices stay intact; thirteen additional choices include None. Shared geometry drives the desktop and the preview. The preview draws animation inside its own clipped frame, keeps wallpaper and dock steady, and replays once when a transition is selected. Replay is available in Scenes & motion. Reduced motion and Android animator-disable suppress it. Home rotation offers Follow system, Auto rotate, Portrait and Landscape.
+
+Primary APK: Google-enabled, deliberately debuggable like the successful owner test, normal label, same R2 signing identity. No companion. Standard non-debuggable and former test variants remain buildable but the primary download is the Google-enabled variant.

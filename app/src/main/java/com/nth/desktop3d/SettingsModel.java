@@ -48,6 +48,7 @@ final class SettingsModel {
         bool("cloud_ai","search","Cloud questions for Nth Nota","Send your question and current setting values to Nth Nota's cloud service. Local setting commands always work offline.",false,false);
         bool("cards_in_search","cards","Cards in app search","Show the Cards action beside filtered app results.",true,false);
         for(String[] type:CrystalCards.TYPES)bool("card_"+type[0],"cards",type[1],"Show this crystal card.",true,false);
+        enumeration("home_rotation","look","Home screen rotation","Follow Android rotation, allow all device orientations, or keep a fixed orientation.",new String[]{"Follow system","Auto rotate","Portrait","Landscape"},0,false);
         bool("adaptive_glass","look","Fading menu backgrounds","Add opacity over desktop content and feather it to transparent in empty areas.",true,false);
         pref("glass_strength","look","Opacity over content","Maximum opacity percentage over icons, folders and widgets.",20,90,5,90,false);
         pref("glass_feather","look","Fade width","Soft edge width around background objects in dp.",12,80,4,80,false);
@@ -58,7 +59,7 @@ final class SettingsModel {
         add("lighting","look","Lighting","Highlight intensity on Crystal surfaces.",0,2,1,CrystalPreferences.LIGHTING,false,true,c::lighting,c::setLighting);
         add("menu_animation","look","Menu opening animation","How menus rise from the desktop plane.",0,4,1,CrystalPreferences.MENU_ANIMATIONS,false,false,c::menuAnimation,c::setMenuAnimation);
         add("scene","motion","Scene","Choose the desktop environment.",0,3,1,LauncherStore.MODES,false,true,()->s.mode,v->s.mode=v);
-        add("transition","motion","Desktop transition","Perspective animation when changing desktops.",0,2,1,LauncherStore.TRANSITIONS,false,false,()->s.transition,v->s.transition=v);
+        add("transition","motion","Desktop transition","Perspective animation when changing desktops.",0,LauncherStore.TRANSITIONS.length-1,1,LauncherStore.TRANSITIONS,false,false,()->s.transition,v->s.transition=v);
         add("tilt","motion","Tilt parallax","Use device tilt to move the desktop perspective.",0,1,1,null,true,false,()->s.tilt?1:0,v->{s.tilt=v==1;c.setParallax(v==1);});
         add("depth","motion","3D depth","Depth of the scene and layered elements.",0,100,1,null,false,false,c::depth,c::setDepth);
         add("strength","motion","Tilt strength","How strongly device tilt affects the desktop.",0,100,1,null,false,false,()->Math.round(s.strength*100),v->s.strength=v/100f);
@@ -75,7 +76,7 @@ final class SettingsModel {
         enumeration("gesture_down","gestures","Swipe down","Applies to empty space; workspace scrolling keeps priority.",new String[]{"App drawer","Settings","Nth Nota","Device controls","None"},3,false);
         enumeration("gesture_double","gestures","Double tap","Double tap empty desktop space.",new String[]{"App drawer","Settings","Nth Nota","Device controls","None"},4,false);
         add("feed_enabled","feed","Enable feed","Open your selected feed from the first desktop's edge.",0,1,1,null,true,false,()->c.feedEnabled()?1:0,v->c.setFeedEnabled(v==1));
-        add("feed_provider","feed","Feed provider","Nth Feed needs no companion. Direct Google Discover requires the Google app and may be unavailable.",0,3,1,new String[]{"Google Discover (experimental)","Google App","Nth Feed (built in)","Off"},false,false,c::feedProvider,c::setFeedProvider);
+        add("feed_provider","feed","Feed provider","Google Discover opens inside the launcher using the Google app. Nth Feed remains available.",0,3,1,new String[]{"Google Discover","Google App","Nth Feed (built in)","Off"},false,false,c::feedProvider,c::setFeedProvider);
         add("feed_edge","feed","Feed edge swipe","Allow a right swipe on the first desktop to open the feed.",0,1,1,null,true,false,()->c.feedEdgeSwipe()?1:0,v->c.setFeedEdgeSwipe(v==1));
         add("feed_animation","feed","Animate feed opening","Animate Google overlay opening when supported.",0,1,1,null,true,false,()->c.feed3dTransition()?1:0,v->c.setFeed3dTransition(v==1));
     }

@@ -19,7 +19,7 @@ public final class AppCatalog {
         public final String key, label;
         public final ComponentName component;
         public final UserHandle user;
-        public final Drawable icon;
+        public final Drawable icon;public int category=-1;
         Entry(String key, String label, ComponentName component, UserHandle user, Drawable icon) {
             this.key = key; this.label = label; this.component = component; this.user = user; this.icon = icon;
         }
@@ -42,7 +42,7 @@ public final class AppCatalog {
                     Drawable icon;
                     try { icon = info.getBadgedIcon(context.getResources().getDisplayMetrics().densityDpi); }
                     catch (RuntimeException ex) { icon = context.getPackageManager().getDefaultActivityIcon(); }
-                    next.add(new Entry(key, info.getLabel().toString(), info.getComponentName(), user, icon));
+                    Entry entry=new Entry(key, info.getLabel().toString(), info.getComponentName(), user, icon);entry.category=info.getApplicationInfo().category;next.add(entry);
                 }
             } catch (SecurityException | IllegalStateException ignored) { /* Locked/unavailable profile. */ }
         }
@@ -51,7 +51,7 @@ public final class AppCatalog {
     }
     public void apply(List<Entry> next) { entries.clear(); entries.addAll(next); byKey.clear(); for (Entry e : next) byKey.put(e.key, e); }
     PinnedShortcuts shortcuts;
-    Drawable icon(LauncherStore.Item item){if(PinnedShortcuts.isShortcut(item))return shortcuts==null?null:shortcuts.icon(item);Entry entry=find(item.key);return entry==null?null:entry.icon;}
+    Drawable icon(LauncherStore.Item item){if(item.folder())return new FolderPreviewDrawable(item,this);if(PinnedShortcuts.isShortcut(item))return shortcuts==null?null:shortcuts.icon(item);Entry entry=find(item.key);return entry==null?null:entry.icon;}
     public Entry find(String key) { return byKey.get(key); }
     public List<Entry> filter(String text, boolean builtins) {
         String q = text.toLowerCase(java.util.Locale.ROOT).trim(); List<Entry> out = new ArrayList<>();

@@ -14,16 +14,25 @@ import java.util.List;
 @android.annotation.SuppressLint("ViewConstructor")
 final class SettingsPreview extends View {
     private final SettingsModel model;private final AppCatalog catalog;private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Drawable[] scenes=new Drawable[4];private Drawable material;private String page="home";private boolean dragging;private float sx,sy;
+    private final Drawable[] scenes=new Drawable[4];private Drawable material;private String page="home";private boolean dragging;private float sx,sy;private android.animation.ValueAnimator transitionAnimator;private float transitionProgress;private boolean transitionRunning;private int lastTransition=-1;
     SettingsPreview(Context context,SettingsModel model,AppCatalog catalog){super(context);this.model=model;this.catalog=catalog;int[] ids={R.drawable.scene_spatial,R.drawable.scene_gravity,R.drawable.scene_holographic,R.drawable.scene_pond};for(int i=0;i<4;i++)scenes[i]=context.getDrawable(ids[i]);setCameraDistance(Ui.dp(context,1800));setElevation(Ui.dp(context,9));setOutlineProvider(new android.view.ViewOutlineProvider(){@Override public void getOutline(View view,android.graphics.Outline outline){outline.setRoundRect(0,0,view.getWidth(),view.getHeight(),Ui.dp(context,page.equals("folders")?model.value("folder_radius"):18));outline.setAlpha(.5f);}});setFocusable(true);material=Ui.satin(context,0xA348A3C3,0xB4132B49,12);setContentDescription("Live 3D settings preview. Drag to rotate; settings below change this preview.");}
-    void page(String value){page=value;invalidate();}
-    void refresh(){material=Ui.satin(getContext(),0xA348A3C3,0xB4132B49,12);setCameraDistance(Ui.dp(getContext(),2400-model.crystal.depth()*12));invalidateOutline();invalidate();if(model.store.reducedMotion){setRotationX(0);setRotationY(0);}}
+    void page(String value){page=value;if(value.equals("motion"))playTransition();else{if(transitionAnimator!=null)transitionAnimator.cancel();transitionRunning=false;}invalidate();}
+    void refresh(){if(lastTransition!=model.store.transition){lastTransition=model.store.transition;if(page.equals("motion"))playTransition();}material=Ui.satin(getContext(),0xA348A3C3,0xB4132B49,12);setCameraDistance(Ui.dp(getContext(),2400-model.crystal.depth()*12));invalidateOutline();invalidate();if(model.store.reducedMotion){setRotationX(0);setRotationY(0);}}
+    void playTransition(){
+        if(transitionAnimator!=null)transitionAnimator.cancel();transitionRunning=false;transitionProgress=0;
+        setContentDescription("Preview: "+LauncherStore.TRANSITIONS[model.store.transition]+" desktop transition");
+        if(model.store.reducedMotion||!android.animation.ValueAnimator.areAnimatorsEnabled()||model.store.transition==15){invalidate();return;}
+        transitionRunning=true;transitionAnimator=android.animation.ValueAnimator.ofFloat(0,1);transitionAnimator.setDuration(1200);transitionAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        transitionAnimator.addUpdateListener(a->{transitionProgress=(float)a.getAnimatedValue();invalidate();});transitionAnimator.addListener(new android.animation.AnimatorListenerAdapter(){@Override public void onAnimationEnd(android.animation.Animator a){transitionRunning=false;invalidate();}});transitionAnimator.start();
+    }
+    @Override protected void onDetachedFromWindow(){if(transitionAnimator!=null)transitionAnimator.cancel();super.onDetachedFromWindow();}
     void tilt(float x,float y){if(dragging||model.store.reducedMotion)return;setRotationX(-y*5);setRotationY(x*7);}
     @Override protected void onDraw(Canvas c){
         super.onDraw(c);float d=getResources().getDisplayMetrics().density,w=getWidth(),h=getHeight();RectF area=new RectF(0,0,w,h);Path path=new Path();float radius=(page.equals("folders")?model.value("folder_radius"):18)*d;path.addRoundRect(area,radius,radius,Path.Direction.CW);int saved=c.save();c.clipPath(path);
         Drawable scene=scenes[model.store.mode];scene.setBounds(0,0,(int)w,(int)h);scene.draw(c);paint.setColor(0x6B071522);c.drawRect(area,paint);
+        int transformed=c.save();if(transitionRunning){boolean incoming=transitionProgress>=.5f;float amount=incoming?2-2*transitionProgress:2*transitionProgress;PageTransitions.Frame frame=PageTransitions.frame(model.store.transition,amount,1,incoming);c.saveLayerAlpha(0,0,w,h,Math.round(frame.alpha*255));PageTransitions.canvas(c,frame,w,h);}
         boolean folder=page.equals("folders"),drawer=page.equals("drawer");int columns=folder?model.value("folder_columns"):drawer?Math.min(8,model.value("drawer_columns")+(getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE?2:0)):model.value("grid_columns");
-        List<LauncherStore.Item> items=new ArrayList<>();if(folder&&!model.store.folders().isEmpty())items.addAll(model.store.folders().get(0).children);else if(drawer){for(AppCatalog.Entry entry:catalog.entries){items.add(new LauncherStore.Item(entry.key,entry.label));if(items.size()>=columns*2)break;}}else items.addAll(model.store.pages.get(model.store.page));
+        List<LauncherStore.Item> items=new ArrayList<>();if(folder&&!model.store.folders().isEmpty())items.addAll(model.store.folders().get(0).children);else if(drawer){for(AppCatalog.Entry entry:catalog.entries){items.add(new LauncherStore.Item(entry.key,entry.label));if(items.size()>=columns*2)break;}}else items.addAll(model.store.pages.get((model.store.page+(transitionRunning&&transitionProgress>=.5f?1:0))%model.store.pageCount()));
         float top=20*d,padding=12*d+model.value("desktop_padding")*d*.25f;
         if(folder&&model.value("folder_title")==1){text(c,model.store.folders().isEmpty()?"Folder":model.store.folders().get(0).label,w/2,16*d,11*d,Ui.TEXT);top=32*d;}
         if(folder&&!items.isEmpty())columns=Math.min(columns,items.size());
@@ -44,6 +53,7 @@ final class SettingsPreview extends View {
             Drawable icon=catalog.icon(item);if(icon==null)icon=new IconTile.BuiltinIcon(item.key);android.graphics.Rect old=icon.copyBounds();int inset=Math.round(size*.12f);icon.setBounds(Math.round(tile.left)+inset,Math.round(tile.top)+inset,Math.round(tile.right)-inset,Math.round(tile.bottom)-inset);icon.draw(c);icon.setBounds(old);
             if(labels){String label=IconLabel.display(item.label);text(c,label,x,y+size+font+2*d,font,model.labelColor());}
         }
+        c.restoreToCount(transformed);
         if(model.value("show_dock")==1&&!folder&&!drawer){int opacity=Math.max(50,Math.min(235,255*(100-model.crystal.transparency())/100+80));paint.setColor(model.value("dock_background")==1?(opacity<<24)|0x00223E58:0);float curve=Math.min(dockHeight/2,model.value("dock_radius")*d*.35f);c.drawRoundRect(new RectF(padding,h-4*d-dockHeight,w-padding,h-4*d),curve,curve,paint);text(c,"Start     Search     Controls"+(model.value("dock_clock")==1?"     12:00":""),w/2,h-4*d-dockHeight/2+3*d,9*d,Ui.TEXT);}
         c.restoreToCount(saved);
     }

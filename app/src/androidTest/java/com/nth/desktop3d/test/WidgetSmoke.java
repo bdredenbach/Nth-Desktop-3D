@@ -47,10 +47,17 @@ final class WidgetSmoke {
         int second=addWidget(false);await(()->widget(second)!=null,"Second widget missing");assertOccupancy();
         DesktopGrid.Cell before=cell("widget:"+second);moveWidget(second,1,2);
         check(cell("widget:"+second).x==before.x&&cell("widget:"+second).y==before.y,"Widget-on-widget drop did not roll back");assertOccupancy();
-        View firstView=widget(first);hold(firstView);clickSystemText("Resize");idle(250);
+        View firstView=widget(first);hold(firstView);clickSystemText("Padding");idle(300);
+        check(!store().preferences.getBoolean("widget_padding_"+first,true),"Padding hold option did not persist");
+        check(firstView.getPaddingLeft()==0&&firstView.getPaddingRight()==0&&firstView.getPaddingTop()==0&&firstView.getPaddingBottom()==0,"Padding option did not reach the actual hosted widget");
+        main(()->invokeDesktop("clearSelection"));hold(firstView);clickSystemText("Resize");idle(250);
         int[] location=position(firstView);int width=firstView.getWidth(),height=firstView.getHeight();
         drag(location[0]+width,location[1]+height/2f,metric("cw"),0,false);
         await(()->cell("widget:"+first).w==3,"Resize handle did not snap to a three-column width");assertOccupancy();capture("widget-resize-handles");
+        int[] edgeLocation=position(firstView);drag(edgeLocation[0]+firstView.getWidth()-2,edgeLocation[1]+firstView.getHeight()*.25f,-metric("cw"),0,false);
+        await(()->cell("widget:"+first).w==2,"The full resize edge away from its midpoint could not be grabbed");assertOccupancy();
+        edgeLocation=position(firstView);drag(edgeLocation[0]+firstView.getWidth()-2,edgeLocation[1]+firstView.getHeight()*.25f,metric("cw"),0,false);
+        await(()->cell("widget:"+first).w==3,"Full-edge resizing could not expand again");assertOccupancy();
         main(()->invokeDesktop("clearSelection"));
         for(boolean folder:new boolean[]{true,false}){
             LauncherStore.Item selected=null;

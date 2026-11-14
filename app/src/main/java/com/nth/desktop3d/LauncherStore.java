@@ -12,9 +12,9 @@ import java.util.UUID;
 /** One canonical layout; visual mode changes never rewrite shortcut identities. */
 public final class LauncherStore {
     public static final String[] MODES = {"Spatial Desktop", "Gravity Playground", "Holographic Depth", "Living Pond"};
-    public static final String[] TRANSITIONS = {"Cube", "Carousel", "Fold"};
+    public static final String[] TRANSITIONS = PageTransitions.NAMES;
     public static final String[] MENUS = {"Lift", "Orbit", "Unfold"};
-    public static final int PAGE_COUNT = 3;
+    public static final int PAGE_COUNT = 3, MAX_PAGES = 24;
     public final SharedPreferences preferences;
     public final List<List<Item>> pages = new ArrayList<>();
     public int mode, transition, menuStyle, page, fishCount;
@@ -42,17 +42,17 @@ public final class LauncherStore {
             i.cellX=j.optInt("cellX",-1);i.cellY=j.optInt("cellY",-1);
             if(j.has("shortcutPackage")&&j.has("shortcutId")){i.shortcutPackage=j.getString("shortcutPackage");i.shortcutId=j.getString("shortcutId");i.shortcutUser=j.optLong("shortcutUser",-1);}
             JSONArray a = j.optJSONArray("children");
-            if (a != null && depth < 2) for (int n = 0; n < Math.min(a.length(), 100); n++) i.children.add(read(a.getJSONObject(n), depth + 1));
+            if (a != null && depth < 2) for (int n = 0; n < Math.min(a.length(), 1000); n++) i.children.add(read(a.getJSONObject(n), depth + 1));
             return i;
         }
     }
     public LauncherStore(Context context) {
         preferences = context.getSharedPreferences("desktop3d", Context.MODE_PRIVATE);
-        for (int n = 0; n < PAGE_COUNT; n++) pages.add(new ArrayList<>());
+        for (int n = 0; n < Math.max(PAGE_COUNT,Math.min(MAX_PAGES,preferences.getInt("page_count",PAGE_COUNT))); n++) pages.add(new ArrayList<>());
         mode = Math.max(0, Math.min(3, preferences.getInt("mode", 0)));
-        transition = Math.max(0, Math.min(2, preferences.getInt("transition", 0)));
+        transition = Math.max(0, Math.min(TRANSITIONS.length-1, preferences.getInt("transition", 0)));
         menuStyle = Math.max(0, Math.min(2, preferences.getInt("menuStyle", 0)));
-        page = SceneMath.wrap(preferences.getInt("page", 0), PAGE_COUNT);
+        page = SceneMath.wrap(preferences.getInt("page", 0), pages.size());
         fishCount = Math.max(3, Math.min(7, preferences.getInt("fishCount", 5)));
         strength = SceneMath.clamp(preferences.getFloat("strength", .5f), 0, 1);
         fishSpeed = SceneMath.clamp(preferences.getFloat("fishSpeed", .6f), .2f, 1.5f);
@@ -60,7 +60,7 @@ public final class LauncherStore {
         shadows = preferences.getBoolean("shadows", true); ripples = preferences.getBoolean("ripples", true); ambient = preferences.getBoolean("ambient", true);
         try {
             JSONArray all = new JSONArray(preferences.getString("layout", "[]"));
-            for (int n = 0; n < Math.min(PAGE_COUNT, all.length()); n++) {
+            for (int n = 0; n < Math.min(pages.size(), all.length()); n++) {
                 JSONArray items = all.getJSONArray(n);
                 for (int j = 0; j < Math.min(items.length(), 60); j++) pages.get(n).add(Item.read(items.getJSONObject(j), 0));
             }
@@ -77,8 +77,10 @@ public final class LauncherStore {
             preferences.edit().putBoolean("seeded", true).apply(); save();
         }
     }
+    public int pageCount(){return pages.size();}
+    public int appendPage(){if(pages.size()>=MAX_PAGES)return -1;pages.add(new ArrayList<>());save();return pages.size()-1;}
     public boolean add(int page, String key, String label) {
-        List<Item> items = pages.get(SceneMath.wrap(page, PAGE_COUNT));
+        List<Item> items = pages.get(SceneMath.wrap(page, pages.size()));
         for (Item i : items) if (i.key.equals(key) && !i.folder()) return false;
         if (items.size() >= 60) return false;
         items.add(new Item(key, label)); save(); return true;
@@ -90,7 +92,7 @@ public final class LauncherStore {
         try { for (List<Item> p : pages) { JSONArray a = new JSONArray(); for (Item i : p) a.put(i.json()); all.put(a); } }
         catch (JSONException e) { throw new IllegalStateException("Cannot serialize desktop", e); }
         preferences.edit().putString("layout", all.toString()).putInt("mode", mode).putInt("transition", transition)
-            .putInt("menuStyle", menuStyle).putInt("page", page).putInt("fishCount", fishCount).putFloat("strength", strength)
+            .putInt("page_count", pages.size()).putInt("menuStyle", menuStyle).putInt("page", page).putInt("fishCount", fishCount).putFloat("strength", strength)
             .putFloat("fishSpeed", fishSpeed).putBoolean("tilt", tilt).putBoolean("reducedMotion", reducedMotion)
             .putBoolean("shadows", shadows).putBoolean("ripples", ripples).putBoolean("ambient", ambient).apply();
     }
