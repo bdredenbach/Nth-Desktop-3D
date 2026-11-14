@@ -11,7 +11,7 @@ final class LauncherWidgetView extends AppWidgetHostView {
     interface Gestures {void start();void move(float dx,float dy);void end(boolean cancel);void menu();}
     private Gestures gestures;
     private float downX,downY;
-    private boolean armed,moving,eligible,paddingEnabled=true;
+    private boolean armed,moving,eligible,paddingEnabled=false;
     private final int slop;
     private final Runnable hold=()->{
         if(!eligible||gestures==null)return;
@@ -23,7 +23,7 @@ final class LauncherWidgetView extends AppWidgetHostView {
     };
     LauncherWidgetView(Context context){super(context);setClickable(true);slop=ViewConfiguration.get(context).getScaledTouchSlop();}
     void setGestures(Gestures gestures){this.gestures=gestures;}
-    void padding(boolean enabled){paddingEnabled=enabled;android.appwidget.AppWidgetProviderInfo info=getAppWidgetInfo();android.graphics.Rect p=enabled&&info!=null?getDefaultPaddingForWidget(getContext(),info.provider,null):new android.graphics.Rect();setPadding(p.left,p.top,p.right,p.bottom);post(this::reportSize);}
+    void padding(boolean expanded){paddingEnabled=expanded;android.appwidget.AppWidgetProviderInfo info=getAppWidgetInfo();android.graphics.Rect p=!expanded&&info!=null?getDefaultPaddingForWidget(getContext(),info.provider,null):new android.graphics.Rect();setPadding(p.left,p.top,p.right,p.bottom);post(this::reportSize);}
     private void reportSize(){
         if(!isAttachedToWindow()||getWidth()<=0||getHeight()<=0)return;float density=getResources().getDisplayMetrics().density;android.os.Bundle options=new android.os.Bundle();options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_HOST_CATEGORY,android.appwidget.AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN);
         int w=Math.max(1,Math.round((getWidth()-getPaddingLeft()-getPaddingRight())/density)),h=Math.max(1,Math.round((getHeight()-getPaddingTop()-getPaddingBottom())/density));

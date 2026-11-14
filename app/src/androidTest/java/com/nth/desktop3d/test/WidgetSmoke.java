@@ -48,7 +48,7 @@ final class WidgetSmoke {
         DesktopGrid.Cell before=cell("widget:"+second);moveWidget(second,1,2);
         check(cell("widget:"+second).x==before.x&&cell("widget:"+second).y==before.y,"Widget-on-widget drop did not roll back");assertOccupancy();
         View firstView=widget(first);hold(firstView);clickSystemText("Padding");idle(300);
-        check(!store().preferences.getBoolean("widget_padding_"+first,true),"Padding hold option did not persist");
+        check(store().preferences.getBoolean("widget_padding_"+first,false),"Padding hold option did not persist");
         check(firstView.getPaddingLeft()==0&&firstView.getPaddingRight()==0&&firstView.getPaddingTop()==0&&firstView.getPaddingBottom()==0,"Padding option did not reach the actual hosted widget");
         main(()->invokeDesktop("clearSelection"));hold(firstView);clickSystemText("Resize");idle(250);
         int[] location=position(firstView);int width=firstView.getWidth(),height=firstView.getHeight();

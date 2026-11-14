@@ -36,6 +36,7 @@ final class SettingsModel {
         bool("dock_clock","dock","Dock clock","Show the clock in the dock.",true,false);
         pref("dock_padding","dock","Dock padding","Space inside the dock in dp.",4,14,1,7,false);
         pref("dock_radius","dock","Dock corner radius","Round the dock surface in dp.",0,36,2,24,false);
+        enumeration("folder_animation","folders","Folder opening animation","Independent of menu opening animation. Tap the preview to replay.",PanelAnimations.FOLDERS,5,false);
         pref("folder_columns","folders","Folder columns","Number of icon columns inside folders.",2,6,1,3,false);
         enumeration("folder_shape","folders","Folder icon shape","Shape of folder thumbnails on Home and in the drawer.",new String[]{"Circle","Rounded square","Square"},0,true);
         pref("folder_icon_size","folders","Folder icon size","Icon size inside a folder, as a percentage.",70,130,5,100,false);
@@ -47,7 +48,7 @@ final class SettingsModel {
         bool("drawer_labels","drawer","App drawer labels","Show installed app names.",true,false);
         bool("search_folders","search","Search folders","Include matching desktop folders in app searches.",true,false);
         bool("search_keyboard","search","Open search keyboard","Focus the app search field when the drawer opens.",false,false);
-        bool("cloud_ai","search","Cloud questions for Nth Nota","Send your question and current setting values to Nth Nota's cloud service. Local setting commands always work offline.",false,false);
+        bool("cloud_ai","search","Cloud questions for Nth Nota AI","Send your question and current setting values to Nth Nota's cloud service. Local setting commands always work offline.",false,false);
         bool("cards_in_search","cards","Cards in app search","Show the Cards action beside filtered app results.",true,false);
         for(String[] type:CrystalCards.TYPES)bool("card_"+type[0],"cards",type[1],"Show this crystal card.",true,false);
         enumeration("home_rotation","look","Home screen rotation","Follow Android rotation, allow all device orientations, or keep a fixed orientation.",new String[]{"Follow system","Auto rotate","Portrait","Landscape"},0,false);
@@ -74,9 +75,7 @@ final class SettingsModel {
         add("ripples","motion","Water ripples","Respond to touches in Living Pond.",0,1,1,null,true,false,()->s.ripples?1:0,v->s.ripples=v==1);
         add("shadows","motion","Scene shadows","Draw fish and leaf shadows in Living Pond.",0,1,1,null,true,false,()->s.shadows?1:0,v->s.shadows=v==1);
         add("crystal_shadows","look","Icon shadows","Elevation shadows under Crystal icon surfaces.",0,1,1,null,true,true,()->c.shadows()?1:0,v->c.setShadows(v==1));
-        enumeration("gesture_up","gestures","Swipe up","Action on empty desktop space.",new String[]{"App drawer","Settings","Nth Nota","Device controls","None"},0,false);
-        enumeration("gesture_down","gestures","Swipe down","Applies to empty space; workspace scrolling keeps priority.",new String[]{"App drawer","Settings","Nth Nota","Device controls","None"},3,false);
-        enumeration("gesture_double","gestures","Double tap","Double tap empty desktop space.",new String[]{"App drawer","Settings","Nth Nota","Device controls","None"},4,false);
+        for(String[] gesture:GestureAssignments.GESTURES)enumeration(gesture[0],"gestures",gesture[1],"Choose a launcher action, installed app or saved shortcut.",GestureAssignments.ACTIONS,gesture[0].equals("gesture_up")?0:gesture[0].equals("gesture_down")?3:gesture[0].equals("gesture_pinch_in")?14:4,false);
         add("feed_enabled","feed","Enable feed","Open your selected feed from the first desktop's edge.",0,1,1,null,true,false,()->c.feedEnabled()?1:0,v->c.setFeedEnabled(v==1));
         add("feed_provider","feed","Feed provider","Google Discover opens inside the launcher using the Google app. Nth Feed remains available.",0,3,1,new String[]{"Google Discover","Google App","Nth Feed (built in)","Off"},false,false,c::feedProvider,c::setFeedProvider);
         add("feed_edge","feed","Feed edge swipe","Allow a right swipe on the first desktop to open the feed.",0,1,1,null,true,false,()->c.feedEdgeSwipe()?1:0,v->c.setFeedEdgeSwipe(v==1));
@@ -100,12 +99,14 @@ final class SettingsModel {
     void endGesture(){gesture=false;gestureUndo=null;if(pendingRebuild){pendingRebuild=false;changed.apply(true);}}
     boolean canUndo(){return undo!=null;}
     String undo(){if(undo==null)return "There is no setting change to undo.";Runnable previous=undo;undo=null;previous.run();return lastChange="Last setting change undone.";}
-    JSONObject exportSettings()throws org.json.JSONException {JSONObject values=new JSONObject();for(Spec s:specs.values())if(!s.id.equals("cloud_ai"))values.put(s.id,s.get.getAsInt());return new JSONObject().put("format","nth-desktop-3d-settings").put("version",1).put("values",values);}
+    JSONObject exportSettings()throws org.json.JSONException {JSONObject values=new JSONObject();for(Spec s:specs.values())if(!s.id.equals("cloud_ai"))values.put(s.id,s.get.getAsInt());JSONObject targets=new JSONObject();for(String[] gesture:GestureAssignments.GESTURES){String target=store.preferences.getString(gesture[0]+"_target","");if(!target.isEmpty())targets.put(gesture[0],target);}return new JSONObject().put("format","nth-desktop-3d-settings").put("version",1).put("values",values).put("gestureTargets",targets);}
     void importSettings(JSONObject input)throws org.json.JSONException {
         if(!"nth-desktop-3d-settings".equals(input.optString("format"))||input.optInt("version")!=1)throw new org.json.JSONException("Not a supported 3D settings backup.");
         JSONObject values=input.getJSONObject("values");Map<Spec,Integer> next=new LinkedHashMap<>(),old=new LinkedHashMap<>();
         java.util.Iterator<String> keys=values.keys();while(keys.hasNext()){String key=keys.next();Spec s=specs.get(key);if(key.equals("cloud_ai"))continue;Object raw=values.get(key);if(s==null||!(raw instanceof Number)||((Number)raw).doubleValue()!=((Number)raw).intValue())throw new org.json.JSONException("Unsupported setting: "+key);int value=((Number)raw).intValue();if(value<s.min||value>s.max)throw new org.json.JSONException("Invalid value for "+s.title);next.put(s,value);old.put(s,s.get.getAsInt());}
-        Runnable layout=layoutUndo();for(Map.Entry<Spec,Integer> entry:next.entrySet())entry.getKey().put.accept(entry.getValue());store.save();changed.apply(true);undo=()->{for(Map.Entry<Spec,Integer> entry:old.entrySet())entry.getKey().put.accept(entry.getValue());layout.run();store.save();changed.apply(true);};lastChange="Settings restored. Desktop items and notes were kept.";
+        JSONObject targets=input.optJSONObject("gestureTargets");Map<String,String> oldTargets=new LinkedHashMap<>();if(targets!=null){java.util.Iterator<String> targetKeys=targets.keys();while(targetKeys.hasNext()){String key=targetKeys.next();Object target=targets.get(key);if(!key.startsWith("gesture_")||!specs.containsKey(key)||!(target instanceof String)||((String)target).length()>2048)throw new org.json.JSONException("Unsupported gesture target");oldTargets.put(key,store.preferences.getString(key+"_target",""));}}
+        if(targets!=null)for(String key:oldTargets.keySet())store.preferences.edit().putString(key+"_target",targets.getString(key)).apply();
+        Runnable layout=layoutUndo();for(Map.Entry<Spec,Integer> entry:next.entrySet())entry.getKey().put.accept(entry.getValue());store.save();changed.apply(true);undo=()->{for(Map.Entry<String,String> target:oldTargets.entrySet())store.preferences.edit().putString(target.getKey()+"_target",target.getValue()).apply();for(Map.Entry<Spec,Integer> entry:old.entrySet())entry.getKey().put.accept(entry.getValue());layout.run();store.save();changed.apply(true);};lastChange="Settings restored. Desktop items and notes were kept.";
     }
     int value(String id){return specs.get(id).get.getAsInt();}
     int labelColor(){return TEXT_COLORS[value("label_color")];}

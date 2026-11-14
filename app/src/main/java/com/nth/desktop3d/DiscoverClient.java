@@ -15,7 +15,7 @@ import java.util.ArrayDeque;
 final class DiscoverClient {
     static final String GOOGLE="com.google.android.googlequicksearchbox";
     private static final long STARTUP_MS=15000, DISPLAY_MS=8000;
-    private final Activity activity;private final View desktop;private final Runnable unavailable,attention;
+    private final Activity activity;private final View desktop;private final Runnable unavailable,attention;private Runnable desktopReturn=()->{};
     private final Handler main=new Handler(Looper.getMainLooper());private final ArrayDeque<String> events=new ArrayDeque<>();
     private ILauncherOverlay overlay;private ServiceConnection connection;private ILauncherOverlayCallback activeCallback;
     private boolean bound,ready,usable,requested,resumed,started,destroyed,showing,opening,allowScroll,attached,failed,reporting;
@@ -23,6 +23,8 @@ final class DiscoverClient {
     private long began;private Runnable deadline,recovery;private boolean legacyAttach;private String windowContract="Not submitted";
     DiscoverClient(Activity activity,View desktop,Runnable unavailable,Runnable attention){this.activity=activity;this.desktop=desktop;this.unavailable=unavailable;this.attention=attention;}
     private long versionCode(PackageInfo info){return Build.VERSION.SDK_INT>=28?info.getLongVersionCode():info.versionCode;}
+    void onDesktopReturn(Runnable restore){desktopReturn=restore;}
+    private void returned(){main.post(()->{if(!destroyed)desktopReturn.run();});}
     String status(){return status;}
     boolean showing(){return showing;}
     boolean isConnecting(){return requested&&!showing&&!usable;}
@@ -85,7 +87,7 @@ final class DiscoverClient {
             if(destroyed||token!=generation||attachToken!=attachment||failed||!resumed||(!requested&&!allowScroll&&!showing))return;
             float p=Float.isFinite(progress)?Math.max(0,Math.min(1,progress)):0;boolean before=showing;
             if(p>.01f){desktop.setTranslationX(desktop.getWidth()*p);if(!before)visible("Google reported visible content; startup recovery stopped");}
-            else if(before){showing=false;requested=false;opening=false;allowScroll=false;cancelDeadline();cancelRecovery();desktop.setTranslationX(0);result=ready?"READY":"IDLE";status="Google Discover overlay closed";event("Google overlay closed");persist();}
+            else if(before){showing=false;requested=false;opening=false;allowScroll=false;cancelDeadline();cancelRecovery();desktop.setTranslationX(0);result=ready?"READY":"IDLE";status="Google Discover overlay closed";event("Google overlay closed");persist();returned();}
         });}
         public void overlayStatusChanged(int value){main.post(()->{
             if(destroyed||token!=generation||attachToken!=attachment||overlay==null||failed)return;
@@ -144,9 +146,9 @@ final class DiscoverClient {
 
     private void schedule(long delay,boolean display){cancelDeadline();int token=generation,request=attempt;deadline=()->{if(destroyed||token!=generation||request!=attempt||!requested||showing||failed)return;if(display){requested=false;opening=false;result="OPEN_UNCONFIRMED";status="Google is connected. Automatic retries are paused because display confirmation is missing. Keep the feed open or retry when needed.";event("Display confirmation missing; kept connection and paused automatic recovery");persist();attention.run();}else if(overlay==null)fail("SERVICE_TIMEOUT","Android accepted the bind request but Google did not return a service within 15 seconds.");else if(serviceStatus<0)fail("NO_STATUS","Google connected but sent no readiness response within 15 seconds. Its access rules may reject this build.");else fail("CONTENT_NOT_READY","Google connected but reported that feed content was not ready after 15 seconds. Check Discover in the Google app, then retry.");};main.postDelayed(deadline,delay);}
     private void cancelDeadline(){if(deadline!=null)main.removeCallbacks(deadline);deadline=null;}
-    boolean close(){boolean was=showing||requested||opening||needsAttention();boolean canceled=requested&&!failed;boolean wasVisible=showing;requested=false;opening=false;allowScroll=false;cancelDeadline();cancelRecovery();if(overlay!=null)quiet(()->overlay.closeOverlay(0));showing=false;desktop.setTranslationX(0);if(canceled){result="CANCELED";status="Google Discover connection canceled";event("User left or canceled the pending connection");persist();}else if(!failed&&(wasVisible||needsAttention())){result=ready?"READY":"IDLE";status=ready?"Google Discover connected":"Google Discover closed";event("User closed the feed");persist();}return was;}
-    private void lost(int token,String code,String message){if(destroyed||token!=generation)return;boolean waiting=requested;ready=usable=false;overlay=null;attached=false;showing=false;desktop.setTranslationX(0);event(code);if(waiting)fail(code,message);else{if(!result.equals("CANCELED")){result=code;status=message;}persist();}}
-    private void fail(String code,String message){boolean notify=requested&&!destroyed;failed=true;requested=false;opening=false;allowScroll=false;ready=false;cancelDeadline();cancelRecovery();result=code;status=message;event(code+" · "+message);if(overlay!=null)quiet(()->overlay.closeOverlay(0));showing=false;desktop.setTranslationX(0);persist();if(notify&&!reporting){reporting=true;main.post(()->{reporting=false;if(!destroyed&&failed)unavailable.run();});}}
+    boolean close(){boolean was=showing||requested||opening||needsAttention();boolean canceled=requested&&!failed;boolean wasVisible=showing;requested=false;opening=false;allowScroll=false;cancelDeadline();cancelRecovery();if(overlay!=null)quiet(()->overlay.closeOverlay(0));showing=false;desktop.setTranslationX(0);if(canceled){result="CANCELED";status="Google Discover connection canceled";event("User left or canceled the pending connection");persist();}else if(!failed&&(wasVisible||needsAttention())){result=ready?"READY":"IDLE";status=ready?"Google Discover connected":"Google Discover closed";event("User closed the feed");persist();}if(was)returned();return was;}
+    private void lost(int token,String code,String message){if(destroyed||token!=generation)return;boolean waiting=requested;ready=usable=false;overlay=null;attached=false;showing=false;desktop.setTranslationX(0);returned();event(code);if(waiting)fail(code,message);else{if(!result.equals("CANCELED")){result=code;status=message;}persist();}}
+    private void fail(String code,String message){boolean notify=requested&&!destroyed;failed=true;requested=false;opening=false;allowScroll=false;ready=false;cancelDeadline();cancelRecovery();result=code;status=message;event(code+" · "+message);if(overlay!=null)quiet(()->overlay.closeOverlay(0));showing=false;desktop.setTranslationX(0);returned();persist();if(notify&&!reporting){reporting=true;main.post(()->{reporting=false;if(!destroyed&&failed)unavailable.run();});}}
     private interface Remote {void run()throws RemoteException;}
     private boolean remote(String stage,Remote work){try{work.run();return true;}catch(RemoteException|RuntimeException error){remoteFailure(stage,error);return false;}}
     private void quiet(Remote work){try{work.run();}catch(RemoteException|RuntimeException ignored){}}

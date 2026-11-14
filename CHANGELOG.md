@@ -1,3 +1,12 @@
+## 0.7.3
+
+- Independent folder opening effects and shared-pose animated menu/folder previews, replayed on selection or tapping the preview.
+- Expanded Home/desktop gesture assignments, including two-finger movement/rotation, double-tap swipes, app and saved shortcut targets, and optional Android system actions.
+- Swipe up over a folder opens the assigned action; top-of-drawer pull-down closes it. Desktop app/folder drags now use the same continuous native edge-paging path as drawer drags.
+- Nth Nota AI has a scrollable examples menu that inserts commands, clearer vague-request choices, a smaller italic placeholder, and no duplicate shortcut/search field on its page. Preview height recovers after keyboard dismissal.
+- Restore motion listeners and rendering on desktop/focus return. Widget Padding now expands content when selected; existing visual padding choices migrate without changing their appearance.
+- Optional setup guide with default Home, media/system gesture access, App info recovery, calendar and approximate weather location. Returning from Android does not advance a step. Weather coordinates are used only after selecting Use my location.
+
 # Changelog
 
 ## 0.7.2 — 2026-11-14

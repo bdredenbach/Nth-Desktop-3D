@@ -1,3 +1,13 @@
+## 0.7.3 interaction update
+
+Folders have their own opening animation under Settings → Folders. Menu and folder choices replay in the live preview; tap the preview to replay again. Settings → Gestures includes Home, swipes, double-tap swipes, two-finger movement, pinch and rotation, with launcher actions, installed apps and saved shortcuts. Notification shade, quick settings, recent apps and screen lock use the optional Nth gesture actions accessibility service; it does not retrieve window content or subscribe to events.
+
+Swipe up starting over a desktop folder to use the assigned swipe-up action. Pull down at the top of the app drawer to close it. Hold and drag a desktop folder to an edge to change screens or create a screen on the right. Widget Padding is checked when content is expanded; existing visual settings are preserved during migration.
+
+Nth Nota AI offers a three-dot command examples menu that inserts a request without executing it. Vague requests offer choices. The Nota page hides the redundant settings search and shortcut, and its preview retains its height after the keyboard closes.
+
+Open Settings → Launcher → Setup & permissions to revisit optional access. Returning from Android stays on the current step, with Open App info available for restricted-setting recovery. Weather location remains opt-in; city entry still works without a location grant.
+
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
@@ -70,7 +80,7 @@ of the dock, and panel positions respect asymmetric cutouts.
 reduced motion, menu and transition styles, fish count/speed, ripples and shadows.
 Android's disabled-animation setting is respected. Battery saver pauses tilt
 and physics and limits scenery rendering to 30 fps. Sensor listeners and rendering
-stop when the Activity pauses. No background service or network permission is used.
+stop when the Activity pauses. Feed and weather requests use network access; optional media and gesture services run only after access is explicitly granted in Android settings.
 
 ## Build and verify
 

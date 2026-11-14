@@ -46,7 +46,7 @@ public final class SmokeInstrumentation extends Instrumentation {
                 // A saved user note is the settings-only fixture. The core suite
                 // separately verifies creating and reopening it through the UI.
                 check(getTargetContext().getSharedPreferences("desktop3d",0).edit().putString("note","3D persistence smoke test").commit(),"Could not seed the saved note");
-                activity=new SettingsSmoke(this,activity,outputDirectory).run();
+                activity=new SettingsSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.Polish073Smoke(this,activity,outputDirectory).run();
                 passed(s,"Settings preview, Nota, Undo, rotation, persistence and document backup checks passed.");return;
             }
             if(phase.equals("widgets")){
