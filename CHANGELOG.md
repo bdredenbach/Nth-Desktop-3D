@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.2 — 2026-11-13
+
+- Preserve the activity token in the launcher window attributes sent to Google. Do not replace it with the view-window token, which belongs to Android subwindows.
+- Report the window contract and label attachment as a submitted request rather than a remote acknowledgement. Diagnose a missing activity token separately.
+- Strengthen the separate-UID overlay fixture to expose API 11 and create a normal application window using the activity token; a panel window previously accepted the wrong token. Retain legacy and failure-path coverage.
+- Keep the existing R2 signing identity, one-app normal/Discover Test variants and saved launcher data. Actual Google Discover readiness still needs the owner-phone check.
+
 ## 0.6.1 — 2026-11-13
 
 - Negotiate the Google overlay service API, use legacy window/lifecycle methods only for older APIs, and send modern activity state once for current services.

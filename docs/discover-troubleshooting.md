@@ -1,6 +1,8 @@
-# Google Discover overlay troubleshooting — 0.6.1
+# Google Discover overlay troubleshooting — 0.6.2
 
 ## What changed
+
+The owner's Pixel 10 report from 0.6.1 showed successful binding to Google app 17.72.17 / overlay API 11, followed by status 0. This does not prove that Google created an overlay window. Comparison with the reference client found that Nth replaced the activity token in the window attributes with `View.getWindowToken()`. Version 0.6.2 preserves the original activity token. The report records the token source, window type and whether it differs from the view token, without recording Binder identifiers. A missing token has its own outcome. Attachment now means the one-way request was sent, not that Google acknowledged a surface. Whether this mismatch caused Google's status 0 remains an owner-phone test.
 
 The client resolves the installed Google overlay service and reads its `service.api.version`. Older APIs use `windowAttached` and onResume/onPause; modern APIs use `windowAttached2` and started/resumed state bits through `setActivityState`. It no longer sends both lifecycle styles. The bind URI remains the interoperable v7/cv9 form. Client options remain 15.
 
@@ -10,10 +12,10 @@ Each failure keeps its own outcome and message. A later timeout no longer replac
 
 ## Two builds, one installed app
 
-- **Nth-Desktop-3D-0.6.1.apk**: normal non-debuggable release.
-- **Nth-Desktop-3D-0.6.1-Discover-Test.apk**: explicitly labelled debuggable test, intended to test Google's direct-client restriction. It enables Android app debugging, so use the normal release when the experiment is complete.
+- **Nth-Desktop-3D-0.6.2.apk**: normal non-debuggable release.
+- **Nth-Desktop-3D-0.6.2-Discover-Test.apk**: explicitly labelled debuggable test, intended to test Google's direct-client restriction. It enables Android app debugging, so use the normal release when the experiment is complete.
 
-Both have package `com.nth.desktop3d`, code 10083 and the owner's existing R2 certificate. Install either over 0.6.0 without uninstalling. They replace each other; there is no companion package. An emulator checks normal release -> Discover Test -> normal release at equal version code and verifies preferences, desktop layout and notes survive. Both final APK certificates are checked against the prior R2 APK.
+Both have package `com.nth.desktop3d`, code 10084 and the owner's existing R2 certificate. Install either over 0.6.1 without uninstalling. They replace each other; there is no companion package. An emulator checks normal release -> Discover Test -> normal release at equal version code and verifies preferences, desktop layout and notes survive. Both final APK certificates are checked against the prior R2 APK.
 
 ## Owner test on Pixel
 
@@ -34,4 +36,4 @@ https://github.com/LawnchairLauncher/lawnchair/blob/16-dev/lawnchair/src/com/goo
 
 ## Validation boundaries
 
-The native separate-UID fixture enforces modern versus legacy method selection, delays readiness by 3.5 seconds, simulates null/silent/not-ready/refused-display connections, and renders a real child window using the launcher token. Native checks cover report copying and cancel. Full widget, shortcut, settings and native-feed regression remains enabled. Google app acceptance and actual Google content still require the owner-phone test above.
+The native separate-UID fixture enforces modern versus legacy method selection, delays readiness by 3.5 seconds, simulates null/silent/not-ready/refused-display connections, and renders a real TYPE_APPLICATION window using the activity token. The modern fixture exposes API 11; a view-window token cannot satisfy this window contract. Native checks cover report copying and cancel. Full widget, shortcut, settings and native-feed regression remains enabled. Google app acceptance and actual Google content still require the owner-phone test above.

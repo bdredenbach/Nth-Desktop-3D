@@ -20,7 +20,7 @@ final class DiscoverClient {
     private ILauncherOverlay overlay;private ServiceConnection connection;
     private boolean bound,ready,requested,resumed,started,destroyed,showing,opening,allowScroll,attached,failed,reporting;
     private int generation,attempt,apiVersion=1,serviceStatus=-1;private String status="Not connected",result="NOT_TRIED",targetOverride,componentOverride,serviceName="Not resolved",servicePermission="None",googleVersion="Not checked";
-    private long began;private Runnable deadline;
+    private long began;private Runnable deadline;private String windowContract="Not submitted";
     DiscoverClient(Activity activity,View desktop,Runnable unavailable){this.activity=activity;this.desktop=desktop;this.unavailable=unavailable;}
     private long versionCode(PackageInfo info){return Build.VERSION.SDK_INT>=28?info.getLongVersionCode():info.versionCode;}
     String status(){return status;}
@@ -33,7 +33,7 @@ final class DiscoverClient {
     String report(){
         String version="unknown";try{PackageInfo info=activity.getPackageManager().getPackageInfo(activity.getPackageName(),0);version=info.versionName+" ("+versionCode(info)+")";}catch(PackageManager.NameNotFoundException ignored){}
         boolean debug=(activity.getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0;
-        String text="Nth Desktop 3D · Google Discover connection\nLauncher: "+version+"\nBuild: "+(debug?"Discover/debug test":"Normal release")+"\nAndroid: "+Build.VERSION.RELEASE+" (API "+Build.VERSION.SDK_INT+")\nDevice: "+Build.MANUFACTURER+" "+Build.MODEL+"\nGoogle app: "+googleVersion+"\nProvider: "+target()+"\nService: "+serviceName+"\nService permission: "+servicePermission+"\nOverlay API: "+apiVersion+"; client v7/cv9\nOutcome: "+result+"\nStatus: "+status+"\nReady bits: "+serviceStatus+"\nStarted: "+started+", resumed: "+resumed+", attached: "+attached+", visible: "+showing+"\nStartup allowance: 15 seconds; display allowance: 8 seconds\n\nConnection events\n"+String.join("\n",events);
+        String text="Nth Desktop 3D · Google Discover connection\nLauncher: "+version+"\nBuild: "+(debug?"Discover/debug test":"Normal release")+"\nAndroid: "+Build.VERSION.RELEASE+" (API "+Build.VERSION.SDK_INT+")\nDevice: "+Build.MANUFACTURER+" "+Build.MODEL+"\nGoogle app: "+googleVersion+"\nProvider: "+target()+"\nService: "+serviceName+"\nService permission: "+servicePermission+"\nOverlay API: "+apiVersion+"; client v7/cv9\nOutcome: "+result+"\nStatus: "+status+"\nReady bits: "+serviceStatus+"\nStarted: "+started+", resumed: "+resumed+", attach sent: "+attached+", visible: "+showing+"\nWindow: "+windowContract+"\nStartup allowance: 15 seconds; display allowance: 8 seconds\n\nConnection events\n"+String.join("\n",events);
         if(events.isEmpty()){String last=activity.getSharedPreferences("discover_connection",0).getString("last_report","");if(!last.isEmpty())text+="\n\nPrevious attempt\n"+last;}
         return text;
     }
@@ -54,7 +54,7 @@ final class DiscoverClient {
         status="Connecting to Google Discover… Allowing up to 15 seconds for startup.";schedule(STARTUP_MS,false);
     }
     private boolean connect(){
-        final int token=++generation;apiVersion=1;serviceStatus=-1;attached=false;ready=false;serviceName="Not resolved";servicePermission="None";
+        final int token=++generation;apiVersion=1;serviceStatus=-1;attached=false;ready=false;serviceName="Not resolved";servicePermission="None";windowContract="Not submitted";
         PackageManager pm=activity.getPackageManager();
         try{PackageInfo info=pm.getPackageInfo(target(),0);googleVersion=info.versionName+" ("+versionCode(info)+")";if(!info.applicationInfo.enabled){fail("APP_DISABLED","The Google app is disabled. Enable it in App info, then retry.");return false;}}
         catch(PackageManager.NameNotFoundException absent){googleVersion="Not installed";fail("APP_MISSING","The Google app is not installed or is unavailable in this Android profile.");return false;}
@@ -82,8 +82,14 @@ final class DiscoverClient {
     private void attach(int token){
         if(destroyed||token!=generation||overlay==null||failed)return;
         if(!desktop.isAttachedToWindow()){main.postDelayed(()->attach(token),100);return;}
-        if(!remote("Attach window",()->{WindowManager.LayoutParams params=new WindowManager.LayoutParams();params.copyFrom(activity.getWindow().getAttributes());params.token=desktop.getWindowToken();if(apiVersion<3)overlay.windowAttached(params,callback(token),15);else{Bundle bundle=new Bundle();bundle.putParcelable("layout_params",params);bundle.putParcelable("configuration",activity.getResources().getConfiguration());bundle.putInt("client_options",15);bundle.putInt("system_ui_visibility",desktop.getSystemUiVisibility());overlay.windowAttached2(bundle,callback(token));}}))return;
-        attached=true;event("Attached real launcher window token · "+(apiVersion<3?"legacy":"bundle"));state();persist();
+        WindowManager.LayoutParams params=new WindowManager.LayoutParams();params.copyFrom(activity.getWindow().getAttributes());
+        // Google expects the activity token carried by these attributes. The view's
+        // window token identifies a subwindow parent and cannot replace it.
+        if(params.token==null){windowContract="Activity token missing";fail("WINDOW_TOKEN_MISSING","Android has not supplied the launcher's activity window token. Return to the desktop, then retry.");return;}
+        windowContract="Activity attributes; type "+params.type+"; distinct from view token: "+!params.token.equals(desktop.getWindowToken());
+        event("Window contract · "+windowContract);
+        if(!remote("Attach window",()->{if(apiVersion<3)overlay.windowAttached(params,callback(token),15);else{Bundle bundle=new Bundle();bundle.putParcelable("layout_params",params);bundle.putParcelable("configuration",activity.getResources().getConfiguration());bundle.putInt("client_options",15);bundle.putInt("system_ui_visibility",desktop.getSystemUiVisibility());overlay.windowAttached2(bundle,callback(token));}}))return;
+        attached=true;event("Submitted activity window attributes · "+(apiVersion<3?"legacy":"bundle"));state();persist();
     }
     private void openReady(){if(opening||overlay==null||!attached||!resumed||failed)return;opening=true;allowScroll=true;status="Google connected. Waiting for the overlay to appear…";event("Sent openOverlay");if(remote("Open overlay",()->overlay.openOverlay(new CrystalPreferences(activity).feed3dTransition()?1:0)))schedule(DISPLAY_MS,true);}
     private void schedule(long delay,boolean display){cancelDeadline();int token=generation,request=attempt;deadline=()->{if(destroyed||token!=generation||request!=attempt||!requested||showing||failed)return;if(display)fail("DISPLAY_TIMEOUT","Google accepted the connection but did not show its overlay within 8 seconds.");else if(overlay==null)fail("SERVICE_TIMEOUT","Android accepted the bind request but Google did not return a service within 15 seconds.");else if(serviceStatus<0)fail("NO_STATUS","Google connected but sent no readiness response within 15 seconds. Its access rules may reject this build.");else fail("CONTENT_NOT_READY","Google connected but reported that feed content was not ready after 15 seconds. Check Discover in the Google app, then retry.");};main.postDelayed(deadline,delay);}
