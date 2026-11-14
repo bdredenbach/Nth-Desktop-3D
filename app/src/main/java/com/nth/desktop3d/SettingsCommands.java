@@ -22,6 +22,8 @@ public final class SettingsCommands {
         boolean folder=s.contains("folder"),drawer=has(s,"drawer","all apps");
         if(s.matches("(please )?(add|create|new)( (a|an|another|new))*( desktop| home screen)"))return new Command("add_desktop",null,null);
         if(s.matches("(please )?(remove|delete)( (this|the|current|empty))*( desktop| home screen)"))return new Command("remove_desktop",null,null);
+        if((action||navigate)&&has(s,"animation","opening effect")&&folder)return page("choice:folder_animation");
+        if((action||navigate)&&has(s,"animation","opening effect")&&has(s,"menu","menus"))return page("choice:menu_animation");
         if((action||navigate||s.equals("transition animations"))&&has(s,"transition","screen effect")){
             int effect=-1,length=0;for(int i=0;i<PageTransitions.NAMES.length;i++){String name=PageTransitions.NAMES[i].toLowerCase(Locale.ROOT);if(name.length()>length&&s.matches(".*\\b"+Pattern.quote(name)+"\\b.*")){effect=i;length=name.length();}}if(effect>=0)return new Command("transition",effect,null);
             return page("choice:transition");

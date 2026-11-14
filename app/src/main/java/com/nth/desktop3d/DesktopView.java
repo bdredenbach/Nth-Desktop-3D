@@ -16,7 +16,7 @@ import java.util.List;
 /** Accessible shortcut planes, with bounded physics and native inverse-transform input. */
 @android.annotation.SuppressLint("ViewConstructor") // Requires the canonical layout and launcher action host.
 final class DesktopView extends FrameLayout {
-    interface Host { void open(LauncherStore.Item item);void menu(LauncherStore.Item item);void backgroundMenu();void pageChanged();void ripple(float x,float y);void startMenu();boolean feed();void configureWidget(int id);void gesture(int action); }
+    interface Host { void open(LauncherStore.Item item);void menu(LauncherStore.Item item);void backgroundMenu();void pageChanged();void ripple(float x,float y);void startMenu();boolean feed();void configureWidget(int id);void gesture(int action);void assignedGesture(String id);boolean startItemDrag(View tile,LauncherStore.Item item); }
     private final LauncherStore store;
     private final AppCatalog catalog;
     private final LauncherWidgetHost widgetHost;
@@ -44,7 +44,7 @@ final class DesktopView extends FrameLayout {
     private float downX,downY,tiltX,tiltY;
     private final float gestureSlop;
     private boolean swiping,animating,touching,modal,reduced,powerSave,held,verticalGesture,startedOnItem;
-    private boolean pinching,pinchWanted;private float pinchDistance;
+    private boolean pinching,pinchWanted,doubleArmed;private float pinchDistance,pinchAngle,pinchX,pinchY;private String multiGesture;
     private ValueAnimator animator;
     private int width,height;
     private final Runnable backgroundHold;
@@ -95,7 +95,7 @@ final class DesktopView extends FrameLayout {
             try{
                 if(info==null)throw new IllegalStateException("Widget provider is unavailable");
                 LauncherWidgetView widget=(LauncherWidgetView)widgetHost.createView(getContext(),id,info);
-                widget.padding(store.preferences.getBoolean("widget_padding_"+id,true));
+                widget.padding(store.preferences.getBoolean("widget_padding_"+id,false));
                 widget.setGestures(new LauncherWidgetView.Gestures(){
                     public void start(){startDrag(widgetKey(id));}
                     public void move(float dx,float dy){previewDrag(dx,dy);}
@@ -241,7 +241,7 @@ final class DesktopView extends FrameLayout {
         DesktopGrid.Cell target=externalTarget(item,x,y);if(target==null)return false;
         if(!item.folder()){
             float scroll=scroller==null?0:scroller.getScrollY();int cx=(int)(x/cw),cy=(int)((y+scroll-top())/ch);
-            for(LauncherStore.Item folder:store.pages.get(store.page))if(folder.folder()&&folder.cellX==cx&&folder.cellY==cy){for(LauncherStore.Item child:folder.children)if(child.key.equals(item.key))return false;if(folder.children.size()>=1000)return false;folder.children.add(item.copy());store.save();rebuild();return true;}
+            for(LauncherStore.Item folder:store.pages.get(store.page))if(folder.folder()&&folder.cellX==cx&&folder.cellY==cy){for(LauncherStore.Item child:folder.children)if(child.key.equals(item.key))return false;if(folder.children.size()>=1000)return false;folder.children.add(item.copy());for(java.util.List<LauncherStore.Item> page:store.pages)page.remove(item);store.save();rebuild();return true;}
             for(LauncherStore.Item existing:store.pages.get(store.page))if(!existing.folder()&&existing.key.equals(item.key)){item=existing;break;}
         }
         if(!store.pages.get(store.page).contains(item)&&store.pages.get(store.page).size()>=60)return false;
@@ -264,12 +264,12 @@ final class DesktopView extends FrameLayout {
         if(info!=null&&info.resizeMode!=android.appwidget.AppWidgetProviderInfo.RESIZE_NONE)popup.getMenu().add("Resize");
         if(info!=null&&info.configure!=null)popup.getMenu().add("Widget settings");
         if(info!=null)popup.getMenu().add("App info");else popup.getMenu().add("Retry");
-        popup.getMenu().add("Padding").setCheckable(true).setChecked(store.preferences.getBoolean("widget_padding_"+id,true));
+        popup.getMenu().add("Padding").setCheckable(true).setChecked(store.preferences.getBoolean("widget_padding_"+id,false));
         popup.getMenu().add("Remove");
         popup.setOnMenuItemClickListener(action->{
             switch(action.getTitle().toString()){
                 case "Resize":beginResize(id);break;
-                case "Padding":boolean padding=!store.preferences.getBoolean("widget_padding_"+id,true);store.preferences.edit().putBoolean("widget_padding_"+id,padding).apply();if(widget instanceof LauncherWidgetView)((LauncherWidgetView)widget).padding(padding);beginResize(id);break;
+                case "Padding":boolean padding=!store.preferences.getBoolean("widget_padding_"+id,false);store.preferences.edit().putBoolean("widget_padding_"+id,padding).apply();if(widget instanceof LauncherWidgetView)((LauncherWidgetView)widget).padding(padding);beginResize(id);break;
                 case "Widget settings":host.configureWidget(id);break;
                 case "App info":getContext().startActivity(new android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:"+info.provider.getPackageName())));break;
                 case "Retry":rebuild();break;
@@ -290,7 +290,7 @@ final class DesktopView extends FrameLayout {
             public void start(int edge){this.edge=edge;initial=DesktopGrid.find(cells,widgetKey(id));before=new ArrayList<>(cells);plan=before;}
             public void move(float dx,float dy){
                 int deltaX=Math.round(dx/cw),deltaY=Math.round(dy/ch),x=initial.x,y=initial.y,w=initial.w,h=initial.h;
-                android.graphics.Rect padding=store.preferences.getBoolean("widget_padding_"+id,true)?android.appwidget.AppWidgetHostView.getDefaultPaddingForWidget(getContext(),info.provider,null):new android.graphics.Rect();
+                android.graphics.Rect padding=store.preferences.getBoolean("widget_padding_"+id,false)?android.appwidget.AppWidgetHostView.getDefaultPaddingForWidget(getContext(),info.provider,null):new android.graphics.Rect();
                 int minW=Math.min(columns,span(Math.max(1,info.minResizeWidth>0?Math.min(info.minWidth,info.minResizeWidth):info.minWidth)+padding.left+padding.right,cw));
                 int minH=Math.min(12,span(Math.max(1,info.minResizeHeight>0?Math.min(info.minHeight,info.minResizeHeight):info.minHeight)+padding.top+padding.bottom,ch));
                 int maxW=columns,maxH=Math.max(minH,Math.max(initial.h,visibleRows));
@@ -323,7 +323,7 @@ final class DesktopView extends FrameLayout {
                         float dx=e.getRawX()-sx,dy=e.getRawY()-sy;
                         if(!held&&!gravity()&&Math.hypot(dx,dy)>ViewConfiguration.get(getContext()).getScaledTouchSlop()){cancelledTap=true;v.removeCallbacks(hold);return true;}
                         if(!store.preferences.getBoolean("lock_layout",false)&&(held||gravity())&&Math.hypot(dx,dy)>Ui.dp(getContext(),8)){
-                            if(!moved){moved=true;if(!gravity())startDrag(body.item.id);}
+                            if(!moved){if(!gravity()){moved=host.startItemDrag(v,body.item);if(moved)return true;}else moved=true;}
                             if(!gravity())previewDrag(dx,dy);
                             else{body.x=SceneMath.clamp(bx+dx,0,Math.max(0,width-v.getWidth()));body.y=SceneMath.clamp(by+dy,0,Math.max(0,height-v.getHeight()));long dt=Math.max(1,e.getEventTime()-last);body.vx=(e.getRawX()-lastX)*1000/dt;body.vy=(e.getRawY()-lastY)*1000/dt;v.setTranslationX(body.x);v.setTranslationY(body.y);last=e.getEventTime();lastX=e.getRawX();lastY=e.getRawY();}
                         }return true;
@@ -410,14 +410,14 @@ final class DesktopView extends FrameLayout {
     @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){super.onSizeChanged(w,h,oldw,oldh);post(this::updateLayout);}
     @Override public boolean dispatchTouchEvent(MotionEvent e){
         if(!modal&&e.getActionMasked()==MotionEvent.ACTION_POINTER_DOWN&&e.getPointerCount()==2&&dragId==null&&(workspace==null||!workspace.resizing())&&!itemAt(e.getX(0),e.getY(0))&&!itemAt(e.getX(1),e.getY(1))){
-            pinchDistance=(float)Math.hypot(e.getX(1)-e.getX(0),e.getY(1)-e.getY(0));pinching=true;pinchWanted=false;touching=false;removeCallbacks(backgroundHold);MotionEvent cancel=MotionEvent.obtain(e);cancel.setAction(MotionEvent.ACTION_CANCEL);super.dispatchTouchEvent(cancel);cancel.recycle();return true;
+            pinchDistance=(float)Math.hypot(e.getX(1)-e.getX(0),e.getY(1)-e.getY(0));pinchAngle=(float)Math.toDegrees(Math.atan2(e.getY(1)-e.getY(0),e.getX(1)-e.getX(0)));pinchX=(e.getX(0)+e.getX(1))/2;pinchY=(e.getY(0)+e.getY(1))/2;multiGesture=null;pinching=true;touching=false;removeCallbacks(backgroundHold);MotionEvent cancel=MotionEvent.obtain(e);cancel.setAction(MotionEvent.ACTION_CANCEL);super.dispatchTouchEvent(cancel);cancel.recycle();return true;
         }
         if(pinching){
-            if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&e.getPointerCount()>=2&&Math.hypot(e.getX(1)-e.getX(0),e.getY(1)-e.getY(0))<pinchDistance*.78f)pinchWanted=true;
-            if(e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL){boolean show=pinchWanted&&e.getActionMasked()==MotionEvent.ACTION_UP;pinching=pinchWanted=false;touching=false;if(show)post(host::backgroundMenu);}return true;
+            if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&e.getPointerCount()>=2){float distance=(float)Math.hypot(e.getX(1)-e.getX(0),e.getY(1)-e.getY(0));float angle=(float)Math.toDegrees(Math.atan2(e.getY(1)-e.getY(0),e.getX(1)-e.getX(0)))-pinchAngle;angle=(angle+540)%360-180;String action=GestureAssignments.twoFinger(distance/Math.max(1,pinchDistance),angle,(e.getX(0)+e.getX(1))/2-pinchX,(e.getY(0)+e.getY(1))/2-pinchY,gestureSlop);if(action!=null)multiGesture=action;}
+            if(e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL){String action=e.getActionMasked()==MotionEvent.ACTION_UP?multiGesture:null;pinching=false;touching=false;if(action!=null)post(()->host.assignedGesture(action));}return true;
         }
         if(e.getActionMasked()==MotionEvent.ACTION_DOWN){
-            touching=true;held=false;verticalGesture=false;downX=e.getX();downY=e.getY();
+            touching=true;held=false;verticalGesture=false;doubleArmed=android.os.SystemClock.uptimeMillis()-lastBackgroundTap<320;downX=e.getX();downY=e.getY();
             if(!itemAt(downX,downY)&&(workspace==null||!workspace.resizing())){removeCallbacks(backgroundHold);postDelayed(backgroundHold,ViewConfiguration.getLongPressTimeout());host.ripple(downX,downY);}
         }
         if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&Math.hypot(e.getX()-downX,e.getY()-downY)>ViewConfiguration.get(getContext()).getScaledTouchSlop())removeCallbacks(backgroundHold);
@@ -434,9 +434,11 @@ final class DesktopView extends FrameLayout {
             if(x>=left&&x<left+child.getWidth()&&y>=top&&y<top+child.getHeight())return true;
         }return false;
     }
+    private boolean widgetAt(float x,float y){float scroll=scroller==null?0:scroller.getScrollY();for(java.util.Map.Entry<String,View> entry:cellViews.entrySet())if(entry.getKey().startsWith("widget:")){View v=entry.getValue();if(x>=v.getTranslationX()&&x<v.getTranslationX()+v.getWidth()&&y>=v.getTranslationY()-scroll&&y<v.getTranslationY()-scroll+v.getHeight())return true;}return false;}
     @Override public boolean onInterceptTouchEvent(MotionEvent e){
         if(animating)return true;
         if(e.getActionMasked()==MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();swiping=false;verticalGesture=false;startedOnItem=itemAt(downX,downY);}
+        if(startedOnItem&&dragId==null&&e.getActionMasked()==MotionEvent.ACTION_MOVE&&!gravity()&&!widgetAt(downX,downY)){float dx=e.getX()-downX,dy=e.getY()-downY;if(dy<-gestureSlop&&Math.abs(dy)>Math.abs(dx)*1.4f){startedOnItem=false;verticalGesture=true;removeCallbacks(backgroundHold);return true;}}
         if(startedOnItem||dragId!=null||(workspace!=null&&workspace.resizing()))return false;
         if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&(store.mode!=1||reduced)&&!held){float dx=e.getX()-downX,dy=e.getY()-downY;
             int slop=ViewConfiguration.get(getContext()).getScaledTouchSlop();
@@ -453,15 +455,16 @@ final class DesktopView extends FrameLayout {
                 if(Math.hypot(dx,dy)>ViewConfiguration.get(getContext()).getScaledTouchSlop()){removeCallbacks(backgroundHold);if(Math.abs(dy)>Math.abs(dx))verticalGesture=true;if(!verticalGesture&&Math.abs(dx)>Math.abs(dy)*1.4f)swiping=true;}return true;
             case MotionEvent.ACTION_UP:removeCallbacks(backgroundHold);if(startedOnItem){startedOnItem=false;return true;}if(!held){
                 float endDx=e.getX()-downX,endDy=e.getY()-downY;
-                if(Math.abs(endDy)>gestureSlop&&Math.abs(endDy)>Math.abs(endDx)*1.4f&&endDy<0){host.gesture(store.preferences.getInt("gesture_up",0));}
-                else if(Math.abs(endDy)>gestureSlop&&Math.abs(endDy)>Math.abs(endDx)*1.4f&&endDy>0){host.gesture(store.preferences.getInt("gesture_down",3));}
+                if(Math.abs(endDy)>gestureSlop&&Math.abs(endDy)>Math.abs(endDx)*1.4f&&endDy<0){host.assignedGesture(doubleArmed?"gesture_double_up":"gesture_up");lastBackgroundTap=0;}
+                else if(Math.abs(endDy)>gestureSlop&&Math.abs(endDy)>Math.abs(endDx)*1.4f&&endDy>0){host.assignedGesture(doubleArmed?"gesture_double_down":"gesture_down");lastBackgroundTap=0;}
                 else if(swiping&&Math.abs(endDx)>gestureSlop){
-                    if(endDx>0&&store.page==0&&host.feed()){}
+                    if(store.preferences.getInt(endDx<0?"gesture_left":"gesture_right",4)!=4){host.assignedGesture(endDx<0?"gesture_left":"gesture_right");}
+                    else if(endDx>0&&store.page==0&&host.feed()){}
                     else if(endDx<0&&store.page==store.pageCount()-1&&!store.preferences.getBoolean("infinite_scroll",false)){
                         float tilt=endDx>0?12f:-12f;
                         stage.animate().rotationY(tilt).setDuration(110).withEndAction(()->stage.animate().rotationY(0).setDuration(240).start()).start();
                     }else changePage(endDx<0?1:-1);
-                }else if(!swiping&&!verticalGesture){long now=android.os.SystemClock.uptimeMillis();if(now-lastBackgroundTap<320){lastBackgroundTap=0;host.gesture(store.preferences.getInt("gesture_double",4));}else lastBackgroundTap=now;performClick();}
+                }else if(!swiping&&!verticalGesture){long now=android.os.SystemClock.uptimeMillis();if(now-lastBackgroundTap<320){lastBackgroundTap=0;host.assignedGesture("gesture_double");}else lastBackgroundTap=now;performClick();}
             }return true;
             case MotionEvent.ACTION_CANCEL:removeCallbacks(backgroundHold);return true;
             default:return true;
