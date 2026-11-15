@@ -265,14 +265,14 @@ final class DesktopView extends FrameLayout {
         if(scroller!=null)scroller.scrollTo(0,Math.max(0,Math.round(view.getTranslationY())-top()));beginResize(id);
     }
     private void showWidgetMenu(View widget,int id,android.appwidget.AppWidgetProviderInfo info){
-        android.widget.PopupMenu popup=new android.widget.PopupMenu(getContext(),widget);
-        if(info!=null&&info.resizeMode!=android.appwidget.AppWidgetProviderInfo.RESIZE_NONE)popup.getMenu().add("Resize");
-        if(info!=null&&info.configure!=null)popup.getMenu().add("Widget settings");
-        if(info!=null)popup.getMenu().add("App info");else popup.getMenu().add("Retry");
-        popup.getMenu().add("Padding").setCheckable(true).setChecked(store.preferences.getBoolean("widget_padding_"+id,false));
-        popup.getMenu().add("Remove");
-        popup.setOnMenuItemClickListener(action->{
-            switch(action.getTitle().toString()){
+        java.util.List<String> actions=new ArrayList<>();
+        if(info!=null&&info.resizeMode!=android.appwidget.AppWidgetProviderInfo.RESIZE_NONE)actions.add("Resize");
+        if(info!=null&&info.configure!=null)actions.add("Widget settings");
+        if(info!=null)actions.add("App info");else actions.add("Retry");
+        actions.add("Padding");
+        actions.add("Remove");
+        Ui.themeDialog(new android.app.AlertDialog.Builder(getContext()).setTitle("Widget actions").setItems(actions.toArray(new String[0]),(dialog,which)->{
+            switch(actions.get(which)){
                 case "Resize":beginResize(id);break;
                 case "Padding":boolean padding=!store.preferences.getBoolean("widget_padding_"+id,false);store.preferences.edit().putBoolean("widget_padding_"+id,padding).apply();if(widget instanceof LauncherWidgetView)((LauncherWidgetView)widget).padding(padding);beginResize(id);break;
                 case "Widget settings":host.configureWidget(id);break;
@@ -283,8 +283,8 @@ final class DesktopView extends FrameLayout {
                     android.content.SharedPreferences.Editor edit=store.preferences.edit().putString("widget_ids_page_"+store.page,android.text.TextUtils.join(",",kept));
                     for(String prefix:new String[]{"widget_cell_x_","widget_cell_y_","widget_span_x_","widget_span_y_","widget_left_","widget_top_","widget_width_","widget_height_","widget_padding_"})edit.remove(prefix+id);
                     edit.apply();widgetHost.deleteAppWidgetId(id);rebuild();break;
-            }return true;
-        });popup.show();
+            }
+        }).setNegativeButton("Close",null).create());
     }
     private void beginResize(int id){
         if(store.preferences.getBoolean("lock_layout",false))return;

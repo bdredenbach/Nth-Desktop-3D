@@ -86,7 +86,7 @@ final class PinnedShortcuts {
     void refresh(String packageName,List<ShortcutInfo> shortcuts){for(ShortcutInfo info:shortcuts){String key=identity(packageName,info.getId(),users.getSerialNumberForUser(info.getUserHandle()));if(find(key)!=null)saveIcon(info,key);}changed.accept(null);}
     void syncRemoved(){
         // Each launcher owns its own pinned set. Preserve references in folders and other desktops.
-        Map<String,LauncherStore.Item> all=new HashMap<>();for(List<LauncherStore.Item> page:store.pages)for(LauncherStore.Item item:page)collect(item,all);
+        Map<String,LauncherStore.Item> all=new HashMap<>();for(List<LauncherStore.Item> page:store.pages)for(LauncherStore.Item item:page)collect(item,all);for(LauncherStore.Item item:store.dock.items())collect(item,all);
         for(UserHandle user:users.getUserProfiles())try{
             List<ShortcutInfo> pinned=launcher.getShortcuts(new LauncherApps.ShortcutQuery().setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED),user);
             if(pinned==null)continue;Map<String,List<String>> packages=new HashMap<>();
@@ -95,7 +95,7 @@ final class PinnedShortcuts {
         }catch(RuntimeException unavailable){/* Locked profile or Home changed. */}
     }
     private void collect(LauncherStore.Item item,Map<String,LauncherStore.Item> result){if(isShortcut(item))result.put(item.key,item);for(LauncherStore.Item child:item.children)collect(child,result);}
-    private LauncherStore.Item find(String key){Map<String,LauncherStore.Item> all=new HashMap<>();for(List<LauncherStore.Item> page:store.pages)for(LauncherStore.Item item:page)collect(item,all);return all.get(key);}
+    private LauncherStore.Item find(String key){Map<String,LauncherStore.Item> all=new HashMap<>();for(List<LauncherStore.Item> page:store.pages)for(LauncherStore.Item item:page)collect(item,all);for(LauncherStore.Item item:store.dock.items())collect(item,all);return all.get(key);}
     private int pageOf(LauncherStore.Item target){for(int p=0;p<store.pages.size();p++)for(LauncherStore.Item item:store.pages.get(p))if(item==target||item.children.contains(target))return p;return store.page;}
     private File iconFile(String key){
         try{byte[] hash=MessageDigest.getInstance("SHA-256").digest(key.getBytes(StandardCharsets.UTF_8));StringBuilder name=new StringBuilder();for(byte b:hash)name.append(String.format(java.util.Locale.ROOT,"%02x",b&255));File dir=new File(activity.getFilesDir(),"shortcut-icons");if(!dir.isDirectory())dir.mkdirs();return new File(dir,name+".png");}catch(java.security.NoSuchAlgorithmException impossible){throw new AssertionError(impossible);}

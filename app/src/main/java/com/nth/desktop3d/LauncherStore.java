@@ -16,6 +16,7 @@ public final class LauncherStore {
     public static final String[] MENUS = {"Lift", "Orbit", "Unfold"};
     public static final int PAGE_COUNT = 3, MAX_PAGES = 24;
     public final SharedPreferences preferences;
+    final DockStore dock;
     public final List<List<Item>> pages = new ArrayList<>();
     public int mode, transition, menuStyle, page, fishCount;
     public float strength, fishSpeed;
@@ -47,7 +48,7 @@ public final class LauncherStore {
         }
     }
     public LauncherStore(Context context) {
-        preferences = context.getSharedPreferences("desktop3d", Context.MODE_PRIVATE);
+        preferences = context.getSharedPreferences("desktop3d", Context.MODE_PRIVATE);dock=new DockStore(preferences);
         for (int n = 0; n < Math.max(1,Math.min(MAX_PAGES,preferences.getInt("page_count",PAGE_COUNT))); n++) pages.add(new ArrayList<>());
         mode = Math.max(0, Math.min(MODES.length-1, preferences.getInt("mode", 0)));
         transition = Math.max(0, Math.min(TRANSITIONS.length-1, preferences.getInt("transition", PageTransitions.STACK)));
@@ -82,7 +83,7 @@ public final class LauncherStore {
     public int homePage(){return Math.max(0,Math.min(pages.size()-1,preferences.getInt("home_page",0)));}
     public void setHomePage(int index){if(index>=0&&index<pages.size())preferences.edit().putInt("home_page",index).apply();}
     public String pageName(int index){String name=preferences.getString("desktop_name_"+index,"");return name.isEmpty()?"Desktop "+(index+1):name;}
-    public boolean emptyPage(int index){try{JSONArray queue=new JSONArray(preferences.getString("restore_widgets","[]"));for(int i=0;i<queue.length();i++)if(queue.getJSONObject(i).optInt("page",-1)==index)return false;}catch(JSONException ignored){}return index>=0&&index<pages.size()&&pages.get(index).isEmpty()&&preferences.getString("widget_ids_page_"+index,"").isEmpty();}
+    public boolean emptyPage(int index){try{JSONArray queue=new JSONArray(preferences.getString("restore_widgets","[]"));for(int i=0;i<queue.length();i++)if(!queue.getJSONObject(i).optString("location").equals("dock")&&queue.getJSONObject(i).optInt("page",-1)==index)return false;}catch(JSONException ignored){}return index>=0&&index<pages.size()&&pages.get(index).isEmpty()&&preferences.getString("widget_ids_page_"+index,"").isEmpty();}
     public int appendPage(){if(pages.size()>=MAX_PAGES)return -1;int index=pages.size();preferences.edit().remove("desktop_name_"+index).remove("widget_ids_page_"+index).remove("folder_pattern_page_"+index).apply();pages.add(new ArrayList<>());save();return pages.size()-1;}
     public boolean movePage(int from,int to){
         if(from<0||to<0||from>=pages.size()||to>=pages.size()||from==to)return false;
@@ -98,7 +99,7 @@ public final class LauncherStore {
         for(int n=0;n<order.size();n++){int old=order.get(n);next.add(previous.get(old));edit.putString("widget_ids_page_"+n,preferences.getString("widget_ids_page_"+old,"")).putBoolean("folder_pattern_page_"+n,preferences.getBoolean("folder_pattern_page_"+old,false)).putString("desktop_name_"+n,preferences.getString("desktop_name_"+old,""));}
         page=order.indexOf(oldPage);if(page<0)page=Math.min(oldPage,order.size()-1);int newHome=order.indexOf(home);edit.putInt("home_page",newHome<0?Math.min(home,order.size()-1):newHome);
         int newSorted=order.indexOf(sorted);if(newSorted<0)edit.remove("sort_undo_page");else edit.putInt("sort_undo_page",newSorted);
-        try{JSONArray queue=new JSONArray(preferences.getString("restore_widgets","[]"));for(int i=0;i<queue.length();i++){JSONObject record=queue.getJSONObject(i);record.put("page",Math.max(0,order.indexOf(record.optInt("page",0))));}edit.putString("restore_widgets",queue.toString());}catch(JSONException ignored){}
+        try{JSONArray queue=new JSONArray(preferences.getString("restore_widgets","[]"));for(int i=0;i<queue.length();i++){JSONObject record=queue.getJSONObject(i);if(!record.optString("location").equals("dock"))record.put("page",Math.max(0,order.indexOf(record.optInt("page",0))));}edit.putString("restore_widgets",queue.toString());}catch(JSONException ignored){}
         edit.apply();pages.clear();pages.addAll(next);save();
     }
     public boolean add(int page, String key, String label) {
@@ -107,18 +108,20 @@ public final class LauncherStore {
         if (items.size() >= 60) return false;
         items.add(new Item(key, label)); save(); return true;
     }
-    public void remove(Item item) { for (List<Item> p : pages) { p.remove(item); for (Item i : p) i.children.remove(item); } save(); }
-    public List<Item> folders() { List<Item> out = new ArrayList<>(); for (List<Item> p : pages) for (Item i : p) if (i.folder()) out.add(i); return out; }
+    public void remove(Item item) { for (List<Item> p : pages) { p.remove(item); for (Item i : p) i.children.remove(item); } for(DockStore.Slot slot:dock.slots){if(slot.item==item)slot.item=null;else if(slot.item!=null)slot.item.children.remove(item);} save(); }
+    public List<Item> folders() { List<Item> out = new ArrayList<>(); for (List<Item> p : pages) for (Item i : p) if (i.folder()) out.add(i); for(Item i:dock.items())if(i.folder())out.add(i); return out; }
     public Item folderContaining(Item source){for(Item folder:folders())if(folder.children.contains(source))return folder;return null;}
     public boolean moveToFolder(Item source,Item destination){
         if(source==null||source.folder()||destination==null||!destination.folder()||!folders().contains(destination))return false;
         List<Item> owner=null;for(List<Item> p:pages){if(p.contains(source))owner=p;for(Item folder:p)if(folder.folder()&&folder.children.contains(source))owner=folder.children;}
+        for(Item folder:dock.items())if(folder.folder()&&folder.children.contains(source))owner=folder.children;
         if(owner==null||owner==destination.children)return false;
         boolean duplicate=false;for(Item child:destination.children)if(child.key.equals(source.key)){duplicate=true;break;}
         if(!duplicate&&destination.children.size()>=1000)return false;
         owner.remove(source);if(!duplicate){source.x=source.y=-1;source.cellX=source.cellY=-1;destination.children.add(source);}save();return true;
     }
     public void save() {
+        dock.save();
         JSONArray all = new JSONArray();
         try { for (List<Item> p : pages) { JSONArray a = new JSONArray(); for (Item i : p) a.put(i.json()); all.put(a); } }
         catch (JSONException e) { throw new IllegalStateException("Cannot serialize desktop", e); }

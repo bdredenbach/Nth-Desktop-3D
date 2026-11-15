@@ -29,14 +29,15 @@ final class DesktopBackup {
                 for(String key:GEOMETRY)widget.put(key,s.preferences.getInt("widget_"+key+"_"+id,key.startsWith("span")?2:0));widgets.put(widget);
             }catch(NumberFormatException ignored){}
         }
+        for(int i=0;i<DockStore.MAX;i++){DockStore.Slot slot=s.dock.slots.get(i);if(slot.widget()&&slot.widgetId>=0){int id=slot.widgetId;JSONObject w=new JSONObject().put("token",UUID.randomUUID().toString()).put("id",id).put("page",0).put("location","dock").put("slot",i).put("provider",slot.provider).put("user",slot.user).put("label",slot.label).put("padding",s.preferences.getBoolean("widget_padding_"+id,false));for(String key:GEOMETRY)w.put(key,key.startsWith("span")?1:0);widgets.put(w);}}
         JSONArray pending=new JSONArray(s.preferences.getString("restore_widgets","[]"));for(int i=0;i<pending.length();i++)widgets.put(pending.getJSONObject(i));
-        JSONObject out=new JSONObject().put("format",FORMAT).put("version",2).put("created",System.currentTimeMillis()).put("install",install(c)).put("settings",model.exportSettings()).put("pages",pages).put("page",s.page).put("home",s.homePage()).put("note",s.preferences.getString("note","")).put("widgets",widgets);
+        JSONObject out=new JSONObject().put("format",FORMAT).put("version",2).put("created",System.currentTimeMillis()).put("install",install(c)).put("settings",model.exportSettings()).put("pages",pages).put("page",s.page).put("home",s.homePage()).put("note",s.preferences.getString("note","")).put("widgets",widgets).put("dock",s.dock.json());
         LayeredScene.Document scene=LayeredScene.read(c,false);if(scene!=null)out.put("customScene",scene.json());
         byte[] photo=WallpaperStore.bytes(c);if(photo!=null)out.put("wallpaper",new JSONObject().put("sha256",digest(photo)).put("data",Base64.encodeToString(photo,Base64.NO_WRAP)));
         if(out.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>MAX_BYTES)throw new IOException("Desktop backup is too large");return out;
     }
     static final class Prepared {
-        final JSONObject settings;final List<List<LauncherStore.Item>> pages=new ArrayList<>();final JSONArray pageData,widgets;
+        final JSONObject settings;final List<List<LauncherStore.Item>> pages=new ArrayList<>();final JSONArray pageData,widgets;final JSONArray dock;
         final int page,home;final String note,origin;final byte[] photo;final LayeredScene.Document scene;int folders,shortcuts;
         Prepared(JSONObject input,SettingsModel model)throws Exception {
             if(!FORMAT.equals(input.optString("format"))||input.optInt("version")!=2)throw new JSONException("Not a supported desktop backup");
@@ -49,19 +50,25 @@ final class DesktopBackup {
                 JSONArray items=desktop.getJSONArray("items");if(items.length()>60)throw new JSONException("Too many desktop shortcuts");List<LauncherStore.Item> entries=new ArrayList<>();
                 for(int i=0;i<items.length();i++){JSONObject raw=items.getJSONObject(i);validateItem(raw,0,ids,total);entries.add(LauncherStore.Item.read(raw,0));count(raw);}pages.add(entries);
             }
+            dock=input.has("dock")?input.getJSONArray("dock"):new JSONArray();if(dock.length()>DockStore.MAX)throw new JSONException("Too many dock spaces");
+            for(int i=0;i<dock.length();i++){JSONObject slot=dock.getJSONObject(i);if(slot.has("item")&&slot.has("provider"))throw new JSONException("Conflicting dock contents");if(slot.has("item")){validateItem(slot.getJSONObject("item"),0,ids,total);count(slot.getJSONObject("item"));}else if(slot.has("provider")){integer(slot,"widgetId",-1,Integer.MAX_VALUE);String provider=text(slot,"provider",1000);if(ComponentName.unflattenFromString(provider)==null)throw new JSONException("Invalid dock widget");text(slot,"label",512);if(!(slot.get("user") instanceof Number))throw new JSONException("Invalid dock profile");}}
+            Set<Integer> dockWidgets=new HashSet<>();
             widgets=input.getJSONArray("widgets");if(widgets.length()>300)throw new JSONException("Too many widgets");Set<String> tokens=new HashSet<>();
             for(int i=0;i<widgets.length();i++){
-                JSONObject w=widgets.getJSONObject(i);integer(w,"id",-1,Integer.MAX_VALUE);integer(w,"page",0,pages.size()-1);String provider=text(w,"provider",1000);if(!provider.isEmpty()&&ComponentName.unflattenFromString(provider)==null)throw new JSONException("Invalid widget provider");text(w,"label",512);String token=text(w,"token",200);if(!tokens.add(token))throw new JSONException("Duplicate widget record");
+                JSONObject w=widgets.getJSONObject(i);if(w.has("location")){if(!"dock".equals(text(w,"location",20)))throw new JSONException("Invalid widget location");int index=integer(w,"slot",0,dock.length()-1);if(!dockWidgets.add(index))throw new JSONException("Duplicate dock widget");JSONObject slot=dock.getJSONObject(index);if(!slot.has("provider")||!slot.getString("provider").equals(w.getString("provider"))||slot.getInt("widgetId")!=w.getInt("id")||slot.getLong("user")!=w.getLong("user"))throw new JSONException("Dock widget mismatch");}integer(w,"id",-1,Integer.MAX_VALUE);integer(w,"page",0,pages.size()-1);String provider=text(w,"provider",1000);if(!provider.isEmpty()&&ComponentName.unflattenFromString(provider)==null)throw new JSONException("Invalid widget provider");text(w,"label",512);String token=text(w,"token",200);if(!tokens.add(token))throw new JSONException("Duplicate widget record");
                 integer(w,"cell_x",0,7);integer(w,"cell_y",0,119);integer(w,"span_x",1,8);integer(w,"span_y",1,12);if(!(w.get("padding") instanceof Boolean)||!(w.get("user") instanceof Number))throw new JSONException("Invalid widget placement");
             }
+            for(int i=0;i<dock.length();i++)if(dock.getJSONObject(i).has("provider")&&!dockWidgets.contains(i))throw new JSONException("Missing dock widget placement");
             scene=input.has("customScene")?LayeredScene.parse(input.getJSONObject("customScene")):null;
             if(input.has("wallpaper")&&!(input.get("wallpaper") instanceof JSONObject))throw new JSONException("Invalid wallpaper record");JSONObject wallpaper=input.optJSONObject("wallpaper");if(wallpaper!=null){String encoded=text(wallpaper,"data",3*1024*1024);photo=Base64.decode(encoded,Base64.DEFAULT);if(!digest(photo).equals(text(wallpaper,"sha256",64)))throw new JSONException("Wallpaper checksum failed");WallpaperStore.validate(photo);}else photo=null;
         }
         private void count(JSONObject item)throws JSONException {if("folder".equals(item.getString("key")))folders++;else shortcuts++;JSONArray children=item.getJSONArray("children");for(int i=0;i<children.length();i++)count(children.getJSONObject(i));}
-        String summary(){return pages.size()+" desktops, "+folders+" folders, "+shortcuts+" shortcuts"+(widgets.length()>0?", "+widgets.length()+" widget placements":"")+".\n\nIncludes launcher settings, notes, photo wallpaper and your applied layered scene. Android widgets may need permission again after reinstalling. Current desktop contents will be replaced. Undo is available.";}
+        String summary(){return pages.size()+" desktops, "+folders+" folders, "+shortcuts+" shortcuts"+(widgets.length()>0?", "+widgets.length()+" widget placements":"")+".\n\nIncludes launcher settings, dock spaces, notes, photo wallpaper and your applied layered scene. Android widgets may need permission again after reinstalling. Current desktop contents will be replaced. Undo is available.";}
         void apply(Context c,SettingsModel model)throws Exception {
             LauncherStore s=model.store;Map<String,?> previousPreferences=s.preferences.getAll();JSONObject values=settings.getJSONObject("values");JSONArray oldIds=new JSONArray();
             for(String key:s.preferences.getAll().keySet())if(key.startsWith("widget_ids_page_"))for(String id:s.preferences.getString(key,"").split(","))try{oldIds.put(Integer.parseInt(id));}catch(NumberFormatException ignored){}
+            for(DockStore.Slot slot:s.dock.slots)if(slot.widgetId>=0)oldIds.put(slot.widgetId);
+            JSONArray nextDock=new JSONArray(dock.toString());
             byte[] previousPhoto=WallpaperStore.bytes(c);LayeredScene.Document previousScene=LayeredScene.read(c,false);LayeredScene.write(c,scene,false);try{WallpaperStore.write(c,photo);}catch(Exception error){LayeredScene.write(c,previousScene,false);throw error;}
             // All values and layout records have already been checked. No Activity or app is launched from a backup.
             Map<SettingsModel.Spec,Integer> oldValues=new LinkedHashMap<>();for(Iterator<String> it=values.keys();it.hasNext();){String key=it.next();if(key.equals("cloud_ai"))continue;SettingsModel.Spec spec=model.specs.get(key);oldValues.put(spec,spec.get.getAsInt());}for(SettingsModel.Spec spec:oldValues.keySet())spec.put.accept(values.getInt(spec.id));if(values.has("wallpaper_source"))model.specs.get("wallpaper_source").put.accept(values.getInt("wallpaper_source"));
@@ -73,13 +80,13 @@ final class DesktopBackup {
                 JSONObject w=widgets.getJSONObject(i);int id=w.getInt("id");AppWidgetProviderInfo info=null;try{if(origin.equals(install(c))&&id>=0)info=manager.getAppWidgetInfo(id);}catch(RuntimeException ignored){}
                 long user=info==null?-1:c.getSystemService(android.os.UserManager.class).getSerialNumberForUser(info.getProfile());
                 if(info!=null&&info.provider.flattenToString().equals(w.getString("provider"))&&user==w.getLong("user")&&reused.add(id)){
-                    int p=w.getInt("page");perPage.computeIfAbsent(p,key->new ArrayList<>()).add(id);geometry(edit,id,w);
-                }else pending.put(w);
+                    if(w.optString("location").equals("dock"))nextDock.getJSONObject(w.getInt("slot")).put("widgetId",id);else{int p=w.getInt("page");perPage.computeIfAbsent(p,key->new ArrayList<>()).add(id);}geometry(edit,id,w);
+                }else{if(w.optString("location").equals("dock")){nextDock.getJSONObject(w.getInt("slot")).put("widgetId",-1);w=new JSONObject(w.toString()).put("id",-1);}pending.put(w);}
             }
             for(Map.Entry<Integer,List<Integer>> entry:perPage.entrySet()){StringBuilder ids=new StringBuilder();for(int id:entry.getValue()){if(ids.length()>0)ids.append(',');ids.append(id);}edit.putString("widget_ids_page_"+entry.getKey(),ids.toString());}
-            edit.putString("layout",layout.toString()).putInt("page_count",pages.size()).putInt("page",page).putInt("home_page",home).putString("note",note).putBoolean("seeded",true).putBoolean("appsSeeded",true).putString("restore_widgets",pending.toString()).putBoolean("padding_expands_073",true).remove("sort_undo_page").remove("pending_widget_restore");
+            edit.putString("dock_slots",nextDock.toString()).putString("layout",layout.toString()).putInt("page_count",pages.size()).putInt("page",page).putInt("home_page",home).putString("note",note).putBoolean("seeded",true).putBoolean("appsSeeded",true).putString("restore_widgets",pending.toString()).putBoolean("padding_expands_073",true).remove("sort_undo_page").remove("pending_widget_restore");
             if(!edit.commit()){restorePreferences(s.preferences,previousPreferences);for(Map.Entry<SettingsModel.Spec,Integer> entry:oldValues.entrySet())entry.getKey().put.accept(entry.getValue());if(oldValues.containsKey(model.specs.get("wallpaper_source")))model.specs.get("wallpaper_source").put.accept(oldValues.get(model.specs.get("wallpaper_source")));WallpaperStore.write(c,previousPhoto);LayeredScene.write(c,previousScene,false);throw new IOException("Could not save restored desktops");}
-            s.pages.clear();s.pages.addAll(pages);s.page=page;s.save();
+            s.dock.load();s.pages.clear();s.pages.addAll(pages);s.page=page;s.save();
             LauncherWidgetHost host=new LauncherWidgetHost(c);for(int i=0;i<oldIds.length();i++){int id=oldIds.getInt(i);if(!reused.contains(id))try{host.deleteAppWidgetId(id);}catch(RuntimeException ignored){}}
         }
     }

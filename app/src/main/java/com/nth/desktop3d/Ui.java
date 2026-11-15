@@ -17,6 +17,13 @@ import android.widget.TextView;
 
 final class Ui {
     static final int TEXT=0xFFF1FAFF, MUTED=0xFFB0C5D9, ACCENT=0xFF8FEAFF, PANEL=0xFF101F35;
+    static int accent(Context c){int m=new CrystalPreferences(c).material();return m==2?0xFFD0B9FF:m==1?0xFFD0E9F1:m==3?0xFF7ADDD1:ACCENT;}
+    static android.app.AlertDialog themeDialog(android.app.AlertDialog dialog){
+        dialog.show();Context c=dialog.getContext();if(dialog.getWindow()!=null)dialog.getWindow().setBackgroundDrawable(new LayerDrawable(new Drawable[]{surface(0xE6091829,24,c),satin(c,0x88458CA0,0x65102136,24)}));
+        tintDialog(dialog.getWindow()==null?null:dialog.getWindow().getDecorView(),c);
+        for(int which:new int[]{-1,-2,-3}){Button b=dialog.getButton(which);if(b!=null)b.setTextColor(accent(c));}return dialog;
+    }
+    private static void tintDialog(View view,Context c){if(view==null)return;if(view instanceof TextView)((TextView)view).setTextColor(TEXT);if(view instanceof android.widget.ListView){((android.widget.ListView)view).setDivider(new ColorDrawable(0x226AC5DD));}if(view instanceof android.view.ViewGroup){android.view.ViewGroup group=(android.view.ViewGroup)view;for(int i=0;i<group.getChildCount();i++)tintDialog(group.getChildAt(i),c);}}
     static int dp(Context c,float n){return Math.round(n*c.getResources().getDisplayMetrics().density);}
     static GradientDrawable surface(int color,float radius,Context c) {
         GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(c,radius));d.setStroke(dp(c,1),0x1FFFFFFF);return d;
@@ -41,7 +48,7 @@ final class Ui {
     static Button quiet(Context c,String text,Runnable action){Button b=button(c,text,action);b.setBackground(touch(c,null,14));return b;}
     static Button primary(Context c,String text,Runnable action){Button b=button(c,text,action);b.setTextColor(0xFF101B30);b.setBackground(touch(c,surface(ACCENT,16,c),16));return b;}
     static Button icon(Context c,String glyph,String description,Runnable action){
-        Button b=quiet(c,"",action);GlyphDrawable d=new GlyphDrawable(glyph,ACCENT);int s=dp(c,23);d.setBounds(0,0,s,s);
+        Button b=quiet(c,"",action);GlyphDrawable d=new GlyphDrawable(glyph,accent(c));int s=dp(c,23);d.setBounds(0,0,s,s);
         // Background drawing keeps the icon centered without reserving text space.
         StateListDrawable state=new StateListDrawable();state.addState(new int[]{android.R.attr.state_selected},surface(0x354D6EAA,14,c));state.addState(new int[]{},new ColorDrawable(0));
         b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x28B6D5FF),new LayerDrawable(new Drawable[]{state,new GlyphDrawable.Centered(d,c)}),surface(0xFFFFFFFF,14,c)));
