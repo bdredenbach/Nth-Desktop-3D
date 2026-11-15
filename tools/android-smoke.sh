@@ -53,6 +53,6 @@ timeout 15s adb logcat -d > "$nth_output/logcat-tail.txt" || true
 if [ "$nth_smoke_status" -ne 0 ]; then
     free -m > "$nth_output/host-memory.txt"
     ps -eo pid,rss,comm --sort=-rss | head -20 > "$nth_output/host-processes.txt"
-    dmesg | tail -80 > "$nth_output/host-kernel.txt" 2>/dev/null || true
+    sudo dmesg | tail -80 > "$nth_output/host-kernel.txt" 2>/dev/null || true
 fi
 exit "$nth_smoke_status"
