@@ -47,7 +47,7 @@ final class IconTile extends LinearLayout {
         setBackground(Ui.touch(getContext(),Ui.satin(getContext(),0xEF2B3752,0xEE172137,18),18));setElevation(new CrystalPreferences(getContext()).shadows()?Ui.dp(getContext(),6):0);}
     void fitCell(int width,int height){
         setClipChildren(true);setClipToPadding(false);
-        int lines=1;if(!menuLabel)label.setMaxLines(lines);
+        int lines=1;if(!menuLabel&&label.getMaxLines()!=lines)label.setMaxLines(lines);
         int labelHeight=(int)Math.ceil(label.getVisibility()==GONE?0:label.getPaint().getFontSpacing()*lines);
         int size=Math.max(Ui.dp(getContext(),22),Math.min(desiredSize,menuLabel?width-Ui.dp(getContext(),6):Math.min(width-Ui.dp(getContext(),6),height-labelHeight-Ui.dp(getContext(),21))));
         FrameLayout plinth=(FrameLayout)getChildAt(0);LayoutParams p=(LayoutParams)plinth.getLayoutParams();

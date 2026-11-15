@@ -23,6 +23,7 @@ public final class Polish074Smoke {
     }
     private void setupNavigation(){
         invoke("showSetup",new Class[]{int.class},0);
+        await(()->{View panel=(View)field(activity,"panel");return panel!=null&&Math.abs(panel.getRotationX())<.01f&&Math.abs(panel.getRotationY())<.01f&&panel.getAlpha()>.99f;},"Setup opening animation did not settle");
         for(int step=0;step<6;step++){
             SetupGuide guide=(SetupGuide)field(activity,"setupGuide");check(guide.step()==step,"Setup skipped a step");
             View back=find(v->v instanceof Button&&"Back".contentEquals(((Button)v).getText()));

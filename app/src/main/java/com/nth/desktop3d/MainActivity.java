@@ -204,8 +204,9 @@ public final class MainActivity extends Activity implements MotionController.Lis
         bar.setVisibility(visibleDock?View.VISIBLE:View.GONE);dock.setVisibility(controls?View.VISIBLE:View.GONE);paging.setVisibility(controls?View.VISIBLE:View.GONE);desktop.setClipChildren(visibleDock);desktop.setClipToPadding(visibleDock);
         dockContents.rebuild();
         clockButton.setVisibility(store.preferences.getBoolean("dock_clock",true)?View.VISIBLE:View.GONE);
-        int adjustment=store.preferences.getInt("dock_padding",0),horizontal=PaddingSettings.inset(8,adjustment),vertical=PaddingSettings.inset(7,adjustment);dock.setPadding(dp(horizontal),dp(vertical),dp(horizontal),dp(vertical));
+        int adjustment=store.preferences.getInt("dock_padding",0),horizontal=PaddingSettings.inset(8,adjustment),vertical=PaddingSettings.inset(7,adjustment);
         int chromeWidth=Math.min(dp(560),Math.max(1,(root.getWidth()>0?root.getWidth():getResources().getDisplayMetrics().widthPixels)-insetLeft-insetRight-dp(padding*2)));
+        int safeHorizontal=Math.min(dp(horizontal),Math.max(0,(chromeWidth-dp(store.preferences.getBoolean("dock_clock",true)?223:158))/2));dock.setPadding(safeHorizontal,dp(vertical),safeHorizontal,dp(vertical));
         for(View chrome:new View[]{dock,paging,dockContents}){LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(chromeWidth,-2);cp.gravity=Gravity.CENTER_HORIZONTAL;chrome.setLayoutParams(cp);}
     }
     private void applyCrystalAppearance(){
@@ -232,12 +233,12 @@ public final class MainActivity extends Activity implements MotionController.Lis
     void presentAreaMenu(AlertDialog dialog,View body,String title){
         if(areaMenu!=null&&areaMenu.isShowing())areaMenu.dismiss();View covered=panel;if(covered!=null)covered.setVisibility(View.INVISIBLE);areaMenu=dialog;areaMenuBody=body;styleAreaMenu();
         body.setTag("fading-area-menu");body.setCameraDistance(dp(2400));if(Build.VERSION.SDK_INT>=28)body.setAccessibilityPaneTitle(title);
-        dialog.setOnDismissListener(d->{if(covered!=null&&panel==covered)covered.setVisibility(View.VISIBLE);if(areaMenu==dialog){areaMenu=null;areaMenuBody=null;areaMenuGlass=null;}restoreDesktopMotion();});
+        dialog.setOnDismissListener(d->{if(covered!=null&&panel==covered)covered.setVisibility(View.VISIBLE);if(areaMenu==dialog){areaMenu=null;areaMenuBody=null;areaMenuGlass=null;}});
         dialog.show();android.view.Window window=dialog.getWindow();if(window!=null){window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);window.addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN);window.getDecorView().setSystemUiVisibility(getWindow().getDecorView().getSystemUiVisibility());window.setTitle(title);
             PanelGeometry.Bounds bounds=PanelGeometry.place(root.getWidth(),root.getHeight(),insetLeft,insetTop,insetRight,Math.max(insetBottom,imeBottom),dp(420),dp(540),dp(10),imeBottom==0?dp(84):0);
             window.setGravity(Gravity.TOP|Gravity.LEFT);window.setLayout(bounds.width,bounds.height);android.view.WindowManager.LayoutParams attributes=window.getAttributes();attributes.x=bounds.left;attributes.y=flyoutTop(bounds.height);window.setAttributes(attributes);
         }
-        lastGlassUpdate=0;body.post(()->{if(areaMenu==dialog){PanelAnimations.play(body,crystal.menuAnimation(),store.reducedMotion||systemReduced);updateMenuGlass();}});
+        lastGlassUpdate=0;body.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener(){public boolean onPreDraw(){body.getViewTreeObserver().removeOnPreDrawListener(this);if(areaMenu==dialog){PanelAnimations.play(body,crystal.menuAnimation(),store.reducedMotion||systemReduced);updateMenuGlass();}return true;}});
     }
     private void updateMenuGlass(){
         if((menuGlass==null||panel==null)&&areaMenuGlass==null)return;long now=System.nanoTime();if(now-lastGlassUpdate<33_000_000L)return;float dt=lastGlassUpdate==0?.05f:Math.min(.1f,(now-lastGlassUpdate)/1_000_000_000f);lastGlassUpdate=now;
