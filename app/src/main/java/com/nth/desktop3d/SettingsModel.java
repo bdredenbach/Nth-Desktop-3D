@@ -51,10 +51,10 @@ final class SettingsModel {
         bool("cloud_ai","search","Cloud questions for Nth Nota AI","Send your question and current setting values to Nth Nota's cloud service. Local setting commands always work offline.",false,false);
         bool("cards_in_search","cards","Cards in app search","Show the Cards action beside filtered app results.",true,false);
         for(String[] type:CrystalCards.TYPES)bool("card_"+type[0],"cards",type[1],"Show this crystal card.",true,false);
-        enumeration("wallpaper_source","wallpaper","Wallpaper source","Use a 3D scene, your own photo, or Android’s current wallpaper.",new String[]{"3D scene","Photo","Android wallpaper"},0,true);
+        enumeration("wallpaper_source","wallpaper","Wallpaper source","Use a 3D scene, your own photo, Android wallpaper, or your layered scene.",new String[]{"3D scene","Photo","Android wallpaper","My layered scene"},0,true);
         enumeration("wallpaper_fit","wallpaper","Photo fit","Fill the screen or show the complete photo.",new String[]{"Fill screen","Fit image"},0,false);
         pref("wallpaper_dim","wallpaper","Wallpaper dimming","Darken photo and Android wallpapers for readable icons.",0,70,5,20,false);
-        bool("wallpaper_parallax","wallpaper","Photo parallax","Add gentle depth to your photo when tilt is enabled.",true,false);
+        bool("wallpaper_parallax","wallpaper","Wallpaper parallax","Add gentle depth to photos and your layered scene when tilt is enabled.",true,false);
         enumeration("home_rotation","look","Home screen rotation","Follow Android rotation, allow all device orientations, or keep a fixed orientation.",new String[]{"Follow system","Auto rotate","Portrait","Landscape"},0,false);
         bool("adaptive_glass","look","Fading menu backgrounds","Add opacity over desktop content and feather it to transparent in empty areas.",true,false);
         pref("glass_strength","look","Opacity over content","Maximum opacity percentage over icons, folders and widgets.",20,90,5,90,false);

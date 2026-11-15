@@ -20,15 +20,20 @@ final class WallpaperStore {
         try{out=file.startWrite();out.write(data);file.finishWrite(out);}catch(IOException e){if(out!=null)file.failWrite(out);throw e;}
     }
     static void importPhoto(Context c,Uri uri)throws IOException {
+        write(c,importImage(c,uri,false));
+    }
+    static byte[] importImage(Context c,Uri uri,boolean foreground)throws IOException {
         byte[] original;try(InputStream in=c.getContentResolver().openInputStream(uri)){original=read(in,32*1024*1024);}
         BitmapFactory.Options o=new BitmapFactory.Options();o.inJustDecodeBounds=true;BitmapFactory.decodeByteArray(original,0,original.length,o);
         if(o.outWidth<1||o.outHeight<1||(long)o.outWidth*o.outHeight>100000000L)throw new IOException("Unsupported image");
-        o.inSampleSize=1;while(Math.max(o.outWidth,o.outHeight)/o.inSampleSize>1536)o.inSampleSize*=2;o.inJustDecodeBounds=false;o.inPreferredConfig=Bitmap.Config.ARGB_8888;
+        o.inSampleSize=1;while(Math.max(o.outWidth,o.outHeight)/o.inSampleSize>(foreground?768:1536))o.inSampleSize*=2;o.inJustDecodeBounds=false;o.inPreferredConfig=Bitmap.Config.ARGB_8888;
         Bitmap image=BitmapFactory.decodeByteArray(original,0,original.length,o);if(image==null)throw new IOException("Unsupported image");
         try{int orientation=1;try{orientation=new ExifInterface(new ByteArrayInputStream(original)).getAttributeInt(ExifInterface.TAG_ORIENTATION,1);}catch(IOException ignored){}
             Matrix matrix=new Matrix();switch(orientation){case 2:matrix.setScale(-1,1);break;case 3:matrix.setRotate(180);break;case 4:matrix.setScale(1,-1);break;case 5:matrix.setRotate(90);matrix.postScale(-1,1);break;case 6:matrix.setRotate(90);break;case 7:matrix.setRotate(270);matrix.postScale(-1,1);break;case 8:matrix.setRotate(270);break;default:break;}
             if(!matrix.isIdentity()){Bitmap rotated=Bitmap.createBitmap(image,0,0,image.getWidth(),image.getHeight(),matrix,true);if(rotated!=image){image.recycle();image=rotated;}}
-            ByteArrayOutputStream out=new ByteArrayOutputStream();if(!image.compress(Bitmap.CompressFormat.WEBP,88,out))throw new IOException("Could not encode image");write(c,out.toByteArray());
+            int limit=foreground?1024*1024:MAX_BYTES;byte[] result;
+            do{ByteArrayOutputStream out=new ByteArrayOutputStream();if(!image.compress(foreground&&image.hasAlpha()?Bitmap.CompressFormat.PNG:Bitmap.CompressFormat.WEBP,88,out))throw new IOException("Could not encode image");result=out.toByteArray();if(result.length<=limit)break;if(Math.max(image.getWidth(),image.getHeight())<=128)throw new IOException("Image is too large");Bitmap smaller=Bitmap.createScaledBitmap(image,Math.max(1,image.getWidth()*3/4),Math.max(1,image.getHeight()*3/4),true);image.recycle();image=smaller;}while(true);
+            validate(result);return result;
         }finally{image.recycle();}
     }
     static Drawable photo(Context c){File f=file(c);if(!f.exists())return null;Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath());return b==null?null:new BitmapDrawable(c.getResources(),b);}

@@ -8,11 +8,11 @@ import android.graphics.drawable.Drawable;
 final class SolidCrystalDrawable extends Drawable {
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF face=new RectF(),inner=new RectF();
-    private final Path clip=new Path(),reflection=new Path();
+    private final Path clip=new Path(),reflection=new Path(),lip=new Path();
     private final float density,radius;
     private final boolean selected;
     private final int material;
-    private Shader body,bevel,shine,edge;
+    private Shader body,bevel,shine,edge,rightRoll,bottomRoll;
     private int alpha=255;
     SolidCrystalDrawable(Context c,int radius,boolean selected){
         density=c.getResources().getDisplayMetrics().density;this.radius=radius*density;
@@ -32,6 +32,9 @@ final class SolidCrystalDrawable extends Drawable {
             new int[]{0x00FFFFFF,0x00FFFFFF,0x40E6F6FF,0x05BCDFFF,0x00000000},new float[]{0,.22f,.29f,.46f,1},Shader.TileMode.CLAMP);
         edge=new LinearGradient(face.left,face.top,face.right,face.bottom,
             new int[]{0xCCEFFCFF,0xA0B4E8FF,0x293AA4CE,material==2?0xB3AA99F2:0xA376C2E4,0xD67DE0F7},null,Shader.TileMode.CLAMP);
+        float roll=Math.min(density*14,Math.min(w,h)*.19f);
+        rightRoll=new LinearGradient(face.right-roll,0,face.right,0,new int[]{0x00081929,0x51051624,0xCC03101F,0x607BB9CE},new float[]{0,.45f,.82f,1},Shader.TileMode.CLAMP);
+        bottomRoll=new LinearGradient(0,face.bottom-roll,0,face.bottom,new int[]{0x00081929,0x67020B17,0xCC051626,0x5A9AE5ED},new float[]{0,.45f,.84f,1},Shader.TileMode.CLAMP);
         reflection.reset();reflection.moveTo(face.left+w*.06f,face.top);
         reflection.lineTo(face.left+w*.44f,face.top);
         reflection.cubicTo(face.left+w*.27f,face.top+h*.18f,face.left+w*.22f,face.top+h*.39f,face.left+w*.16f,face.top+h*.55f);
@@ -45,13 +48,13 @@ final class SolidCrystalDrawable extends Drawable {
         paint.setShader(body);c.drawRect(face,paint);
         paint.setShader(shine);c.drawRect(face,paint);
         paint.setShader(null);paint.setColor(0x12EFFAFF);paint.setAlpha(0x12*alpha/255);c.drawPath(reflection,paint);
-        paint.setAlpha(alpha);paint.setStyle(Paint.Style.STROKE);paint.setShader(bevel);paint.setStrokeWidth(rim*2);
-        c.drawRoundRect(face,r,r,paint);
-        inner.set(face);inner.inset(rim,rim);paint.setStrokeWidth(Math.max(1,density*.8f));paint.setShader(edge);
-        c.drawRoundRect(inner,Math.max(0,r-rim),Math.max(0,r-rim),paint);
-        paint.setShader(null);paint.setStrokeWidth(Math.max(1,density*.6f));paint.setColor(selected?0xFFE3FBFF:0xFF93C3D9);paint.setAlpha(alpha);
-        c.drawLine(face.left+r,face.top+density,face.right-r,face.top+density,paint);
-        paint.setColor(0xFF80D6F1);paint.setAlpha(alpha*2/3);c.drawLine(face.left+r,face.bottom-density*1.5f,face.right-r,face.bottom-density*1.5f,paint);
+        // The right and lower sides roll through shaded volume; no rectangular outline there.
+        paint.setAlpha(alpha);paint.setShader(rightRoll);c.drawRect(face,paint);paint.setShader(bottomRoll);c.drawRect(face,paint);
+        inner.set(face);inner.inset(rim*.65f,rim*.65f);float ir=Math.max(0,r-rim*.65f);
+        lip.reset();lip.moveTo(inner.left,inner.bottom-ir);lip.lineTo(inner.left,inner.top+ir);lip.quadTo(inner.left,inner.top,inner.left+ir,inner.top);lip.lineTo(inner.right-ir,inner.top);
+        paint.setStyle(Paint.Style.STROKE);paint.setShader(bevel);paint.setStrokeWidth(rim*1.25f);paint.setStrokeCap(Paint.Cap.ROUND);c.drawPath(lip,paint);
+        paint.setShader(edge);paint.setStrokeWidth(Math.max(1,density*.65f));c.drawPath(lip,paint);
+        if(selected){paint.setShader(null);paint.setColor(0xFFE3FBFF);paint.setAlpha(alpha);c.drawLine(face.left+r,face.top+rim,face.right-r,face.top+rim,paint);}
         c.restoreToCount(save);paint.setShader(null);paint.setStyle(Paint.Style.FILL);paint.setAlpha(alpha);
     }
     @Override public void setAlpha(int value){alpha=Math.max(0,Math.min(255,value));invalidateSelf();}
