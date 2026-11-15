@@ -202,7 +202,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void applyDesktopChrome(){
         int padding=Math.max(0,Math.min(24,store.preferences.getInt("desktop_padding",0)));
         shell.setPadding(insetLeft+dp((compact()?16:20)+padding),insetTop+dp(8),insetRight+dp((compact()?16:20)+padding),insetBottom+dp(8));
-        bar.setVisibility(store.preferences.getBoolean("show_dock",false)?View.VISIBLE:View.GONE);
+        boolean visibleDock=store.preferences.getBoolean("show_dock",false);bar.setVisibility(visibleDock?View.VISIBLE:View.GONE);desktop.setClipChildren(visibleDock);desktop.setClipToPadding(visibleDock);
         dockContents.rebuild();
         clockButton.setVisibility(store.preferences.getBoolean("dock_clock",true)?View.VISIBLE:View.GONE);
         int p=Math.max(4,Math.min(14,store.preferences.getInt("dock_padding",7)));dock.setPadding(dp(8),dp(p),dp(8),dp(p));

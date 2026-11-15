@@ -44,15 +44,22 @@ final class LayerSceneView extends View {
     private void drawCaustics(Canvas c,float w,float h){
         if(document.caustics<=0)return;float t=lighting?(android.os.SystemClock.uptimeMillis()-started)/1000f*(.15f+document.lightSpeed*.85f):0;
         lightPaint.setStyle(Paint.Style.STROKE);lightPaint.setStrokeWidth(Math.max(1,w*.0025f));lightPaint.setColor(0xFFB0FFF1);lightPaint.setAlpha(Math.round(document.caustics*95));
-        // Continuous warped cells: the same normalized field scales from preview to wallpaper.
-        float cell=w/7f;for(int y=-1;y<Math.ceil(h/cell)+1;y++)for(int x=-1;x<8;x++){
-            float px=x*cell,py=y*cell;Path path=new Path();float ax=px+(float)Math.sin(y*1.73+x*.4+t*.55)*cell*.20f,ay=py+(float)Math.cos(x*1.7+y*.3-t*.43)*cell*.20f;
-            float bx=px+cell+(float)Math.sin(y*1.73+(x+1)*.4+t*.55)*cell*.20f,by=py+(float)Math.cos((x+1)*1.7+y*.3-t*.43)*cell*.20f;
-            float cx=px+(float)Math.sin((y+1)*1.73+x*.4+t*.55)*cell*.20f,cy=py+cell+(float)Math.cos(x*1.7+(y+1)*.3-t*.43)*cell*.20f;
-            path.moveTo(ax,ay);path.quadTo((ax+bx)/2,ay+cell*.13f*(float)Math.sin(t+y),bx,by);path.moveTo(ax,ay);path.quadTo(ax+cell*.12f*(float)Math.cos(t+x),(ay+cy)/2,cx,cy);c.drawPath(path,lightPaint);
+        // A moving, irregular Voronoi field gives closed light cells rather than a square grid.
+        float cell=w/6f;int columns=10,rows=(int)Math.ceil(h/cell)+4;float[][] sites=new float[columns*rows][2];
+        for(int y=0;y<rows;y++)for(int x=0;x<columns;x++){int i=y*columns+x;sites[i][0]=(x-2+.5f+.32f*(float)Math.sin(x*13.7+y*7.3+t*.37f))*cell;sites[i][1]=(y-2+.5f+.32f*(float)Math.cos(x*8.3+y*17.1-t*.29f))*cell;}
+        float[] polygon=new float[128],clipped=new float[128];Path path=new Path();
+        for(int y=1;y<rows-1;y++)for(int x=1;x<columns-1;x++){
+            float[] site=sites[y*columns+x];int count=4;polygon[0]=site[0]-cell*2;polygon[1]=site[1]-cell*2;polygon[2]=site[0]+cell*2;polygon[3]=site[1]-cell*2;polygon[4]=site[0]+cell*2;polygon[5]=site[1]+cell*2;polygon[6]=site[0]-cell*2;polygon[7]=site[1]+cell*2;
+            for(int ny=Math.max(0,y-2);ny<=Math.min(rows-1,y+2);ny++)for(int nx=Math.max(0,x-2);nx<=Math.min(columns-1,x+2);nx++){if(nx==x&&ny==y)continue;float[] neighbor=sites[ny*columns+nx];float dx=neighbor[0]-site[0],dy=neighbor[1]-site[1],limit=(neighbor[0]*neighbor[0]+neighbor[1]*neighbor[1]-site[0]*site[0]-site[1]*site[1])*.5f;int next=0;
+                for(int i=0;i<count;i++){int a=i*2,b=(i+1)%count*2;float da=polygon[a]*dx+polygon[a+1]*dy-limit,db=polygon[b]*dx+polygon[b+1]*dy-limit;if(da<=0){clipped[next*2]=polygon[a];clipped[next*2+1]=polygon[a+1];next++;}if((da<=0)!=(db<=0)){float ratio=da/(da-db);clipped[next*2]=polygon[a]+(polygon[b]-polygon[a])*ratio;clipped[next*2+1]=polygon[a+1]+(polygon[b+1]-polygon[a+1])*ratio;next++;}}float[] swap=polygon;polygon=clipped;clipped=swap;count=next;
+            }
+            if(count<3)continue;path.reset();path.moveTo(warpX(polygon[0],polygon[1],cell,t),warpY(polygon[0],polygon[1],cell,t));for(int i=0;i<count;i++){int a=i*2,b=(i+1)%count*2;float mx=(polygon[a]+polygon[b])/2,my=(polygon[a+1]+polygon[b+1])/2;path.quadTo(warpX(mx,my,cell,t),warpY(mx,my,cell,t),warpX(polygon[b],polygon[b+1],cell,t),warpY(polygon[b],polygon[b+1],cell,t));}path.close();
+            int glow=Math.round(document.caustics*(55+25*(float)Math.sin(t*.63f+x*1.7+y*2.3)));lightPaint.setStrokeWidth(Math.max(3,w*.012f));lightPaint.setAlpha(glow/8);c.drawPath(path,lightPaint);lightPaint.setStrokeWidth(Math.max(1,w*.0022f));lightPaint.setAlpha(glow);c.drawPath(path,lightPaint);
         }
         if(lighting&&isAttachedToWindow()&&isShown())postInvalidateDelayed(33);
     }
+    private float warpX(float x,float y,float cell,float t){return x+cell*.13f*(float)Math.sin(y/cell*3.1f+t*.52f);}
+    private float warpY(float x,float y,float cell,float t){return y+cell*.13f*(float)Math.cos(x/cell*2.7f-t*.41f);}
     private RectF bounds(LayeredScene.ObjectLayer o){float size=o.size*getWidth(),x=o.x*getWidth()+offset(tiltX,o.depth,getWidth()),y=o.y*getHeight()+offset(tiltY,o.depth,getHeight());return new RectF(x-size/2,y-size/2,x+size/2,y+size/2);}
     @Override public boolean onTouchEvent(MotionEvent e){if(!editing||document==null)return false;switch(e.getActionMasked()){
         case MotionEvent.ACTION_DOWN:LayeredScene.ObjectLayer hit=null;for(int i=document.objects.size()-1;i>=0;i--){LayeredScene.ObjectLayer o=document.objects.get(i);if(bounds(o).contains(e.getX(),e.getY())){hit=o;break;}}if(hit==null)return false;selected=hit.id;picked.accept(selected);dragging=true;getParent().requestDisallowInterceptTouchEvent(true);invalidate();return true;
