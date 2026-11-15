@@ -35,10 +35,10 @@ if [ "$nth_smoke_status" -eq 0 ]; then
     nth_logcat_pid=$!
     trap 'kill "$nth_logcat_pid" 2>/dev/null || true' EXIT INT TERM
     case "$nth_suite" in
-        workspace) timeout 3m nth_gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=workspace ;;
-        polish) timeout 6m nth_gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=polish ;;
-        core|settings|widgets) timeout 6m nth_gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase="$nth_suite" ;;
-        full) timeout 14m nth_gradle :app:connectedDebugAndroidTest ;;
+        workspace) timeout 3m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=workspace ;;
+        polish) timeout 6m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=polish ;;
+        core|settings|widgets) timeout 6m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase="$nth_suite" ;;
+        full) timeout 14m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest ;;
     esac
     nth_smoke_status=$?
 fi
