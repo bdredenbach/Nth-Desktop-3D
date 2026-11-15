@@ -9,6 +9,10 @@ uniform float fishSpeed;
 uniform float rippleEnabled;
 uniform float shadowEnabled;
 uniform vec3 touches[4];
+uniform sampler2D pondBed;
+uniform sampler2D koiFish;
+uniform sampler2D reefWater;
+uniform sampler2D jellyfish;
 
 float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 float noise(vec2 p) {
@@ -91,73 +95,63 @@ vec3 gravityScene(vec2 uv) {
     return col;
 }
 
+// Sample straight-alpha photographs with the same vertical orientation on Android and EGL.
+vec3 environment(sampler2D image,vec2 uv) {
+    float viewAspect=resolution.x/resolution.y;
+    vec2 crop=vec2(min(1.0,viewAspect/(2.0/3.0)),min(1.0,(2.0/3.0)/viewAspect));
+    vec2 q=clamp((uv-.5)*crop+.5,vec2(.002),vec2(.998));
+    return texture2D(image,vec2(q.x,1.0-q.y)).rgb;
+}
+vec4 animal(sampler2D image,vec2 q) {
+    if(q.x<.001||q.x>.999||q.y<.001||q.y>.999)return vec4(0.0);
+    return texture2D(image,q);
+}
+
 vec3 pond(vec2 uv) {
-    vec2 aspect=vec2(resolution.x/resolution.y,1.0);
-    vec2 original=uv*aspect;
-    vec2 p=original+tilt*.027;
+    vec2 aspect=vec2(resolution.x/resolution.y,1.0),original=uv*aspect;
+    vec2 p=original+tilt*.019;
     float t=clockTime*motion;
-    vec2 distortion=vec2(sin(p.y*24.0+t*.55),cos(p.x*22.0+t*.42))*.0018*motion;
+    vec2 distortion=vec2(sin(p.y*19.0+t*.43),cos(p.x*21.0+t*.34))*.0011*motion;
     float rippleLight=0.0;
     for(int i=0;i<4;i++) {
-        float age=clockTime-touches[i].z;
-        float distance=length(original-touches[i].xy*aspect);
+        float age=clockTime-touches[i].z,distance=length(original-touches[i].xy*aspect);
         float envelope=exp(-distance*3.0)*exp(-age*1.3)*step(0.0,age)*step(age,3.5);
         float wave=sin(distance*105.0-age*8.0)*envelope*rippleEnabled;
         distortion+=normalize(original-touches[i].xy*aspect+vec2(.0001))*wave*.004;
-        rippleLight+=wave*.025;
+        rippleLight+=wave*.018;
     }
-    vec2 stoneP=(p+distortion)*13.0;
-    vec2 cell=floor(stoneP), f=fract(stoneP);
-    float d1=10.0,d2=10.0,identity=0.0; vec2 local=vec2(0);
-    for(int x=-1;x<=1;x++) for(int y=-1;y<=1;y++) {
-        vec2 c=cell+vec2(float(x),float(y));
-        vec2 center=vec2(hash(c),hash(c+7.0))*.72+.14;
-        vec2 delta=vec2(float(x),float(y))+center-f;
-        float d=length(delta*vec2(.9,1.1));
-        if(d<d1) { d2=d1;d1=d;identity=hash(c+22.0);local=delta; } else if(d<d2) {d2=d;}
-    }
-    float gap=smoothstep(.018,.07,d2-d1);
-    vec3 stone=mix(vec3(.24,.32,.30),vec3(.57,.62,.51),identity);
-    stone*=.63+max(0.0,1.0-length(local))*.35+local.y*.18-local.x*.12;
-    stone+=noise(stoneP*20.0)*.018;
-    vec3 col=mix(vec3(.07,.16,.15),stone,gap);
-    // Fish occupy a middle layer, with offset shadows on the stone bed.
+    vec3 col=environment(pondBed,(p+distortion)/aspect)*.82;
+    // The fish follow independent smooth paths. Their forward direction is the path tangent.
     for(int i=0;i<7;i++) {
-        float fi=float(i);
-        if(fi<fishCount) {
-            float phase=fi*2.399+t*fishSpeed*.12;
-            vec2 center=vec2(aspect.x*.5+sin(phase)*aspect.x*.39,.5+cos(phase*.83+fi)*.38);
-            vec2 q=rotate(phase+.4)*(p-center+tilt*.012);
-            float body=ellipse(q,vec2(.024,.061));
-            float tail=ellipse(q-vec2(sin(t*3.0+fi)*.007,-.069),vec2(.025,.022));
-            float fins=ellipse(q-vec2(0.0,-.007),vec2(.038,.014));
-            float mask=(1.0-smoothstep(.88,1.03,min(body,min(tail,fins))))*.9;
-            vec2 sq=rotate(phase+.4)*(p-center+vec2(.012,.019)+tilt*.008);
-            float shadow=1.0-smoothstep(.75,1.35,ellipse(sq,vec2(.026,.065)));
-            col*=1.0-shadow*.22*shadowEnabled;
-            float patch=step(.53,noise(q*75.0+fi));
-            vec3 fish=mix(vec3(.85,.81,.65),mix(vec3(.65,.16,.055),vec3(.12,.19,.17),step(.7,hash(vec2(fi)))),patch);
-            fish*=.75+.25*(1.0-min(body,1.0));
-            col=mix(col,fish,mask);
-            float eye=1.0-smoothstep(.0015,.003,length(q-vec2(.010,.036)));
-            col=mix(col,vec3(.035,.055,.05),eye);
+        float k=float(i);
+        if(k<fishCount) {
+            float phase=k*2.399+t*fishSpeed*(.10+k*.007);
+            float radius=.27+.025*sin(k*1.7);
+            vec2 center=vec2(aspect.x*(.5+sin(phase)*.31),.5+cos(phase*.83+k)*radius);
+            vec2 direction=normalize(vec2(cos(phase)*aspect.x*.31,-sin(phase*.83+k)*radius*.83)+vec2(.00001));
+            vec2 delta=p-center+distortion*.6+tilt*.009;
+            vec2 q=vec2(dot(delta,vec2(direction.y,-direction.x)),dot(delta,direction));
+            float lengthFish=.22+.015*sin(k*2.3),widthFish=lengthFish*(2.0/3.0);
+            vec2 tex=vec2(q.x/widthFish+.5,.5-q.y/lengthFish);
+            // Small head motion grows into a lateral tail stroke; fins retain their photographic detail.
+            float tail=smoothstep(.35,.92,tex.y);
+            tex.x+=sin(t*fishSpeed*4.1+k*1.9-tex.y*5.0)*.065*tail*tail*motion;
+            float finWave=sin(t*fishSpeed*3.2+k)*.025*motion;
+            tex.x=.5+(tex.x-.5)/(1.0+finWave*exp(-pow((tex.y-.30)*7.0,2.0)));
+            vec4 fish=animal(koiFish,tex);
+            vec2 sq=q+vec2(.009,.014);
+            float shadow=(1.0-smoothstep(.65,1.5,ellipse(sq,vec2(widthFish*.20,lengthFish*.43))))*.18;
+            col*=1.0-shadow*shadowEnabled;
+            float colored=clamp((fish.r-fish.g)*2.5,0.0,1.0);
+            vec3 marking=mod(k,3.0)<.5?vec3(.13,.15,.14):mod(k,3.0)>1.5?vec3(.94,.59,.15):vec3(.95,.24,.09);
+            vec3 scales=mix(fish.rgb,marking*(.45+.55*fish.r),colored*.72);
+            float light=.84+.12*sin(t*.23+k+q.y*14.0)*motion;
+            col=mix(col,scales*vec3(.93,.98,.91)*light,fish.a*.96);
         }
     }
-    // Leaves sit above the fish and cast their own displaced shadows.
-    for(int i=0;i<3;i++) {
-        float fi=float(i);
-        vec2 center=vec2(aspect.x*(.2+.30*fi)+sin(t*.07+fi)*.012,.25+.23*fi);
-        vec2 q=rotate(fi*2.0+sin(t*.1)*.05)*(p-center+tilt*.025);
-        float shape=ellipse(q,vec2(.034,.053));
-        float leaf=(1.0-smoothstep(.94,1.01,shape));
-        vec2 sq=q+vec2(.012,.015);
-        col*=1.0-(1.0-smoothstep(.7,1.2,ellipse(sq,vec2(.035,.055))))*.19*shadowEnabled;
-        float vein=1.0-smoothstep(.0005,.0012,abs(q.x));
-        col=mix(col,mix(vec3(.25,.40,.10),vec3(.42,.57,.18),q.y/.11+.5)-vein*.06,leaf);
-    }
-    float caustic=pow(max(0.0,sin(p.x*37.0+sin(p.y*22.0+t*.4)*1.6)+cos(p.y*31.0-t*.25)),4.0)*.0015*motion;
-    col+=vec3(.15,.25,.19)*(caustic+rippleLight);
-    return col*.75+vec3(.015,.055,.06);
+    float caustic=sin(p.x*34.0+sin(p.y*21.0+t*.35))*cos(p.y*28.0-t*.27);
+    col+=vec3(.025,.040,.030)*(caustic*.24*motion+rippleLight);
+    return col;
 }
 
 float roundedBox(vec2 p,vec2 size,float r) {
@@ -226,33 +220,28 @@ vec3 aurora(vec2 uv) {
 }
 
 vec3 reef(vec2 uv) {
-    vec2 aspect=vec2(resolution.x/resolution.y,1.0);
-    vec2 p=uv*aspect+tilt*.022;
+    vec2 aspect=vec2(resolution.x/resolution.y,1.0),p=uv*aspect+tilt*.017;
     float t=clockTime*motion;
-    vec3 col=mix(vec3(.005,.021,.055),vec3(.015,.12,.17),uv.y);
-    float shaft=pow(max(0.0,sin(p.x*11.0+p.y*.8+.5)),12.0);
-    col+=vec3(.01,.07,.08)*shaft*smoothstep(.1,1.0,uv.y);
+    vec2 flow=vec2(sin(p.y*6.0+t*.12),cos(p.x*9.0+t*.09))*.0008*motion;
+    vec3 col=environment(reefWater,(p+flow)/aspect)*.70;
+    // Each animal has its own phase, depth and speed; no tilt is needed for swimming.
     for(int i=0;i<4;i++) {
-        float k=float(i);
-        vec2 center=vec2((.16+k*.24)*aspect.x+.025*sin(t*.10+k),.35+mod(k*.19,.52)+sin(t*.16+k*2.0)*.018);
-        vec2 q=(p-center-tilt*k*.004)/(1.0-k*.13);
-        float dome=ellipse(q-vec2(0,.012),vec2(.045,.035));
-        float bell=(1.0-smoothstep(.92,1.02,dome))*smoothstep(-.006,.003,q.y);
-        float rim=exp(-abs(dome-1.0)*23.0)*step(0.0,q.y);
-        vec3 hue=mix(vec3(.12,.50,.62),vec3(.44,.20,.62),k/3.0);
-        col+=hue*(bell*.25+rim*.8)+hue*exp(-length(q)*32.0)*.20;
-        for(int j=0;j<4;j++) {
-            float f=float(j);
-            float strandX=(f-1.5)*.014+sin(q.y*68.0+t*.65+k+f)*.008;
-            float filament=exp(-abs(q.x-strandX)*620.0)*smoothstep(-.14,-.09,q.y)*(1.0-smoothstep(-.015,0.0,q.y));
-            col+=hue*filament*.40;
-        }
+        float k=float(i),depth=.72+k*.085;
+        vec2 center=vec2(aspect.x*(.17+k*.22+sin(t*(.075+k*.008)+k)*.055),.24+k*.17+sin(t*(.15-k*.012)+k*1.9)*.038);
+        vec2 q=rotate(sin(t*.12+k*2.0)*.075)*(p-center-tilt*k*.004);
+        float height=.25+k*.037,width=height*(2.0/3.0);
+        vec2 tex=vec2(q.x/width+.5,.5-q.y/height);
+        float phase=t*(1.15+k*.075)+k*2.1,pulse=sin(phase);
+        float arms=smoothstep(.23,.88,tex.y);
+        tex.x=.5+(tex.x-.5)/(1.0+.08*pulse*(1.0-arms)*motion);
+        tex.y=.22+(tex.y-.22)*(1.0+.05*pulse*(1.0-arms)*motion);
+        tex.x+=sin(tex.y*14.0-t*(.8+k*.05)+k)*.022*arms*motion;
+        vec4 jelly=animal(jellyfish,tex);
+        vec3 tint=mix(vec3(.74,.93,1.0),vec3(.89,.81,1.0),k/3.0);
+        col=mix(col,jelly.rgb*tint*depth,jelly.a*(.68+k*.045));
     }
-    vec2 dust=(p+vec2(0,-t*.002))*vec2(65,85),cell=floor(dust),f=fract(dust)-.5;
-    col+=vec3(.05,.28,.30)*(1.0-smoothstep(.02,.12,length(f)))*step(.95,hash(cell));
-    float seabed=.085+noise(vec2(p.x*14.0,2.0))*.055;
-    float rock=1.0-smoothstep(seabed-.003,seabed+.003,p.y);
-    col=mix(col,vec3(.009,.028,.044),rock);
+    vec2 dust=(p+vec2(0,-t*.0013))*vec2(55,80),cell=floor(dust),f=fract(dust)-.5;
+    col+=vec3(.018,.05,.055)*(1.0-smoothstep(.02,.10,length(f)))*step(.97,hash(cell));
     return col;
 }
 

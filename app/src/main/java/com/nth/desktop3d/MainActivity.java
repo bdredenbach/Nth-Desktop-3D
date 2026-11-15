@@ -532,7 +532,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         });
     }
     private void showFolder(LauncherStore.Item folder){
-        LinearLayout folderPanel=openPanel(store.preferences.getBoolean("folder_title",true)?folder.label:"Folder",false,store.preferences.getInt("folder_animation",5));folderPanel.setTag("folder");setPanelArea("folders");applyCrystalAppearance();
+        LinearLayout folderPanel=openPanel(store.preferences.getBoolean("folder_title",true)?folder.label:"Folder",false,store.preferences.getInt("folder_animation",PanelAnimations.STACK));folderPanel.setTag("folder");setPanelArea("folders");applyCrystalAppearance();
         LinearLayout body=scrollBody(folderPanel);
         if(folder.children.isEmpty())paragraph(body,"Hold an app in Start and choose Add to folder to put it here.");
         android.widget.GridLayout shelf=new android.widget.GridLayout(this);

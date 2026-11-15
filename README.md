@@ -38,10 +38,10 @@ Hold empty space or pinch empty space to manage desktop miniatures, reorder scre
 | Spatial Desktop | Layered mountain scenery, a lit 3D crystal, raised shortcut planes |
 | Gravity Playground | Bounded shortcut physics, tilt gravity, dragging/throwing, pinning |
 | Holographic Depth | A shaded planet and star layers with different parallax depths |
-| Living Pond | Procedural pebbles, swimming koi, floating leaves, shadows, touch ripples |
+| Living Pond | Photographic garden pond, detailed swimming koi, depth shadows and touch ripples |
 | Crystal Atrium | Beveled glass monoliths, moving reflections and a perspective stone floor |
 | Aurora Veil | Layered northern lights, mountain silhouettes and a reflected lake |
-| Biolume Reef | Drifting luminous jellyfish, fine tentacles and deep-water light shafts |
+| Biolume Reef | Photo-textured jellyfish with independent swimming, bell pulses and underwater scenery |
 
 Choose Cube, Carousel or Fold desktop transitions independently of Lift,
 Orbit or Unfold menu animations. App discovery and launching use Android's

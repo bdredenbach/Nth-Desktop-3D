@@ -7,6 +7,7 @@ import android.view.View;
 
 /** The same opening pose drives real panels and their settings preview. */
 final class PanelAnimations {
+    static final int STACK=3;
     static final String[] FOLDERS={"Rising Cards","Radial Arc","Floating Quick Actions","3D Stack","Minimal Context","Zoom","None"};
     static float[] pose(int style,float progress){
         float p=Math.max(0,Math.min(1,progress)),q=1-p;

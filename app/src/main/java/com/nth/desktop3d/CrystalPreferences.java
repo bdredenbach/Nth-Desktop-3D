@@ -31,7 +31,7 @@ public final class CrystalPreferences {
     public static final String[] LIGHTING={"Subtle","Dynamic","Prismatic"};
     public int material(){return Math.max(0,Math.min(3,prefs.getInt("material",2)));}
     public void setMaterial(int value){put("material",Math.max(0,Math.min(3,value)));}
-    public int menuAnimation(){return Math.max(0,Math.min(4,prefs.getInt("menu_animation",0)));}
+    public int menuAnimation(){return Math.max(0,Math.min(4,prefs.getInt("menu_animation",PanelAnimations.STACK)));}
     public void setMenuAnimation(int value){put("menu_animation",Math.max(0,Math.min(4,value)));}
     public int lighting(){return Math.max(0,Math.min(2,prefs.getInt("lighting",1)));}
     public void setLighting(int value){put("lighting",Math.max(0,Math.min(2,value)));}

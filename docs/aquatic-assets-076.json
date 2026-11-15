@@ -1,0 +1,28 @@
+{
+  "assets": [
+    {
+      "path": "app/src/main/res/drawable-nodpi/pond_bed.webp",
+      "sha256": "e89168a630738ddad480af724934828cd424f0acffaa08d1c8f9bf7dc9df4de0",
+      "generation": "Built-in image generation, original artwork generated for this project",
+      "prompt_specification": "Environment: overhead photographic garden pond, clear water and natural river stones with soft caustics, moss and a few leaves at edges; open center; no fish, animals, people, text or UI; portrait 2:3."
+    },
+    {
+      "path": "app/src/main/res/drawable-nodpi/reef_water.webp",
+      "sha256": "483d9518791d357d621dfa9ba95361f8a6517aef29e5248b2f68d7fe143f1b73",
+      "generation": "Built-in image generation, original artwork generated for this project",
+      "prompt_specification": "Environment: photoreal underwater documentary cove, open deep blue water, soft daylight shafts, subtle particles and natural dark rocky seabed across bottom quarter; no animals, divers, text or UI; portrait 2:3."
+    },
+    {
+      "path": "app/src/main/res/drawable-nodpi/koi_fish.webp",
+      "sha256": "0979dd03d056a78f8b23443b8fca0af7eb4d80c2424f60bd0db030ffc2e19bc9",
+      "generation": "Built-in image generation, original artwork generated for this project",
+      "prompt_specification": "Single photoreal Kohaku koi cutout, exactly overhead with head up and tail down; creamy white scales and natural orange-red markings, realistic eyes, translucent fins and tail rays; straight relaxed pose, full animal, no environment or text, genuine transparent alpha; portrait 2:3."
+    },
+    {
+      "path": "app/src/main/res/drawable-nodpi/jellyfish.webp",
+      "sha256": "de934d977f659776149aad39b53d6f242d91cbddbf11bb5f7ddf57b1b4f92a6c",
+      "generation": "Built-in image generation, original artwork generated for this project",
+      "prompt_specification": "Single photoreal moon jellyfish side-view cutout, upright transparent bell with visible four internal horseshoe structures, fine radial channels, delicate lacy oral arms and tentacles below; pearly white with subtle blue/lavender edge light, no environment, bubbles or text; genuine semitransparent alpha; portrait 2:3."
+    }
+  ]
+}

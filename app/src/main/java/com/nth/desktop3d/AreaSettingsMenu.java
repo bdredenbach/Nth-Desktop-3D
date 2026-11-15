@@ -39,6 +39,8 @@ final class AreaSettingsMenu {
     boolean includes(SettingsModel.Spec spec){
         if(area.equals("widgets"))return spec.id.equals("grid_columns")||spec.id.equals("grid_row_dp")||spec.id.equals("lock_layout");
         if(area.equals("controls"))return spec.id.equals("tilt")||spec.id.equals("depth")||spec.id.equals("strength")||spec.id.equals("motion");
+        if(area.equals("folders")&&spec.id.equals("folder_animation"))return true;
+        if(area.equals("motion")&&spec.id.equals("transition"))return true;
         if(area.equals("drawer")&&(spec.id.equals("search_folders")||spec.id.equals("search_keyboard")))return true;
         if(area.equals("home")&&(spec.id.equals("home_rotation")||spec.id.equals("transition")))return true;
         return spec.page.equals(area);
