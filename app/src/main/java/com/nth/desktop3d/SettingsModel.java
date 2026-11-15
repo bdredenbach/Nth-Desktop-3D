@@ -23,7 +23,7 @@ final class SettingsModel {
     SettingsModel(LauncherStore s,CrystalPreferences c,Changed changed){store=s;crystal=c;this.changed=changed;
         pref("grid_columns","home","Desktop grid columns","Apps, folders and widgets share this grid.",3,8,1,4,true);
         pref("grid_row_dp","home","Grid row height","Vertical cell spacing in dp. Dense layouts remain scrollable.",88,144,4,112,true);
-        pref("icon_size","home","Desktop icon size","Scale desktop icons. Dense layouts scroll when larger icons need more room.",70,130,5,100,true);
+        pref("icon_size","home","Desktop icon size","Resize icons in place. Grid row height controls their spacing; dense layouts remain scrollable.",70,130,5,100,true);
         enumeration("icon_shape","look","App icon shape","Shape of the Crystal surface around app icons on Home and in the drawer.",new String[]{"Rounded square","Circle","Square"},0,true);
         bool("desktop_labels","home","Desktop labels","Show shortcut and folder names.",true,true);
         pref("label_size","home","Label text size","Text size in sp, with system font scaling.",10,18,1,12,true);

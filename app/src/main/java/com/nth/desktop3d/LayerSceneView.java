@@ -32,7 +32,8 @@ final class LayerSceneView extends View {
     @Override protected void onDraw(Canvas c){super.onDraw(c);if(document==null)return;float w=getWidth(),h=getHeight();
         if(background!=null){float scale=(document.fit==1?Math.min(w/background.getWidth(),h/background.getHeight()):Math.max(w/background.getWidth(),h/background.getHeight()));if(document.fit==0&&moving&&document.motion)scale*=1.1f;float iw=background.getWidth()*scale,ih=background.getHeight()*scale,dx=offset(tiltX,document.backgroundDepth,w),dy=offset(tiltY,document.backgroundDepth,h);paint.setShader(null);paint.setAlpha(255);c.drawBitmap(background,null,new RectF((w-iw)/2+dx,(h-ih)/2+dy,(w+iw)/2+dx,(h+ih)/2+dy),paint);}
         else{paint.setShader(new LinearGradient(0,0,w,h,new int[]{0xFF163F58,0xFF0D182F,0xFF342854},null,Shader.TileMode.CLAMP));c.drawRect(0,0,w,h,paint);paint.setShader(null);}
-        drawCaustics(c,w,h);
+        drawCaustics(c,w,h);drawShafts(c,w,h);
+        if((document.caustics>0||document.shafts>0)&&lighting&&isAttachedToWindow()&&isShown())postInvalidateDelayed(33);
         for(LayeredScene.ObjectLayer o:document.objects){RectF r=bounds(o);int save=c.save();c.rotate(o.rotation,r.centerX(),r.centerY());int layer=c.saveLayerAlpha(r,Math.round(o.opacity*255));Bitmap b=images.get(o.id);
             if(b!=null){float scale=Math.min(r.width()/b.getWidth(),r.height()/b.getHeight());float iw=b.getWidth()*scale,ih=b.getHeight()*scale;paint.setAlpha(255);c.drawBitmap(b,null,new RectF(r.centerX()-iw/2,r.centerY()-ih/2,r.centerX()+iw/2,r.centerY()+ih/2),paint);}
             else if(o.kind.equals("crystal")){crystal.setBounds(Math.round(r.left),Math.round(r.top),Math.round(r.right),Math.round(r.bottom));crystal.draw(c);}
@@ -56,7 +57,33 @@ final class LayerSceneView extends View {
             if(count<3)continue;path.reset();path.moveTo(warpX(polygon[0],polygon[1],cell,t),warpY(polygon[0],polygon[1],cell,t));for(int i=0;i<count;i++){int a=i*2,b=(i+1)%count*2;float mx=(polygon[a]+polygon[b])/2,my=(polygon[a+1]+polygon[b+1])/2;path.quadTo(warpX(mx,my,cell,t),warpY(mx,my,cell,t),warpX(polygon[b],polygon[b+1],cell,t),warpY(polygon[b],polygon[b+1],cell,t));}path.close();
             int glow=Math.round(document.caustics*(55+25*(float)Math.sin(t*.63f+x*1.7+y*2.3)));lightPaint.setStrokeWidth(Math.max(3,w*.012f));lightPaint.setAlpha(glow/8);c.drawPath(path,lightPaint);lightPaint.setStrokeWidth(Math.max(1,w*.0022f));lightPaint.setAlpha(glow);c.drawPath(path,lightPaint);
         }
-        if(lighting&&isAttachedToWindow()&&isShown())postInvalidateDelayed(33);
+
+    }
+    private void drawShafts(Canvas canvas,float w,float h){
+        if(document.shafts<=0||w<=0||h<=0)return;
+        float time=lighting?(android.os.SystemClock.uptimeMillis()-started)/1000f*(.2f+document.shaftSpeed*1.4f):0;
+        lightPaint.setStyle(Paint.Style.FILL);lightPaint.setAlpha(255);
+        // Tapered, feathered ribbons sway independently from either corner. They are
+        // composed over the background, below objects, in both preview and wallpaper.
+        for(int side=0;side<2;side++){
+            if(document.shaftSide!=2&&document.shaftSide!=side)continue;
+            int save=canvas.save();if(side==1){canvas.translate(w,0);canvas.scale(-1,1);}
+            lightPaint.setAlpha(255);float sourceX=-w*.05f,sourceY=-h*.06f;
+            for(int beam=0;beam<4;beam++){
+                float phase=beam*1.83f+side*2.1f;
+                float endX=w*(.1f+beam*.26f+.12f*(float)Math.sin(time*.69f+phase));
+                float endY=h*(.78f+.13f*(float)Math.sin(time*.43f+phase));
+                float spread=w*(.08f+.025f*beam),pulse=.72f+.28f*(float)Math.sin(time*1.1f+phase);
+                for(int feather=5;feather>=1;feather--){
+                    float radius=spread*feather/5f;int alpha=Math.round(document.shafts*pulse*12);
+                    lightPaint.setShader(new LinearGradient(sourceX,sourceY,endX,endY,new int[]{(alpha<<24)|0x00C9F8FF,((alpha/2)<<24)|0x008CE4F3,0x006CCADA},new float[]{0,.42f,1},Shader.TileMode.CLAMP));
+                    Path ribbon=new Path();ribbon.moveTo(sourceX-radius*.04f,sourceY);ribbon.cubicTo(endX*.22f-radius*.5f,h*.3f,endX-radius,endY*.8f,endX-radius,endY);ribbon.quadTo(endX,endY+h*.05f,endX+radius,endY);ribbon.cubicTo(endX+radius,endY*.8f,endX*.22f+radius*.5f,h*.3f,sourceX+radius*.04f,sourceY);ribbon.close();canvas.drawPath(ribbon,lightPaint);
+                }
+            }
+            lightPaint.setShader(null);lightPaint.setAlpha(Math.round(document.shafts*38));
+            lightPaint.setShader(new RadialGradient(0,0,w*.65f,new int[]{0xFFB3EEFA,0x0071CFE3},null,Shader.TileMode.CLAMP));canvas.drawRect(0,0,w,h,lightPaint);canvas.restoreToCount(save);
+        }
+        lightPaint.setShader(null);lightPaint.setAlpha(255);
     }
     private float warpX(float x,float y,float cell,float t){return x+cell*.13f*(float)Math.sin(y/cell*3.1f+t*.52f);}
     private float warpY(float x,float y,float cell,float t){return y+cell*.13f*(float)Math.cos(x/cell*2.7f-t*.41f);}

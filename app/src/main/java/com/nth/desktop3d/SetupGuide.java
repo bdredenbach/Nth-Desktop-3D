@@ -12,8 +12,9 @@ import android.widget.LinearLayout;
 @android.annotation.SuppressLint("ViewConstructor")
 final class SetupGuide extends LinearLayout {
     private final Activity activity;private final LauncherStore store;private final Runnable home,done;private int step;private LinearLayout body;private android.widget.ScrollView scroll;
-    SetupGuide(Activity a,LauncherStore s,int start,Runnable home,Runnable done){super(a);activity=a;store=s;this.home=home;this.done=done;setOrientation(VERTICAL);step=Math.max(0,Math.min(5,start));refresh();}
+    SetupGuide(Activity a,LauncherStore s,int start,Runnable home,Runnable done){super(a);activity=a;store=s;this.home=home;this.done=done;setOrientation(VERTICAL);step=Math.max(0,Math.min(5,start));store.preferences.edit().putBoolean("setup_in_progress",true).apply();refresh();}
     int step(){return step;}
+    void back(){if(step>0){step--;scroll.scrollTo(0,0);refresh();}}
     private void text(String value){body.addView(Ui.text(activity,value,15,Ui.TEXT),new LayoutParams(-1,-2));}
     private void button(String label,Runnable action){body.addView(Ui.quiet(activity,label,action),new LayoutParams(-1,-2));}
     private void launch(Intent intent){try{activity.startActivity(intent);}catch(RuntimeException e){android.widget.Toast.makeText(activity,"This Android settings page is unavailable. Open App info instead.",android.widget.Toast.LENGTH_SHORT).show();}}
@@ -27,8 +28,8 @@ final class SetupGuide extends LinearLayout {
         if(step==5)text("Hold empty desktop space for screen management. Hold and move an app, folder or widget to drag it; hold still for its menu. You can revisit this guide under Settings → Launcher → Setup & permissions.");
         text("Returning from Android keeps this step open. Tap Next when you are ready; optional access can be skipped.");
         LinearLayout navigation=Ui.row(activity);navigation.setTag("setup-navigation");
-        android.widget.Button back=Ui.quiet(activity,"Back",()->{step--;scroll.scrollTo(0,0);refresh();});back.setEnabled(step>0);navigation.addView(back,new LayoutParams(-2,-2));
+        android.widget.Button back=Ui.quiet(activity,"Back",this::back);back.setEnabled(step>0);navigation.addView(back,new LayoutParams(-2,-2));
         navigation.addView(new android.view.View(activity),new LayoutParams(0,1,1));
-        android.widget.Button next=Ui.primary(activity,step==5?"Finish":"Next",()->{if(step==5){store.preferences.edit().putBoolean("welcomed",true).apply();done.run();}else{step++;scroll.scrollTo(0,0);refresh();}});navigation.addView(next,new LayoutParams(-2,-2));addView(navigation,new LayoutParams(-1,-2));
+        android.widget.Button next=Ui.primary(activity,step==5?"Finish":"Next",()->{if(step==5){store.preferences.edit().putBoolean("welcomed",true).putBoolean("setup_in_progress",false).remove("setup_step").apply();done.run();}else{step++;scroll.scrollTo(0,0);refresh();}});navigation.addView(next,new LayoutParams(-2,-2));addView(navigation,new LayoutParams(-1,-2));
     }
 }
