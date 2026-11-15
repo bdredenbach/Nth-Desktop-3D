@@ -122,7 +122,11 @@ final class DesktopView extends FrameLayout {
     }
     private boolean folderPattern(){return store.preferences.getBoolean("folder_pattern_page_"+store.page,false);}
     private int gridColumns(){if(folderPattern())return 5;return Math.max(3,Math.min(8,store.preferences.getInt("grid_columns",4)));}
-    private int cellHeight(){if(folderPattern())return Math.max(Ui.dp(getContext(),48),(Math.max(height,getHeight())-top()-Ui.dp(getContext(),12))/10);return Ui.dp(getContext(),store.preferences.getInt("grid_row_dp",112)+Math.max(0,getResources().getConfiguration().fontScale-1)*30);}
+    private int cellHeight(){
+        int preferred=IconTile.desktopRowHeight(getContext(),store.preferences);
+        if(folderPattern())return Math.max(preferred,(Math.max(height,getHeight())-top()-Ui.dp(getContext(),12))/10);
+        return Math.max(preferred,Ui.dp(getContext(),store.preferences.getInt("grid_row_dp",112)+Math.max(0,getResources().getConfiguration().fontScale-1)*30));
+    }
     private android.graphics.RectF rectangle(DesktopGrid.Cell cell){
         return new android.graphics.RectF(cell.x*width/(float)columns,top()+cell.y*ch,(cell.x+cell.w)*width/(float)columns,top()+(cell.y+cell.h)*ch);
     }

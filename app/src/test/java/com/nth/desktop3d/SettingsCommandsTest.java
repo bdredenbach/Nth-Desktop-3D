@@ -37,4 +37,9 @@ public class SettingsCommandsTest {
         org.junit.Assert.assertEquals("cards",SettingsCommands.parse("open card settings").page);
         org.junit.Assert.assertNull(SettingsCommands.parse("what does the weather card do?"));
     }
+    @org.junit.Test public void dockSpaceCommandsStayIndependent(){
+        org.junit.Assert.assertEquals("dock_content",SettingsCommands.parse("enable dock spaces").id);
+        org.junit.Assert.assertEquals(Integer.valueOf(0),SettingsCommands.parse("disable dock spaces").value);
+        org.junit.Assert.assertEquals("show_dock",SettingsCommands.parse("enable dock").id);
+    }
 }
