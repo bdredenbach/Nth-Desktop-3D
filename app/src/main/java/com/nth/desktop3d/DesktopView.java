@@ -172,7 +172,12 @@ final class DesktopView extends FrameLayout {
         while(cells==null&&rows<120)cells=DesktopGrid.restore(desired,columns,++rows);
         if(cells==null)throw new IllegalStateException("Desktop layout exceeds safe capacity");
         workspace.metrics(columns,ch,top());
-        if(scroller!=null){android.view.ViewGroup.LayoutParams lp=workspace.getLayoutParams();lp.height=Math.max(height,top()+rows*ch+Ui.dp(getContext(),12));workspace.setLayoutParams(lp);}
+        if(scroller!=null){
+            // ScrollView measures its child with an unspecified height; translated cells
+            // do not increase FrameLayout's desired size. Report the complete grid.
+            int contentHeight=Math.max(height,top()+rows*ch+Ui.dp(getContext(),12));workspace.setMinimumHeight(contentHeight);
+            android.view.ViewGroup.LayoutParams lp=workspace.getLayoutParams();if(lp.height!=contentHeight){lp.height=contentHeight;workspace.setLayoutParams(lp);}
+        }
         positionCells(cells,true);
     }
     private void positionCells(java.util.List<DesktopGrid.Cell> plan,boolean save){
