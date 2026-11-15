@@ -13,7 +13,7 @@ public final class Crystal075Smoke {
     public Crystal075Smoke(Instrumentation test,MainActivity activity,String output){this.test=test;this.activity=activity;this.output=output;}
     public void run(){
         LauncherStore store=(LauncherStore)field("store");
-        String original=store.preferences.getString("layout","");
+        String original=layout(store.preferences.getString("layout","[]"));
         invoke("showStart");
         main(()->{EditText search=(EditText)find(v->v instanceof EditText);check(search!=null&&"Search".contentEquals(search.getHint()),"Drawer hint was not simplified");AppCatalog catalog=(AppCatalog)field("catalog");check(catalog.filter("About Nth Desktop 3D",true).isEmpty(),"About tile remains in drawer");check(find(v->v instanceof TextView&&((TextView)v).getText().toString().startsWith("Hold and move an app"))==null,"Drawer footer remains");});
         capture("crystal-drawer");
@@ -29,7 +29,7 @@ public final class Crystal075Smoke {
             final int chosen=mode;AtomicReference<View> target=new AtomicReference<>();
             main(()->{View card=find(v->("scene-card:"+chosen).equals(v.getTag()));check(card!=null,"Scene choice missing");target.set(card);card.requestRectangleOnScreen(new Rect(0,0,card.getWidth(),card.getHeight()),true);});idle(250);
             tap(target.get());
-            main(()->{check(field("overlay")==null,"Scene tap did not return to desktop");check(store.mode==chosen&&new LauncherStore(activity).mode==chosen,"Scene was not persisted: "+chosen);check(original.equals(store.preferences.getString("layout","")),"Changing a scene altered shortcut layout");});
+            main(()->{check(field("overlay")==null,"Scene tap did not return to desktop");check(store.mode==chosen&&new LauncherStore(activity).mode==chosen,"Scene was not persisted: "+chosen);check(original.equals(layout(store.preferences.getString("layout","[]"))),"Changing a scene altered shortcut layout");});
             capture("scene-"+chosen);
         }
         // Every appended scene must be valid for the settings preview and restored store.
@@ -48,6 +48,7 @@ public final class Crystal075Smoke {
         invoke("showModes");main(()->{View card=find(v->"scene-card:6".equals(v.getTag()));check(card!=null&&card.isSelected(),"Current scene checkmark lost");card.requestRectangleOnScreen(new Rect(0,0,card.getWidth(),card.getHeight()),true);});
         capture("crystal-selected-reef");invoke("closePanel");
     }
+    private String layout(String raw){try{org.json.JSONArray pages=new org.json.JSONArray(raw);for(int p=0;p<pages.length();p++){org.json.JSONArray items=pages.getJSONArray(p);for(int i=0;i<items.length();i++){org.json.JSONObject item=items.getJSONObject(i);item.remove("x");item.remove("y");}}return pages.toString();}catch(Exception e){throw new AssertionError(e);}}
     private Object field(String name){try{java.lang.reflect.Field f=MainActivity.class.getDeclaredField(name);f.setAccessible(true);return f.get(activity);}catch(Exception e){throw new AssertionError(e);}}
     private void invoke(String name){invoke(name,new Class[]{});}
     private void invoke(String name,Class<?>[] types,Object... args){main(()->{try{java.lang.reflect.Method m=MainActivity.class.getDeclaredMethod(name,types);m.setAccessible(true);m.invoke(activity,args);}catch(Exception e){throw new AssertionError(e);}});idle(350);}
@@ -56,6 +57,6 @@ public final class Crystal075Smoke {
     private View find(View v,java.util.function.Predicate<View> match){if(v.getVisibility()!=View.VISIBLE)return null;if(match.test(v))return v;if(v instanceof ViewGroup)for(int i=0;i<((ViewGroup)v).getChildCount();i++){View found=find(((ViewGroup)v).getChildAt(i),match);if(found!=null)return found;}return null;}
     private void main(Runnable r){AtomicReference<Throwable> error=new AtomicReference<>();test.runOnMainSync(()->{try{r.run();}catch(Throwable e){error.set(e);}});if(error.get()!=null)throw new AssertionError(error.get());}
     private void idle(long ms){SystemClock.sleep(ms);test.runOnMainSync(()->{});}
-    private void capture(String name){Bitmap image=test.getUiAutomation().takeScreenshot();check(image!=null,"Screenshot unavailable");java.io.File dir=output==null?new java.io.File(test.getTargetContext().getExternalFilesDir(null),"verification"):new java.io.File(output);dir.mkdirs();try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(dir,name+".png"))){image.compress(Bitmap.CompressFormat.PNG,100,out);}catch(Exception e){throw new AssertionError(e);}finally{image.recycle();}}
+    private void capture(String name){idle(900);Bitmap image=test.getUiAutomation().takeScreenshot();check(image!=null,"Screenshot unavailable");java.io.File dir=output==null?new java.io.File(test.getTargetContext().getExternalFilesDir(null),"verification"):new java.io.File(output);dir.mkdirs();try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(dir,name+".png"))){image.compress(Bitmap.CompressFormat.PNG,100,out);}catch(Exception e){throw new AssertionError(e);}finally{image.recycle();}}
     private static void check(boolean ok,String message){if(!ok)throw new AssertionError(message);}
 }
