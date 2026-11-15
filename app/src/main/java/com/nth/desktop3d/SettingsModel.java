@@ -61,7 +61,7 @@ final class SettingsModel {
         add("material","look","Crystal material","Surface material for icons and the dock.",0,3,1,CrystalPreferences.MATERIALS,false,true,c::material,c::setMaterial);
         add("lighting","look","Lighting","Highlight intensity on Crystal surfaces.",0,2,1,CrystalPreferences.LIGHTING,false,true,c::lighting,c::setLighting);
         add("menu_animation","look","Menu opening animation","How menus rise from the desktop plane.",0,4,1,CrystalPreferences.MENU_ANIMATIONS,false,false,c::menuAnimation,c::setMenuAnimation);
-        add("scene","motion","Scene","Choose the desktop environment.",0,3,1,LauncherStore.MODES,false,true,()->s.mode,v->s.mode=v);
+        add("scene","motion","Scene","Choose the desktop environment.",0,LauncherStore.MODES.length-1,1,LauncherStore.MODES,false,true,()->s.mode,v->s.mode=v);
         add("transition","motion","Desktop transition","Perspective animation when changing desktops.",0,LauncherStore.TRANSITIONS.length-1,1,LauncherStore.TRANSITIONS,false,false,()->s.transition,v->s.transition=v);
         add("tilt","motion","Tilt parallax","Use device tilt to move the desktop perspective.",0,1,1,null,true,false,()->s.tilt?1:0,v->{s.tilt=v==1;c.setParallax(v==1);});
         add("depth","motion","3D depth","Depth of the scene and layered elements.",0,100,1,null,false,false,c::depth,c::setDepth);

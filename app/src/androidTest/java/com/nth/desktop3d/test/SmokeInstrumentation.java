@@ -31,7 +31,8 @@ public final class SmokeInstrumentation extends Instrumentation {
             getUiAutomation().setServiceInfo(accessibility);
             // Quickstep is not the app under test; keep it from owning Home/recents input.
             shell("cmd package set-home-activity com.nth.desktop3d/.MainActivity");
-            shell("am force-stop com.android.launcher3");
+            // Android 11 can leave a null Home stack after force-stop; keep its launcher alive.
+            if(android.os.Build.VERSION.SDK_INT>=31)shell("am force-stop com.android.launcher3");
             // Restore a populated desktop before the first Activity measure: this crashed in 0.1.0.
             com.nth.desktop3d.LauncherStore restored=new com.nth.desktop3d.LauncherStore(getTargetContext());
             restored.page=0;restored.mode=0;
@@ -40,6 +41,7 @@ public final class SmokeInstrumentation extends Instrumentation {
             ActivityMonitor monitor=addMonitor(MainActivity.class.getName(),null,false);
             getTargetContext().startActivity(new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);removeMonitor(monitor);check(activity!=null,"Cold launch timed out");idle(1200);
+            if(phase.equals("crystal")){new com.nth.desktop3d.Crystal075Smoke(this,activity,outputDirectory).run();passed(s,"Crystal surfaces, seven scene taps, saved selections and settings previews passed.");return;}
             if(phase.equals("workspace")){new com.nth.desktop3d.Launcher070Smoke(this,activity,outputDirectory).run();s.putString("stream","Workspace interaction checks passed.\n");sendStatus(0,s);Bundle result=new Bundle();result.putString("stream","OK (workspace integration test)\n");finish(Activity.RESULT_OK,result);return;}
             if(polishOnly){new PolishSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.FeedSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.DiscoverSmoke(this,activity,outputDirectory).run();s.putString("stream","Native feed refresh, offline cache, sources, interests, saved stories, internal reader, settings, card data and overlay checks passed.\n");sendStatus(0,s);Bundle result=new Bundle();result.putString("stream","OK (1 focused integration test)\n");finish(Activity.RESULT_OK,result);return;}
             if(phase.equals("settings")){
@@ -57,9 +59,9 @@ public final class SmokeInstrumentation extends Instrumentation {
             monitor=addMonitor(MainActivity.class.getName(),null,false);main(()->activity.recreate());
             activity=(MainActivity)monitor.waitForActivityWithTimeout(25000);removeMonitor(monitor);check(activity!=null,"Activity recreation timed out");idle(700);assertRestoredGrid();
             optionalButton("Explore the desktop");idle(400);
-            for(String name:new String[]{"Spatial Desktop","Gravity Playground","Holographic Depth","Living Pond"}){
-                invoke("showModes");clickScene(name);clickButton("Try this scene");idle(400);
-                check(getTargetContext().getSharedPreferences("desktop3d",0).getInt("mode",-1)==java.util.Arrays.asList("Spatial Desktop","Gravity Playground","Holographic Depth","Living Pond").indexOf(name),"Scene mode not saved: "+name);
+            for(String name:com.nth.desktop3d.LauncherStore.MODES){
+                invoke("showModes");clickScene(name);idle(400);
+                check(getTargetContext().getSharedPreferences("desktop3d",0).getInt("mode",-1)==java.util.Arrays.asList(com.nth.desktop3d.LauncherStore.MODES).indexOf(name),"Scene mode not saved: "+name);
                 capture(name.replace(' ','-'));
             }
             openBuiltin("Calculator");
@@ -78,10 +80,10 @@ public final class SmokeInstrumentation extends Instrumentation {
             invoke("showControls");check(find(v->v instanceof Button&&"Internet".contentEquals(((Button)v).getText()))!=null,"Device flyout missing");back();
             main(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));idle(900);
             if(phase.equals("core")){
-                passed(s,"Restored grid, recreation, all four scenes, tools, notes, shortcut menu, paging, landscape and device controls passed.");return;
+                passed(s,"Restored grid, recreation, all seven scenes, tools, notes, shortcut menu, paging, landscape and device controls passed.");return;
             }
             activity=new SettingsSmoke(this,activity,outputDirectory).run();
-            // All four scenes and their screenshots were verified above. Keep
+            // All seven scenes and their screenshots were verified above. Keep
             // unrelated native control checks off the software GPU's Pond load.
             main(()->{try{java.lang.reflect.Field f=MainActivity.class.getDeclaredField("store");f.setAccessible(true);com.nth.desktop3d.LauncherStore controls=(com.nth.desktop3d.LauncherStore)f.get(activity);controls.mode=0;controls.ambient=false;controls.save();java.lang.reflect.Method apply=MainActivity.class.getDeclaredMethod("applySettings",boolean.class);apply.setAccessible(true);apply.invoke(activity,true);}catch(Exception e){throw new AssertionError(e);}});
             new PolishSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.FeedSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.DiscoverSmoke(this,activity,outputDirectory).run();new com.nth.desktop3d.Launcher070Smoke(this,activity,outputDirectory).run();

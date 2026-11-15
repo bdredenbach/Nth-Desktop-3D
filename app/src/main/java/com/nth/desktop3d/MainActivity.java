@@ -451,13 +451,13 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private void showStart(){
         LinearLayout p=openPanel("Your apps");panelKind=1;
-        appSearch=new EditText(this);appSearch.setSingleLine(true);appSearch.setHint("Search apps and Nth tools");appSearch.setTextColor(Ui.TEXT);appSearch.setHintTextColor(Ui.MUTED);appSearch.setTextSize(16);appSearch.setSelectAllOnFocus(true);appSearch.setContentDescription("Search installed apps");
+        appSearch=new EditText(this);appSearch.setSingleLine(true);appSearch.setHint("Search");appSearch.setTextColor(Ui.TEXT);appSearch.setHintTextColor(Ui.MUTED);appSearch.setTextSize(16);appSearch.setSelectAllOnFocus(true);appSearch.setContentDescription("Search installed apps");
         appSearch.setBackground(Ui.surface(0xFF0B172B,14,this));appSearch.setPadding(dp(14),0,dp(14),0);LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(-1,dp(50));ep.setMargins(0,dp(10),0,dp(10));p.addView(appSearch,ep);
         LinearLayout shortcuts=Ui.row(this);
         Button all=Ui.button(this,"All apps",()->{if(appsAdapter!=null){appsAdapter.onlyBuiltins=false;appsAdapter.onlyFolders=false;appsAdapter.filter(appSearch.getText().toString());}});
         Button nth=Ui.button(this,"Nth tools",()->{if(appsAdapter!=null){appsAdapter.onlyBuiltins=true;appsAdapter.onlyFolders=false;appsAdapter.filter(appSearch.getText().toString());}});
         Button folders=Ui.button(this,"Folders",()->{if(appsAdapter!=null){appsAdapter.onlyBuiltins=false;appsAdapter.onlyFolders=true;appsAdapter.filter(appSearch.getText().toString());}});shortcuts.addView(folders,new LinearLayout.LayoutParams(0,dp(44),1));
-        shortcuts.addView(all,new LinearLayout.LayoutParams(0,dp(44),1));LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(0,dp(44),1);np.leftMargin=dp(8);shortcuts.addView(nth,np);if(store.preferences.getBoolean("cards_in_search",true)){Button cards=Ui.button(this,"Cards",()->showCards(appSearch==null?"":appSearch.getText().toString()));LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(0,dp(44),1);cp.leftMargin=dp(8);shortcuts.addView(cards,cp);}p.addView(shortcuts);for(int n=0;n<shortcuts.getChildCount();n++)if(shortcuts.getChildAt(n) instanceof Button){Button filter=(Button)shortcuts.getChildAt(n);filter.setTextSize(12);filter.setSingleLine(true);filter.setPadding(dp(6),0,dp(6),0);}
+        shortcuts.addView(all,new LinearLayout.LayoutParams(0,dp(44),1));LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(0,dp(44),1);np.leftMargin=dp(8);shortcuts.addView(nth,np);if(store.preferences.getBoolean("cards_in_search",true)){Button cards=Ui.button(this,"Cards",()->showCards(appSearch==null?"":appSearch.getText().toString()));LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(0,dp(44),1);cp.leftMargin=dp(8);shortcuts.addView(cards,cp);}p.addView(shortcuts);for(int n=0;n<shortcuts.getChildCount();n++)if(shortcuts.getChildAt(n) instanceof Button){Button filter=(Button)shortcuts.getChildAt(n);filter.setBackground(Ui.touch(this,Ui.crystal(this,14,false),14));filter.setTextSize(12);filter.setSingleLine(true);filter.setPadding(dp(6),0,dp(6),0);}
         GridView grid=new SwipeDismissGrid(this,this::closePanel);
         grid.setOnTouchListener(new View.OnTouchListener(){
             float startY,startX;boolean dismissing;
@@ -478,7 +478,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         grid.setLongClickable(false);
         appSearch.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int count,int after){}public void onTextChanged(CharSequence s,int st,int before,int count){if(appsAdapter!=null)appsAdapter.filter(s.toString());}public void afterTextChanged(Editable e){}});
         appSearch.setOnEditorActionListener((v,action,event)->{if(appsAdapter!=null&&appsAdapter.getCount()==1){openDrawerItem(0,false);return true;}return false;});
-        TextView tip=Ui.text(this,"Hold and move an app or folder to place it on a desktop. Hold still for its menu.",12,Ui.MUTED);tip.setPadding(0,dp(6),0,0);p.addView(tip);p.setFocusableInTouchMode(true);p.requestFocus();if(store.preferences.getBoolean("search_keyboard",false)){EditText field=appSearch;handler.postDelayed(()->{if(appSearch==field&&overlay!=null){field.requestFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(field,InputMethodManager.SHOW_IMPLICIT);}},280);}
+        p.setFocusableInTouchMode(true);p.requestFocus();if(store.preferences.getBoolean("search_keyboard",false)){EditText field=appSearch;handler.postDelayed(()->{if(appSearch==field&&overlay!=null){field.requestFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(field,InputMethodManager.SHOW_IMPLICIT);}},280);}
     }
     private void openDrawerItem(int position,boolean held){if(position<appsAdapter.items.size()){AppCatalog.Entry entry=appsAdapter.items.get(position);if(held)appMenu(entry,null);else launch(entry.key);}else{LauncherStore.Item folder=appsAdapter.folders.get(position-appsAdapter.items.size());if(held)menu(folder);else showFolder(folder);}}
     private final class AppsAdapter extends BaseAdapter {
@@ -547,7 +547,6 @@ public final class MainActivity extends Activity implements MotionController.Lis
             lp.setMargins(dp(4),dp(6),dp(4),dp(8));shelf.addView(tile,lp);
         }
         body.addView(shelf,new LinearLayout.LayoutParams(-1,-2));
-        action(body,"Rename folder",()->rename(folder));
     }
     private void showDesktopOverview(){
         LinearLayout body=scrollBody(openPanel("Desktop shortcuts"));
@@ -720,15 +719,12 @@ public final class MainActivity extends Activity implements MotionController.Lis
 
     private void showModes(){
         LinearLayout p=openPanel("Scene studio");LinearLayout body=scrollBody(p);
-        paragraph(body,"A different dimension for your desktop.");
-        String[] descriptions={"Layered mountains. Sculpted light.","Tilt, toss, and play with your shortcuts.","A quiet orbit through a field of stars.","Koi, floating leaves, and touch ripples."};
-        for(int n=0;n<4;n++){
+        String[] descriptions=SceneCatalog.DESCRIPTIONS;
+        for(int n=0;n<LauncherStore.MODES.length;n++){
             final int selected=n;SceneCard card=new SceneCard(this,n,descriptions[n],store.mode==n);
-            card.setOnClickListener(v->{desktop.savePositions();store.mode=selected;store.save();applySettings(true);showModes();});
+            card.setOnClickListener(v->{desktop.savePositions();store.mode=selected;store.save();applySettings(true);closePanel();});
             LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,dp(108));cp.bottomMargin=dp(12);body.addView(card,cp);
         }
-        Button tryScene=Ui.primary(this,"Try this scene",this::closePanel);LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,dp(52));tp.topMargin=dp(10);p.addView(tryScene,tp);
-        Button mix=Ui.quiet(this,"Menus and transitions",this::showSettings);p.addView(mix,new LinearLayout.LayoutParams(-1,dp(48)));
     }
     private SettingsModel settingsModel(){if(settingsModel==null)settingsModel=new SettingsModel(store,crystal,rebuild->{changed(rebuild);applyCrystalAppearance();});return settingsModel;}
     private void showSettings(){showSettings("root");}
@@ -792,7 +788,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void openSystem(String action){try{startActivity(new Intent(action));}catch(RuntimeException e){toast("That settings screen is unavailable on this device.");}}
     private String appVersion(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(android.content.pm.PackageManager.NameNotFoundException error){return "";}}
     private void showAbout(){
-        LinearLayout body=scrollBody(openPanel("Nth Desktop 3D"));paragraph(body,"Version "+appVersion()+"\n\nFour scenes. One desktop.\n\nTilt gently to explore depth. Swipe the desktop or use the arrows to turn pages. Hold an app for its menu. Hold the taskbar for desktop options.\n\nScene studio changes the environment. 3D settings mixes the transition and menu style independently.");
+        LinearLayout body=scrollBody(openPanel("Nth Desktop 3D"));paragraph(body,"Version "+appVersion()+"\n\nSeven scenes. One desktop.\n\nTilt gently to explore depth. Swipe the desktop or use the arrows to turn pages. Hold an app for its menu. Hold the taskbar for desktop options.\n\nScene studio changes the environment. 3D settings mixes the transition and menu style independently.");
         paragraph(body,"This first version includes app launching, persistent shortcuts and folders, Nth Notes, Calculator, Calendar, scene controls, and Android settings shortcuts. Android widgets support direct hold/drag, cell snapping and resizing. The wider Nth utility suite and .nthdesktop imports are planned for later passes.");
         action(body,"Scene studio",this::showModes);action(body,"3D settings",this::showSettings);action(body,"Set default Home",this::requestHome);
     }

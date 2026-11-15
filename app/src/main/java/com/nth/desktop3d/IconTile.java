@@ -32,7 +32,7 @@ final class IconTile extends LinearLayout {
         menuLabel=!scope.equals("desktop");if(menuLabel){label.setSingleLine(false);label.setMaxLines(Integer.MAX_VALUE);label.setEllipsize(null);label.setText(fullName);setGravity(Gravity.TOP|Gravity.CENTER_HORIZONTAL);setMinimumHeight(Ui.dp(getContext(),132));}
         int size=Math.max(70,Math.min(130,prefs.getInt(scope.equals("desktop")?"icon_size":scope+"_icon_size",100)));desiredSize=Ui.dp(getContext(),60*size/100f);
         label.setVisibility(prefs.getBoolean(scope+"_labels",true)?VISIBLE:GONE);label.setTextSize(Math.max(10,Math.min(18,prefs.getInt("label_size",12))));int color=Math.max(0,Math.min(3,prefs.getInt("label_color",0)));label.setTextColor(SettingsModel.TEXT_COLORS[color]);
-        FrameLayout plinth=(FrameLayout)getChildAt(0);plinth.setElevation(new CrystalPreferences(getContext()).shadows()?Ui.dp(getContext(),9):0);plinth.setLayoutParams(new LayoutParams(desiredSize,desiredSize));int icon=desiredSize*3/4;plinth.getChildAt(0).setLayoutParams(new FrameLayout.LayoutParams(icon,icon,Gravity.CENTER));
+        FrameLayout plinth=(FrameLayout)getChildAt(0);if(menuLabel)plinth.setBackground(Ui.crystal(getContext(),Ui.iconRadius(getContext(),folder),false));plinth.setElevation(new CrystalPreferences(getContext()).shadows()?Ui.dp(getContext(),9):0);plinth.setLayoutParams(new LayoutParams(desiredSize,desiredSize));int icon=desiredSize*3/4;plinth.getChildAt(0).setLayoutParams(new FrameLayout.LayoutParams(icon,icon,Gravity.CENTER));
     }
     void physicsStyle(){
         setPadding(Ui.dp(getContext(),3),Ui.dp(getContext(),4),Ui.dp(getContext(),3),Ui.dp(getContext(),4));

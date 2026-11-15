@@ -160,13 +160,112 @@ vec3 pond(vec2 uv) {
     return col*.75+vec3(.015,.055,.06);
 }
 
+float roundedBox(vec2 p,vec2 size,float r) {
+    vec2 q=abs(p)-size+r;
+    return length(max(q,0.0))+min(max(q.x,q.y),0.0)-r;
+}
+
+vec3 atrium(vec2 uv) {
+    float aspect=resolution.x/resolution.y;
+    vec2 p=(uv-.5)*vec2(aspect,1.0)+tilt*.024;
+    float t=clockTime*motion;
+    vec3 col=mix(vec3(.012,.024,.042),vec3(.055,.13,.19),uv.y);
+    col+=vec3(.04,.13,.17)*exp(-length(p-vec2(.20,.19))*4.0);
+    float floorMask=1.0-smoothstep(-.25,-.14,p.y);
+    vec2 floorUV=vec2(p.x/max(.06,.52+p.y),1.0/max(.06,.52+p.y))*1.6;
+    float seams=1.0-smoothstep(.006,.015,min(abs(fract(floorUV.x)-.5),abs(fract(floorUV.y)-.5)));
+    col+=vec3(.035,.075,.09)*seams*floorMask;
+    col+=vec3(.04,.14,.20)*exp(-abs(p.x+.08)*14.0)*floorMask*.35;
+    for(int i=0;i<4;i++) {
+        float k=float(i),scale=.65+k*.13;
+        vec2 center=vec2((k-1.5)*.135,.035+sin(k*1.7)*.045);
+        vec2 q=(p-center-tilt*.007*k)/scale;
+        q=rotate(-.19+k*.06)*q;q.x+=q.y*.16;
+        vec2 size=vec2(.075,.21);
+        float sd=roundedBox(q,size,.028);
+        float shadow=exp(-max(0.0,roundedBox(q+vec2(.015,.018),size,.03))*75.0)*shadowEnabled;
+        col*=1.0-shadow*.42;
+        float mask=1.0-smoothstep(-.0015,.0015,sd);
+        float bevel=1.0-smoothstep(.004,.020,abs(sd));
+        float depth=clamp((-sd)/.06,0.0,1.0);
+        vec3 glass=mix(vec3(.10,.27,.36),vec3(.009,.038,.067),depth);
+        float stripe=exp(-pow((q.x+.28*q.y+.033+sin(t*.12+k)*.008)*110.0,2.0));
+        float broad=exp(-pow((q.x-.36*q.y+.025)*28.0,2.0));
+        glass+=vec3(.40,.54,.61)*broad*.65+vec3(.66,.84,.92)*stripe;
+        glass+=vec3(.17,.26,.29)*smoothstep(.08,.21,q.y);
+        glass+=vec3(.35,.62,.72)*bevel*(.45+.55*step(q.x,0.0));
+        col=mix(col,glass,mask);
+        col+=vec3(.06,.17,.21)*exp(-abs(sd)*190.0)*.45;
+    }
+    return col;
+}
+
+vec3 aurora(vec2 uv) {
+    vec2 p=uv+tilt*.024;
+    float t=clockTime*motion*.075,horizon=.27;
+    vec2 sky=vec2(p.x,horizon+abs(p.y-horizon));
+    vec3 col=mix(vec3(.018,.055,.105),vec3(.008,.017,.05),smoothstep(horizon,1.0,sky.y));
+    for(int i=0;i<3;i++) {
+        float k=float(i);
+        float curtain=.47+k*.105+sin(sky.x*5.0+t+k*1.8)*.07+sin(sky.x*13.0-t*.5+k)*.025;
+        float delta=sky.y-curtain;
+        float ribbon=exp(-max(0.0,delta)*12.0)*smoothstep(-.018,.012,delta);
+        ribbon*=.45+.55*noise(vec2(sky.x*38.0+t,sky.y*.8+k));
+        col+=mix(vec3(.025,.48,.38),vec3(.25,.10,.47),k*.4)*ribbon*.72;
+    }
+    vec2 stars=(sky+tilt*.012)*vec2(75,120),cell=floor(stars),f=fract(stars)-.5;
+    col+=vec3(.4,.55,.7)*(1.0-smoothstep(.015,.085,length(f)))*step(.979,hash(cell));
+    float mountain=horizon+.035+sin(p.x*16.0)*.022+sin(p.x*31.0+1.0)*.013;
+    float ridge=1.0-smoothstep(mountain-.002,mountain+.002,sky.y);
+    col=mix(col,vec3(.012,.028,.047),ridge);
+    if(p.y<horizon){
+        float shimmer=sin(p.y*185.0+t*2.0+sin(p.x*17.0)*1.5)*.5+.5;
+        col*=.40+.13*shimmer;col+=vec3(.018,.06,.075)*exp(-abs(p.y-horizon)*8.0);
+    }
+    return col;
+}
+
+vec3 reef(vec2 uv) {
+    vec2 aspect=vec2(resolution.x/resolution.y,1.0);
+    vec2 p=uv*aspect+tilt*.022;
+    float t=clockTime*motion;
+    vec3 col=mix(vec3(.005,.021,.055),vec3(.015,.12,.17),uv.y);
+    float shaft=pow(max(0.0,sin(p.x*11.0+p.y*.8+.5)),12.0);
+    col+=vec3(.01,.07,.08)*shaft*smoothstep(.1,1.0,uv.y);
+    for(int i=0;i<4;i++) {
+        float k=float(i);
+        vec2 center=vec2((.16+k*.24)*aspect.x+.025*sin(t*.10+k),.35+mod(k*.19,.52)+sin(t*.16+k*2.0)*.018);
+        vec2 q=(p-center-tilt*k*.004)/(1.0-k*.13);
+        float dome=ellipse(q-vec2(0,.012),vec2(.045,.035));
+        float bell=(1.0-smoothstep(.92,1.02,dome))*smoothstep(-.006,.003,q.y);
+        float rim=exp(-abs(dome-1.0)*23.0)*step(0.0,q.y);
+        vec3 hue=mix(vec3(.12,.50,.62),vec3(.44,.20,.62),k/3.0);
+        col+=hue*(bell*.25+rim*.8)+hue*exp(-length(q)*32.0)*.20;
+        for(int j=0;j<4;j++) {
+            float f=float(j);
+            float strandX=(f-1.5)*.014+sin(q.y*68.0+t*.65+k+f)*.008;
+            float filament=exp(-abs(q.x-strandX)*620.0)*smoothstep(-.14,-.09,q.y)*(1.0-smoothstep(-.015,0.0,q.y));
+            col+=hue*filament*.40;
+        }
+    }
+    vec2 dust=(p+vec2(0,-t*.002))*vec2(65,85),cell=floor(dust),f=fract(dust)-.5;
+    col+=vec3(.05,.28,.30)*(1.0-smoothstep(.02,.12,length(f)))*step(.95,hash(cell));
+    float seabed=.085+noise(vec2(p.x*14.0,2.0))*.055;
+    float rock=1.0-smoothstep(seabed-.003,seabed+.003,p.y);
+    col=mix(col,vec3(.009,.028,.044),rock);
+    return col;
+}
+
 void main() {
     vec2 uv=gl_FragCoord.xy/resolution;
     vec3 col;
     if(mode<.5) col=night(uv);
     else if(mode<1.5) col=gravityScene(uv);
     else if(mode<2.5) col=hologram(uv);
-    else col=pond(uv);
+    else if(mode<3.5) col=pond(uv);
+    else if(mode<4.5) col=atrium(uv);
+    else if(mode<5.5) col=aurora(uv);
+    else col=reef(uv);
     // A gentle vignette keeps labels legible without flattening the scene.
     float vignette=1.0-.24*pow(length((uv-.5)*vec2(.8,1.0)),1.4);
     col*=vignette;

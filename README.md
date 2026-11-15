@@ -39,6 +39,9 @@ Hold empty space or pinch empty space to manage desktop miniatures, reorder scre
 | Gravity Playground | Bounded shortcut physics, tilt gravity, dragging/throwing, pinning |
 | Holographic Depth | A shaded planet and star layers with different parallax depths |
 | Living Pond | Procedural pebbles, swimming koi, floating leaves, shadows, touch ripples |
+| Crystal Atrium | Beveled glass monoliths, moving reflections and a perspective stone floor |
+| Aurora Veil | Layered northern lights, mountain silhouettes and a reflected lake |
+| Biolume Reef | Drifting luminous jellyfish, fine tentacles and deep-water light shafts |
 
 Choose Cube, Carousel or Fold desktop transitions independently of Lift,
 Orbit or Unfold menu animations. App discovery and launching use Android's
