@@ -74,12 +74,28 @@ u2(uniform(p,b'resolution'),width,height)
 u3v(uniform(p,b'touches[0]'),4,(F*12)(0,0,-100,0,0,-100,0,0,-100,0,0,-100))
 for name,value in [('clockTime',20),('motion',1),('fishCount',5),('fishSpeed',.6),('rippleEnabled',1),('shadowEnabled',1)]:u1(uniform(p,name.encode()),value)
 results=[]
-for mode in range(4):
+for mode in range(7):
     u1(uniform(p,b'mode'),mode);u2(uniform(p,b'tilt'),0,0);draw(5,0,4);finish();assert error()==0
     pixels=(C.c_ubyte*(width*height*4))();read(0,0,width,height,0x1908,0x1401,pixels)
     image=Image.frombytes('RGBA',(width,height),bytes(pixels)).transpose(Image.Transpose.FLIP_TOP_BOTTOM).convert('RGB')
     assert len(image.getcolors(width*height) or [])>100,'Scene is blank or uniform'
     image.save(out/f'mode-{mode}.png');results.append({'mode':mode,'center':image.getpixel((width//2,height//2))})
+# New scenes must animate, freeze with ambient motion disabled, and respond to tilt.
+for mode in range(4,7):
+    def frame(time, moving, x=0, y=0):
+        u1(uniform(p,b'mode'),mode);u1(uniform(p,b'clockTime'),time);u1(uniform(p,b'motion'),moving);u2(uniform(p,b'tilt'),x,y)
+        draw(5,0,4);finish();assert error()==0
+        pixels=(C.c_ubyte*(width*height*4))();read(0,0,width,height,0x1908,0x1401,pixels)
+        return bytes(pixels)
+    paused=frame(2,0)
+    assert paused==frame(45,0),'Reduced-motion scene is still animating'
+    assert frame(2,1)!=frame(45,1),'Ambient scene is static'
+    assert paused!=frame(2,0,.6,-.3),'Parallax scene ignores tilt'
+# Landscape shader draw without relying on a virtual device rotation.
+u2(uniform(p,b'resolution'),height,width)
+for mode in range(7):
+    u1(uniform(p,b'mode'),mode);draw(5,0,4);finish();assert error()==0
+u2(uniform(p,b'resolution'),width,height);u1(uniform(p,b'motion'),1);u1(uniform(p,b'clockTime'),20)
 # Exercise tilted pond and an active touch ripple.
 u1(uniform(p,b'mode'),3);u2(uniform(p,b'tilt'),.7,-.3);u3v(uniform(p,b'touches[0]'),4,(F*12)(.5,.5,19.7,0,0,-100,0,0,-100,0,0,-100));draw(5,0,4);finish();assert error()==0
 pixels=(C.c_ubyte*(width*height*4))();read(0,0,width,height,0x1908,0x1401,pixels)

@@ -1,3 +1,11 @@
+## 0.7.5 — 2026-11-15
+
+- Replace desktop preview rims, drawer icon plinths, category tabs, Crystal cards and scene choices with an opaque polished crystal material: thick bevels, silver-blue reflections and subtle prism edges.
+- Remove the highlighted drawer/footer text, About drawer tile, standalone folder Rename action, desktop-management instructions and redundant Scene studio buttons. Rename remains in the folder hold menu; About remains in settings.
+- Selecting a scene applies it and returns to the desktop immediately.
+- Add Crystal Atrium, Aurora Veil and Biolume Reef with native shader rendering, accelerometer depth, ambient movement and reduced-motion support. Append stable scene IDs and update persistence, settings and exact shader previews.
+- Add a focused native crystal/scene suite independent of the settings/rotation suite, and shader checks for motion, pause and tilt.
+
 ## 0.7.3
 
 - Independent folder opening effects and shared-pose animated menu/folder previews, replayed on selection or tapping the preview.

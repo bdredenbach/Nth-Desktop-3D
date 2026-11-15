@@ -11,7 +11,7 @@ import java.util.UUID;
 
 /** One canonical layout; visual mode changes never rewrite shortcut identities. */
 public final class LauncherStore {
-    public static final String[] MODES = {"Spatial Desktop", "Gravity Playground", "Holographic Depth", "Living Pond"};
+    public static final String[] MODES = {"Spatial Desktop", "Gravity Playground", "Holographic Depth", "Living Pond", "Crystal Atrium", "Aurora Veil", "Biolume Reef"};
     public static final String[] TRANSITIONS = PageTransitions.NAMES;
     public static final String[] MENUS = {"Lift", "Orbit", "Unfold"};
     public static final int PAGE_COUNT = 3, MAX_PAGES = 24;
@@ -49,7 +49,7 @@ public final class LauncherStore {
     public LauncherStore(Context context) {
         preferences = context.getSharedPreferences("desktop3d", Context.MODE_PRIVATE);
         for (int n = 0; n < Math.max(1,Math.min(MAX_PAGES,preferences.getInt("page_count",PAGE_COUNT))); n++) pages.add(new ArrayList<>());
-        mode = Math.max(0, Math.min(3, preferences.getInt("mode", 0)));
+        mode = Math.max(0, Math.min(MODES.length-1, preferences.getInt("mode", 0)));
         transition = Math.max(0, Math.min(TRANSITIONS.length-1, preferences.getInt("transition", 0)));
         menuStyle = Math.max(0, Math.min(2, preferences.getInt("menuStyle", 0)));
         page = SceneMath.wrap(preferences.getInt("page", 0), pages.size());

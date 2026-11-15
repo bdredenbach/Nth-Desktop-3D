@@ -16,10 +16,11 @@ final class SceneCard extends LinearLayout {
     SceneCard(Context c,int mode,String description,boolean selected){
         super(c);setOrientation(HORIZONTAL);setGravity(Gravity.CENTER_VERTICAL);
         setPadding(Ui.dp(c,10),Ui.dp(c,10),Ui.dp(c,12),Ui.dp(c,10));
-        setBackground(Ui.touch(c,Ui.surface(selected?0xFF304563:0xFF202D42,18,c),18));
+        setBackground(Ui.touch(c,Ui.crystal(c,20,selected),18));
         setSelected(selected);setClickable(true);setFocusable(true);
         setContentDescription(LauncherStore.MODES[mode]+(selected?", selected":"")+". "+description);
-        int[] previews={R.drawable.scene_spatial,R.drawable.scene_gravity,R.drawable.scene_holographic,R.drawable.scene_pond};
+        setElevation(new CrystalPreferences(c).shadows()?Ui.dp(c,selected?10:6):0);setCameraDistance(Ui.dp(c,2200));setTag("scene-card:"+mode);
+        int[] previews=SceneCatalog.PREVIEWS;
         ImageView preview=new ImageView(c);preview.setImageResource(previews[mode]);preview.setScaleType(ImageView.ScaleType.CENTER_CROP);
         preview.setOutlineProvider(new ViewOutlineProvider(){@Override public void getOutline(View v,Outline o){o.setRoundRect(0,0,v.getWidth(),v.getHeight(),Ui.dp(c,12));}});preview.setClipToOutline(true);
         preview.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);addView(preview,new LayoutParams(Ui.dp(c,72),-1));
