@@ -53,7 +53,10 @@ import java.util.concurrent.Executors;
 public final class MainActivity extends Activity implements MotionController.Listener, DesktopView.Host {
     private LauncherStore store;
     private CrystalPreferences crystal;
-    private LauncherWidgetHost widgetHost;
+    private LauncherWidgetHost widgetHost,dockWidgetHost;
+    private DockView dockContents;
+    private int pendingWidgetDock=-1;
+    private String sceneFocus;
     private android.appwidget.AppWidgetManager widgetManager;
     private int pendingWidgetId=-1,pendingWidgetPage=-1,pendingWidgetRequest;
     private long pendingWidgetUser=-1;
@@ -127,7 +130,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
         store=new LauncherStore(this);crystal=new CrystalPreferences(this);
         if(!store.preferences.getBoolean("padding_expands_073",false)){android.content.SharedPreferences.Editor padding=store.preferences.edit();for(String key:store.preferences.getAll().keySet())if(key.startsWith("widget_padding_"))padding.putBoolean(key,!store.preferences.getBoolean(key,true));padding.putBoolean("padding_expands_073",true).apply();}
         if(state==null&&Intent.ACTION_MAIN.equals(getIntent().getAction())&&getIntent().hasCategory(Intent.CATEGORY_HOME)){store.page=store.homePage();store.save();}
-        widgetHost=new LauncherWidgetHost(this);
+        widgetHost=new LauncherWidgetHost(this);dockWidgetHost=new LauncherWidgetHost(this,3048);
+        pendingWidgetDock=store.preferences.getInt("pending_widget_dock",-1);
         pendingWidgetId=store.preferences.getInt("pending_widget_id",-1);
         pendingWidgetPage=store.preferences.getInt("pending_widget_page",store.page);
         pendingWidgetRequest=store.preferences.getInt("pending_widget_request",0);
@@ -152,7 +156,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
             imeBottom=Build.VERSION.SDK_INT>=30&&insets.isVisible(WindowInsets.Type.ime())?insets.getInsets(WindowInsets.Type.ime()).bottom:0;
             applyDesktopChrome();
             int chromeWidth=Math.min(dp(560),Math.max(1,(root.getWidth()>0?root.getWidth():getResources().getDisplayMetrics().widthPixels)-insetLeft-insetRight-dp(compact()?32:40)));
-            for(View chrome:new View[]{dock,paging}){LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(chromeWidth,-2);cp.gravity=Gravity.CENTER_HORIZONTAL;chrome.setLayoutParams(cp);}
+            for(View chrome:new View[]{dock,paging,dockContents}){LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(chromeWidth,-2);cp.gravity=Gravity.CENTER_HORIZONTAL;chrome.setLayoutParams(cp);}
             layoutPanel();return insets;
         });root.requestApplyInsets();
         catalog.launcher.registerCallback(packageCallback,handler);
@@ -186,6 +190,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         Button previous=Ui.icon(this,"left","Previous desktop",()->desktop.changePage(-1));paging.addView(previous,new LinearLayout.LayoutParams(dp(48),dp(48)));
         pageLabel=Ui.text(this,"",11,Ui.MUTED);pageLabel.setGravity(Gravity.CENTER);paging.addView(pageLabel,new LinearLayout.LayoutParams(0,dp(48),1));
         Button next=Ui.icon(this,"right","Next desktop",()->desktop.changePage(1));paging.addView(next,new LinearLayout.LayoutParams(dp(48),dp(48)));bar.addView(paging);
+        dockContents=new DockView(this,store,catalog,dockWidgetHost,new DockView.Host(){public void open(LauncherStore.Item item){MainActivity.this.open(item);}public void space(int index){showDockSpace(index);}public void restore(){showRestoreWidgets();}});bar.addView(dockContents);
         dock=Ui.row(this);dock.setBackground(Ui.satin(this,0xB344819C,0xCF0B1E36,24));dock.setPadding(dp(8),dp(7),dp(8),dp(7));dock.setElevation(dp(18));
         startButton=Ui.icon(this,"cube","Open 3D Start menu",this::showStart);dock.addView(startButton,new LinearLayout.LayoutParams(dp(48),dp(48)));
         Button search=Ui.quiet(this,"Search apps",this::showStart);search.setTextSize(13);LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,dp(48),1);dock.addView(search,sp);
@@ -197,7 +202,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void applyDesktopChrome(){
         int padding=Math.max(0,Math.min(24,store.preferences.getInt("desktop_padding",0)));
         shell.setPadding(insetLeft+dp((compact()?16:20)+padding),insetTop+dp(8),insetRight+dp((compact()?16:20)+padding),insetBottom+dp(8));
-        bar.setVisibility(store.preferences.getBoolean("show_dock",false)?View.VISIBLE:View.GONE);
+        boolean visibleDock=store.preferences.getBoolean("show_dock",false);bar.setVisibility(visibleDock?View.VISIBLE:View.GONE);desktop.setClipChildren(visibleDock);desktop.setClipToPadding(visibleDock);
+        dockContents.rebuild();
         clockButton.setVisibility(store.preferences.getBoolean("dock_clock",true)?View.VISIBLE:View.GONE);
         int p=Math.max(4,Math.min(14,store.preferences.getInt("dock_padding",7)));dock.setPadding(dp(8),dp(p),dp(8),dp(p));
     }
@@ -220,11 +226,11 @@ public final class MainActivity extends Activity implements MotionController.Lis
         date.setText(new SimpleDateFormat("EEEE, MMMM d",Locale.getDefault()).format(now));
         clockButton.setText(time+"\n"+new SimpleDateFormat("MMM d",Locale.getDefault()).format(now));clockButton.setTextSize(11);
     }
-    @Override protected void onStart(){super.onStart();if(discover!=null)discover.start();try{widgetHost.startListening();widgetListening=true;}catch(RuntimeException error){android.util.Log.e("NthWidgets","Could not listen for widget updates",error);}}
-    @Override protected void onStop(){if(discover!=null)discover.stop();if(widgetListening){widgetHost.stopListening();widgetListening=false;}super.onStop();}
+    @Override protected void onStart(){super.onStart();if(discover!=null)discover.start();try{widgetHost.startListening();dockWidgetHost.startListening();widgetListening=true;}catch(RuntimeException error){android.util.Log.e("NthWidgets","Could not listen for widget updates",error);}}
+    @Override protected void onStop(){if(discover!=null)discover.stop();if(widgetListening){widgetHost.stopListening();dockWidgetHost.stopListening();widgetListening=false;}super.onStop();}
     @Override protected void onResume(){super.onResume();resumed=true;previousFrame=lastRender=0;scene.onResume();applySettings(false);Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);handler.removeCallbacks(clockTick);clockTick.run();if(loaded)reloadApps();if(discover!=null)discover.resume();if(cardsView!=null)cardsView.refresh();if(setupGuide!=null)setupGuide.refresh();if(nativeFeed!=null)nativeFeed.resume();}
-    @Override protected void onPause(){if(drawerDrags!=null)drawerDrags.cancel();if(desktopManager!=null)desktopManager.cancelDrag();resumed=false;Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();if(settingsStudio!=null)settingsStudio.pause();if(cardsView!=null)cardsView.pause();if(nativeFeed!=null)nativeFeed.pause();if(discover!=null)discover.pause();super.onPause();}
-    @Override protected void onDestroy(){if(sceneComposer!=null){sceneComposer.persistNow();sceneComposer.dispose();sceneComposer=null;}if(layeredWallpaper!=null)layeredWallpaper.dispose();if(areaMenu!=null){areaMenu.dismiss();areaMenu=null;}destroyed=true;if(restoreConfirmation!=null){restoreConfirmation.dismiss();restoreConfirmation=null;}handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();sceneFiles.shutdown();if(desktopManager!=null)desktopManager.dispose();widgetHost.releaseViews();if(shortcuts!=null)shortcuts.destroy();if(settingsStudio!=null)settingsStudio.dispose();if(cardsView!=null)cardsView.dispose();if(nativeFeed!=null)nativeFeed.dispose();if(discover!=null)discover.destroy();super.onDestroy();}
+    @Override protected void onPause(){if(drawerDrags!=null)drawerDrags.cancel();if(desktopManager!=null)desktopManager.cancelDrag();resumed=false;if(layeredWallpaper!=null)layeredWallpaper.lighting(false);if(sceneComposer!=null)sceneComposer.reduced(true);Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();if(settingsStudio!=null)settingsStudio.pause();if(cardsView!=null)cardsView.pause();if(nativeFeed!=null)nativeFeed.pause();if(discover!=null)discover.pause();super.onPause();}
+    @Override protected void onDestroy(){if(sceneComposer!=null){sceneComposer.persistNow();sceneComposer.dispose();sceneComposer=null;}if(layeredWallpaper!=null)layeredWallpaper.dispose();if(areaMenu!=null){areaMenu.dismiss();areaMenu=null;}destroyed=true;if(restoreConfirmation!=null){restoreConfirmation.dismiss();restoreConfirmation=null;}handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();sceneFiles.shutdown();if(desktopManager!=null)desktopManager.dispose();widgetHost.releaseViews();dockWidgetHost.releaseViews();if(shortcuts!=null)shortcuts.destroy();if(settingsStudio!=null)settingsStudio.dispose();if(cardsView!=null)cardsView.dispose();if(nativeFeed!=null)nativeFeed.dispose();if(discover!=null)discover.destroy();super.onDestroy();}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(setupGuide!=null&&Intent.ACTION_MAIN.equals(intent.getAction())&&intent.hasCategory(Intent.CATEGORY_HOME)){setupGuide.refresh();return;}boolean alreadyHome=resumed&&getWindow().getDecorView().hasWindowFocus()&&overlay==null&&store.page==store.homePage();closePanel();motion.recenter();if(!shortcuts.handle(intent)&&Intent.ACTION_MAIN.equals(intent.getAction())&&intent.hasCategory(Intent.CATEGORY_HOME)){if(alreadyHome)assignedGesture("gesture_home");else{store.page=store.homePage();desktop.rebuild();pageChanged();store.save();}}}
     @Override public void onWindowFocusChanged(boolean focus){super.onWindowFocusChanged(focus);if(focus)restoreDesktopMotion();}
     private void restoreDesktopMotion(){if(!resumed||destroyed||scene==null||motion==null)return;motion.pause();applySettings(false);scene.onResume();sceneDirty=true;scene.requestRender();Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);}
@@ -252,8 +258,9 @@ public final class MainActivity extends Activity implements MotionController.Lis
         boolean custom=source==3;java.io.File file=LayeredScene.file(this,false);long stamp=file.lastModified()+file.length();
         if(custom&&(layeredWallpaper.document()==null||stamp!=layeredStamp)){try{LayeredScene.Document doc=LayeredScene.read(this,false);layeredWallpaper.document(doc==null?new LayeredScene.Document():doc);layeredStamp=stamp;}catch(Exception invalid){layeredWallpaper.document(new LayeredScene.Document());layeredStamp=stamp;}}
         layeredWallpaper.setVisibility(custom?View.VISIBLE:View.GONE);layeredWallpaper.moving(!reduced&&!powerSave&&store.tilt&&crystal.parallax()&&store.preferences.getBoolean("wallpaper_parallax",true));
+        layeredWallpaper.lighting(resumed&&!reduced&&!powerSave&&store.ambient);layeredWallpaper.materialChanged();
         layeredWallpaper.setAlpha(1);layeredWallpaper.setForeground(new android.graphics.drawable.ColorDrawable(Color.argb(Math.round(store.preferences.getInt("wallpaper_dim",20)*2.55f),0,0,0)));
-        if(sceneComposer!=null)sceneComposer.reduced(reduced||powerSave||!store.tilt||!crystal.parallax());
+        if(sceneComposer!=null)sceneComposer.motion(reduced||powerSave,store.tilt&&crystal.parallax());
         scene.setVisibility(source==0||source==1&&!WallpaperStore.file(this).exists()?View.VISIBLE:View.GONE);
     }
     private void chooseWallpaperPhoto(){try{startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE),3076);}catch(RuntimeException unavailable){toast("Photo picker unavailable.");}}
@@ -283,7 +290,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
                 public void saveDraft(LayeredScene.Document d){LayeredScene.Document snapshot=LayeredScene.copy(d);sceneFiles.execute(()->{try{LayeredScene.write(MainActivity.this,snapshot,true);}catch(Exception error){handler.post(()->{if(!destroyed)toast("Scene draft could not be saved. Try a smaller image.");});}});}
                 public void apply(LayeredScene.Document d){LayeredScene.Document snapshot=LayeredScene.copy(d);SceneComposer editor=sceneComposer;sceneFiles.execute(()->{try{LayeredScene.write(MainActivity.this,snapshot,false);LayeredScene.write(MainActivity.this,null,true);store.preferences.edit().remove("scene_creator_step").apply();handler.post(()->{if(destroyed)return;store.preferences.edit().putInt("wallpaper_source",3).apply();layeredStamp=-1;applySettings(false);if(sceneComposer==editor){onPanelClose=null;closePanel();}toast("Your layered scene is applied");});}catch(Exception error){handler.post(()->{if(!destroyed){if(sceneComposer==editor)editor.failed();toast("Could not save this scene. Try fewer or smaller images.");}});}});}
                 public void discard(){store.preferences.edit().remove("scene_creator_step").apply();onPanelClose=null;sceneFiles.execute(()->{try{LayeredScene.write(MainActivity.this,null,true);}catch(Exception ignored){}});closePanel();}
-            });body.addView(sceneComposer,new LinearLayout.LayoutParams(-1,0,1));onPanelClose=()->{if(sceneComposer!=null){store.preferences.edit().putInt("scene_creator_step",sceneComposer.step()).apply();sceneComposer.persistNow();}};sceneComposer.step(store.preferences.getInt("scene_creator_step",0));sceneComposer.reduced(store.reducedMotion||systemReduced||powerSave||!store.tilt||!crystal.parallax());
+            });body.addView(sceneComposer,new LinearLayout.LayoutParams(-1,0,1));onPanelClose=()->{if(sceneComposer!=null){store.preferences.edit().putInt("scene_creator_step",sceneComposer.step()).apply();sceneComposer.persistNow();}};sceneComposer.step(store.preferences.getInt("scene_creator_step",0));sceneComposer.motion(store.reducedMotion||systemReduced||powerSave,store.tilt&&crystal.parallax());
+            if(sceneFocus!=null){sceneComposer.focus(sceneFocus);sceneFocus=null;}
             if(pendingSceneImage!=null){sceneComposer.image(pendingSceneImage,pendingSceneObject);pendingSceneImage=null;}
             });
         }catch(Exception error){handler.post(()->{if(!destroyed)toast("Could not open this scene. Choose a photo to continue.");});}});
@@ -307,7 +315,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         });
     }
     @Override public void pageChanged(){
-        updateAndroidWallpaperOffsets();int count=store.pages.get(store.page).size();pageLabel.setText("Desktop "+(store.page+1)+" of "+store.pageCount()+"  ·  "+count+" shortcut"+(count==1?"":"s"));
+        if(dockContents!=null)dockContents.rebuild();updateAndroidWallpaperOffsets();int count=store.pages.get(store.page).size();pageLabel.setText("Desktop "+(store.page+1)+" of "+store.pageCount()+"  ·  "+count+" shortcut"+(count==1?"":"s"));
     }
     @Override public void ripple(float x,float y){
         if(store.preferences.getInt("wallpaper_source",0)==2){int[] position=new int[2];desktop.getLocationInWindow(position);try{android.app.WallpaperManager.getInstance(this).sendWallpaperCommand(root.getWindowToken(),android.app.WallpaperManager.COMMAND_TAP,Math.round(x+position[0]),Math.round(y+position[1]),0,null);}catch(RuntimeException ignored){}return;}
@@ -568,7 +576,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private void rename(LauncherStore.Item item){
         EditText edit=new EditText(this);edit.setText(item.label);edit.setSingleLine(true);edit.setSelectAllOnFocus(true);edit.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(60)});Ui.pad(edit,16);
-        new AlertDialog.Builder(this).setTitle("Rename").setView(edit).setNegativeButton("Cancel",null).setPositiveButton("Save",(d,w)->{String s=edit.getText().toString().trim();if(!s.isEmpty()){item.label=s;store.save();desktop.rebuild();closePanel();}}).show();
+        new AlertDialog.Builder(this).setTitle("Rename").setView(edit).setNegativeButton("Cancel",null).setPositiveButton("Save",(d,w)->{String s=edit.getText().toString().trim();if(!s.isEmpty()){item.label=s;store.save();desktop.rebuild();pageChanged();closePanel();}}).show();
     }
     private void move(LauncherStore.Item item){
         String[] destinations=new String[store.pageCount()];for(int n=0;n<destinations.length;n++)destinations[n]="Desktop "+(n+1);
@@ -686,8 +694,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private void savePendingWidget(){
         android.content.SharedPreferences.Editor edit=store.preferences.edit();
-        if(pendingWidgetId<0)edit.remove("pending_widget_id").remove("pending_widget_page").remove("pending_widget_request").remove("pending_widget_provider").remove("pending_widget_user");
-        else{edit.putLong("pending_widget_user",pendingWidgetUser).putInt("pending_widget_id",pendingWidgetId).putInt("pending_widget_page",pendingWidgetPage).putInt("pending_widget_request",pendingWidgetRequest);if(pendingWidgetProvider!=null)edit.putString("pending_widget_provider",pendingWidgetProvider.flattenToString());else edit.remove("pending_widget_provider").remove("pending_widget_user");}
+        if(pendingWidgetId<0)edit.remove("pending_widget_id").remove("pending_widget_page").remove("pending_widget_request").remove("pending_widget_provider").remove("pending_widget_user").remove("pending_widget_dock");
+        else{edit.putInt("pending_widget_dock",pendingWidgetDock).putLong("pending_widget_user",pendingWidgetUser).putInt("pending_widget_id",pendingWidgetId).putInt("pending_widget_page",pendingWidgetPage).putInt("pending_widget_request",pendingWidgetRequest);if(pendingWidgetProvider!=null)edit.putString("pending_widget_provider",pendingWidgetProvider.flattenToString());else edit.remove("pending_widget_provider").remove("pending_widget_user").remove("pending_widget_dock");}
         edit.apply();
     }
     private void showWidgets(){
@@ -701,7 +709,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
             for(int i=0;i<pending.length();i++){org.json.JSONObject record=pending.getJSONObject(i);String label=record.optString("label","Widget");action(body,"Restore "+label,()->restoreWidget(record));body.getChildAt(body.getChildCount()-1).setOnLongClickListener(v->{new android.app.AlertDialog.Builder(this).setTitle("Remove saved widget placement?").setMessage(label).setNegativeButton("Cancel",null).setPositiveButton("Remove",(d,w)->{removeSavedWidget(record.optString("token"));showRestoreWidgets();}).show();return true;});}
         }catch(org.json.JSONException invalid){paragraph(body,"No valid saved widget placements are available.");}
     }
-    private void removeSavedWidget(String token){try{org.json.JSONArray list=new org.json.JSONArray(store.preferences.getString("restore_widgets","[]")),keep=new org.json.JSONArray();for(int i=0;i<list.length();i++)if(!token.equals(list.getJSONObject(i).optString("token")))keep.put(list.getJSONObject(i));store.preferences.edit().putString("restore_widgets",keep.toString()).apply();}catch(org.json.JSONException ignored){}}
+    private void removeSavedWidget(String token){try{org.json.JSONArray list=new org.json.JSONArray(store.preferences.getString("restore_widgets","[]")),keep=new org.json.JSONArray();for(int i=0;i<list.length();i++)if(!token.equals(list.getJSONObject(i).optString("token")))keep.put(list.getJSONObject(i));else if(list.getJSONObject(i).optString("location").equals("dock")){int slot=list.getJSONObject(i).optInt("slot",-1);if(slot>=0&&slot<DockStore.MAX)store.dock.clear(slot);}store.preferences.edit().putString("restore_widgets",keep.toString()).apply();}catch(org.json.JSONException ignored){}}
     private void restoreWidget(org.json.JSONObject record){
         android.content.ComponentName provider=android.content.ComponentName.unflattenFromString(record.optString("provider",""));
         for(UserHandle user:getSystemService(android.os.UserManager.class).getUserProfiles()){
@@ -717,20 +725,23 @@ public final class MainActivity extends Activity implements MotionController.Lis
         try{org.json.JSONObject record=new org.json.JSONObject(raw);android.content.SharedPreferences.Editor edit=store.preferences.edit();DesktopBackup.geometry(edit,id,record);org.json.JSONArray pending=new org.json.JSONArray(store.preferences.getString("restore_widgets","[]")),remaining=new org.json.JSONArray();String token=record.getString("token");for(int i=0;i<pending.length();i++)if(!token.equals(pending.getJSONObject(i).optString("token")))remaining.put(pending.getJSONObject(i));edit.putString("restore_widgets",remaining.toString()).putString("last_restored_widget",token).remove("pending_widget_restore").apply();}catch(org.json.JSONException invalid){store.preferences.edit().remove("pending_widget_restore").apply();}
     }
     private void chooseWidget(android.appwidget.AppWidgetProviderInfo info){chooseWidget(info,null);}
-    private void chooseWidget(android.appwidget.AppWidgetProviderInfo info,org.json.JSONObject restore){
+    private void chooseWidget(android.appwidget.AppWidgetProviderInfo info,org.json.JSONObject restore){chooseWidget(info,restore,restore!=null&&restore.optString("location").equals("dock")?restore.optInt("slot",-1):-1);}
+    private LauncherWidgetHost pendingHost(){return pendingWidgetDock>=0?dockWidgetHost:widgetHost;}
+    private void chooseWidget(android.appwidget.AppWidgetProviderInfo info,org.json.JSONObject restore,int dockIndex){
         try{
-            releasePendingWidget();if(restore!=null)store.preferences.edit().putString("pending_widget_restore",restore.toString()).apply();pendingWidgetId=widgetHost.allocateAppWidgetId();pendingWidgetPage=restore==null?store.page:Math.max(0,Math.min(store.pageCount()-1,restore.optInt("page",store.page)));pendingWidgetRequest=3047;pendingWidgetProvider=info.provider;pendingWidgetUser=getSystemService(android.os.UserManager.class).getSerialNumberForUser(info.getProfile());savePendingWidget();
+            releasePendingWidget();if(restore!=null)store.preferences.edit().putString("pending_widget_restore",restore.toString()).apply();pendingWidgetDock=dockIndex;pendingWidgetId=pendingHost().allocateAppWidgetId();pendingWidgetPage=restore==null?store.page:Math.max(0,Math.min(store.pageCount()-1,restore.optInt("page",store.page)));pendingWidgetRequest=3047;pendingWidgetProvider=info.provider;pendingWidgetUser=getSystemService(android.os.UserManager.class).getSerialNumberForUser(info.getProfile());savePendingWidget();
             closePanel();
             onActivityResult(3047,RESULT_OK,new Intent().putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,pendingWidgetId));
         }catch(RuntimeException error){releasePendingWidget();toast("This widget could not be added. Please try again.");}
     }
     private boolean knownWidget(int id){
+        if(store.dock.widgetSlot(id)>=0)return true;
         for(int page=0;page<store.pageCount();page++)for(String raw:store.preferences.getString("widget_ids_page_"+page,"").split(","))if(raw.equals(String.valueOf(id)))return true;
         return false;
     }
     private void releasePendingWidget(){
-        if(pendingWidgetId>=0&&!knownWidget(pendingWidgetId))widgetHost.deleteAppWidgetId(pendingWidgetId);
-        pendingWidgetId=-1;pendingWidgetPage=-1;pendingWidgetRequest=0;pendingWidgetProvider=null;store.preferences.edit().remove("pending_widget_restore").apply();savePendingWidget();
+        if(pendingWidgetId>=0&&!knownWidget(pendingWidgetId))pendingHost().deleteAppWidgetId(pendingWidgetId);
+        pendingWidgetId=-1;pendingWidgetDock=-1;pendingWidgetPage=-1;pendingWidgetRequest=0;pendingWidgetProvider=null;store.preferences.edit().remove("pending_widget_restore").apply();savePendingWidget();
     }
     private android.appwidget.AppWidgetProviderInfo resolveWidget(int id,Intent data){
         android.appwidget.AppWidgetProviderInfo info=widgetManager.getAppWidgetInfo(id);if(info!=null)return info;
@@ -740,7 +751,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         return null;
     }
     @Override public void configureWidget(int id){
-        try{widgetHost.startAppWidgetConfigureActivityForResult(this,id,0,3050,null);}
+        try{(store.dock.widgetSlot(id)>=0?dockWidgetHost:widgetHost).startAppWidgetConfigureActivityForResult(this,id,0,3050,null);}
         catch(RuntimeException error){toast("Widget settings unavailable.");}
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
@@ -750,7 +761,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         if(request==3082){applySettings(false);return;}
         if(request==3076){wallpaperPhotoResult(result,data);return;}
         if(request==3071||request==3072){settingsDocumentResult(request,result,data);return;}
-        if(request==3050){desktop.rebuild();return;}
+        if(request==3050){desktop.rebuild();dockContents.rebuild();return;}
         if(request!=3047&&request!=3048&&request!=3049)return;
         if(pendingWidgetId<0||request!=pendingWidgetRequest)return;
         if(result!=RESULT_OK){releasePendingWidget();return;}
@@ -775,15 +786,16 @@ public final class MainActivity extends Activity implements MotionController.Lis
         if(widgetManager.getAppWidgetInfo(id)==null){releasePendingWidget();toast("Widget permission was not applied. Please try again.");return;}
         boolean optional=android.os.Build.VERSION.SDK_INT>=28&&(info.widgetFeatures&android.appwidget.AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL)!=0&&(info.widgetFeatures&android.appwidget.AppWidgetProviderInfo.WIDGET_FEATURE_RECONFIGURABLE)!=0;
         if(request!=3049&&info.configure!=null&&!optional){
-            try{pendingWidgetRequest=3049;savePendingWidget();widgetHost.startAppWidgetConfigureActivityForResult(this,id,0,3049,null);}
+            try{pendingWidgetRequest=3049;savePendingWidget();pendingHost().startAppWidgetConfigureActivityForResult(this,id,0,3049,null);}
             catch(RuntimeException error){releasePendingWidget();toast("Widget setup could not open. Please choose the widget again.");}
             return;
         }
+        if(pendingWidgetDock>=0){int slot=pendingWidgetDock;clearDockSpace(slot);store.dock.widget(slot,id,info.provider.flattenToString(),pendingWidgetUser,java.util.Objects.toString(info.loadLabel(getPackageManager()),"Widget"));completeWidgetRestore(id);pendingWidgetId=-1;pendingWidgetDock=-1;pendingWidgetPage=-1;pendingWidgetRequest=0;pendingWidgetProvider=null;savePendingWidget();store.preferences.edit().putBoolean("show_dock",true).putBoolean("dock_content",true).putInt("dock_space_count",Math.max(slot+1,store.preferences.getInt("dock_space_count",3))).apply();closePanel();applyDesktopChrome();toast("Widget placed in Dock space "+(slot+1));return;}
         int page=Math.max(0,Math.min(store.pageCount()-1,pendingWidgetPage));String key="widget_ids_page_"+page;
         String previous=store.preferences.getString(key,"");
         if(!knownWidget(id))store.preferences.edit().putString(key,previous.isEmpty()?String.valueOf(id):previous+","+id).apply();
         store.preferences.edit().putString("widget_provider_"+id,info.provider.flattenToString()).putLong("widget_user_"+id,getSystemService(android.os.UserManager.class).getSerialNumberForUser(info.getProfile())).apply();completeWidgetRestore(id);
-        pendingWidgetId=-1;pendingWidgetPage=-1;pendingWidgetRequest=0;pendingWidgetProvider=null;savePendingWidget();
+        pendingWidgetId=-1;pendingWidgetDock=-1;pendingWidgetPage=-1;pendingWidgetRequest=0;pendingWidgetProvider=null;savePendingWidget();
         store.page=page;store.save();closePanel();desktop.rebuild();pageChanged();
         toast(desktop.revealWidget(id)?"Widget placed on Desktop "+(page+1):"Widget saved, but its provider is unavailable. Hold the placeholder to retry or remove it.");
     }
@@ -798,10 +810,26 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private String desktopMessage(String text){toast(text);return text;}
 
+    private void removeScene(){
+        Ui.themeDialog(new AlertDialog.Builder(this).setTitle("Remove my scene?").setMessage("This removes the saved custom scene and its draft. Your built-in scenes remain available.").setNegativeButton("Cancel",null).setPositiveButton("Remove",(d,w)->{
+            if(sceneComposer!=null){onPanelClose=null;sceneComposer.dispose();sceneComposer=null;}sceneFiles.execute(()->{try{LayeredScene.write(this,null,false);LayeredScene.write(this,null,true);handler.post(()->{if(destroyed)return;if(store.preferences.getInt("wallpaper_source",0)==3)store.preferences.edit().putInt("wallpaper_source",0).apply();store.preferences.edit().remove("scene_creator_step").apply();layeredStamp=-1;applySettings(false);showModes();toast("Custom scene removed");});}catch(Exception error){handler.post(()->toast("Could not remove this scene"));}});
+        }).create());
+    }
+    private void showDockSpaces(){LinearLayout body=scrollBody(openPanel("Dock spaces"));paragraph(body,"Each space can hold an app, a folder or an Android widget. Reducing the space count keeps the hidden contents.");for(int i=0;i<DockStore.MAX;i++){final int n=i;DockStore.Slot slot=store.dock.slots.get(i);String name=slot.item!=null?slot.item.label:slot.widget()?slot.label:"Empty";action(body,"Space "+(i+1)+" · "+name,()->showDockSpace(n));}action(body,"Dock settings",()->showSettings("dock"));}
+    private void showDockSpace(int index){if(index<0||index>=DockStore.MAX)return;DockStore.Slot slot=store.dock.slots.get(index);LinearLayout body=scrollBody(openPanel("Dock space"));paragraph(body,"Space "+(index+1));if(slot.item!=null)action(body,"Open "+slot.item.label,()->open(slot.item));if(slot.item!=null)action(body,slot.item.folder()?"Folder actions":"App actions",()->menu(slot.item));
+        action(body,"Choose app",()->chooseDockApp(index));action(body,"Choose folder",()->chooseDockFolder(index));action(body,"Create folder",()->{EditText name=new EditText(this);name.setText("Dock folder");Ui.themeDialog(new AlertDialog.Builder(this).setTitle("New dock folder").setView(name).setNegativeButton("Cancel",null).setPositiveButton("Create",(d,w)->{if(!name.getText().toString().trim().isEmpty())putDockItem(index,new LauncherStore.Item("folder",name.getText().toString().trim()));}).create());});
+        action(body,"Choose widget",()->{if(pendingWidgetId>=0){toast("Finish placing the widget first.");return;}new WidgetPicker(this,openPanel("Dock widgets"),desktop,info->chooseWidget(info,null,index));});
+        if(slot.widgetId>=0){android.appwidget.AppWidgetProviderInfo info=widgetManager.getAppWidgetInfo(slot.widgetId);if(info!=null&&info.configure!=null)action(body,"Widget settings",()->configureWidget(slot.widgetId));action(body,"Padding · "+(store.preferences.getBoolean("widget_padding_"+slot.widgetId,false)?"Expanded":"Default"),()->{store.preferences.edit().putBoolean("widget_padding_"+slot.widgetId,!store.preferences.getBoolean("widget_padding_"+slot.widgetId,false)).apply();dockContents.rebuild();showDockSpace(index);});}
+        if(slot.item!=null||slot.widget())action(body,"Clear space",()->{clearDockSpace(index);dockContents.rebuild();showDockSpaces();});action(body,"Dock size and appearance",()->showSettings("dock"));}
+    private void chooseDockApp(int index){LinearLayout panel=openPanel("Choose dock app");setPanelArea("dock");EditText search=new EditText(this);search.setHint("Search apps");search.setTextColor(Ui.TEXT);search.setHintTextColor(Ui.MUTED);panel.addView(search);LinearLayout body=scrollBody(panel);Runnable fill=()->{body.removeAllViews();for(AppCatalog.Entry app:catalog.filter(search.getText().toString(),false))action(body,app.label,()->putDockItem(index,new LauncherStore.Item(app.key,app.label)));};search.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence t,int st,int count,int after){}public void onTextChanged(CharSequence t,int st,int before,int count){fill.run();}public void afterTextChanged(Editable e){}});fill.run();}
+    private void chooseDockFolder(int index){LinearLayout body=scrollBody(openPanel("Choose dock folder"));setPanelArea("dock");paragraph(body,"A separate copy of the folder and its contents will be saved in this dock space.");for(LauncherStore.Item folder:store.folders())action(body,folder.label,()->putDockItem(index,folder));}
+    private void putDockItem(int index,LauncherStore.Item item){LauncherStore.Item copy=DockStore.copy(item);clearDockSpace(index);store.dock.slots.get(index).item=copy;store.save();store.preferences.edit().putBoolean("show_dock",true).putBoolean("dock_content",true).putInt("dock_space_count",Math.max(index+1,store.preferences.getInt("dock_space_count",3))).apply();applyDesktopChrome();closePanel();}
+    private void clearDockSpace(int index){DockStore.Slot old=store.dock.slots.get(index);if(old.widgetId>=0)try{dockWidgetHost.deleteAppWidgetId(old.widgetId);}catch(RuntimeException ignored){}try{org.json.JSONArray queue=new org.json.JSONArray(store.preferences.getString("restore_widgets","[]")),keep=new org.json.JSONArray();for(int i=0;i<queue.length();i++){org.json.JSONObject record=queue.getJSONObject(i);if(!record.optString("location").equals("dock")||record.optInt("slot",-1)!=index)keep.put(record);}store.preferences.edit().putString("restore_widgets",keep.toString()).apply();}catch(org.json.JSONException ignored){}store.dock.clear(index);}
     private void showModes(){
         LinearLayout p=openPanel("Scene studio");LinearLayout body=scrollBody(p);
         if(LayeredScene.file(this,false).exists()){Button own=Ui.button(this,"My layered scene",()->{store.preferences.edit().putInt("wallpaper_source",3).apply();applySettings(false);closePanel();});own.setTag("my-layered-scene");own.setSelected(store.preferences.getInt("wallpaper_source",0)==3);own.setBackground(Ui.touch(this,Ui.crystal(this,20,own.isSelected()),20));body.addView(own,new LinearLayout.LayoutParams(-1,dp(72)));}
-        action(body,"Create or edit a scene",this::showSceneCreator);
+        action(body,LayeredScene.file(this,false).exists()?"Edit my scene":"Create a scene",this::showSceneCreator);
+        if(LayeredScene.file(this,false).exists())action(body,"Remove my scene",this::removeScene);
         String[] descriptions=SceneCatalog.DESCRIPTIONS;
         for(int n=0;n<LauncherStore.MODES.length;n++){
             final int selected=n;SceneCard card=new SceneCard(this,n,descriptions[n],store.mode==n&&store.preferences.getInt("wallpaper_source",0)==0);
@@ -814,7 +842,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void showSettings(String page){
         LinearLayout p=openPanel("3D settings");settingsStudio=new SettingsStudio(this,settingsModel(),catalog,new SettingsStudio.Host(){
             public void area(String id){setPanelArea(id);}
-            public void setup(){showSetup(0);}public void home(){requestHome();}public void arrange(){desktop.arrange();toast("Desktop arranged");}public void recenter(){motion.recenter();toast("Tilt centered");}public void feed(){showNativeFeed();}public void reconnectFeed(){retryDiscover();}public void feedDetails(){showDiscoverDetails();}public String feedStatus(){return discover.status();}public void googleApp(){openGoogleFeed();}public void cards(){showCards("");}public void widgets(){showWidgets();}public void folder(){newFolder();}public void overview(){showDesktopOverview();}public void manage(){showDesktopManager();}public void autoSort(){showAutoSort();}public String desktop(boolean add){return editDesktop(add);}public void apps(){showStart();}public void about(){showAbout();}public void backup(boolean restore){settingsDocument(restore);}public void restoreWidgets(){showRestoreWidgets();}public void photoWallpaper(){chooseWallpaperPhoto();}public void androidWallpaper(boolean live){chooseAndroidWallpaper(live);}public void createScene(){showSceneCreator();}public void sceneWallpaper(){store.preferences.edit().putInt("wallpaper_source",0).apply();applySettings(false);showModes();}
+            public void setup(){showSetup(0);}public void home(){requestHome();}public void arrange(){desktop.arrange();toast("Desktop arranged");}public void recenter(){motion.recenter();toast("Tilt centered");}public void feed(){showNativeFeed();}public void reconnectFeed(){retryDiscover();}public void feedDetails(){showDiscoverDetails();}public String feedStatus(){return discover.status();}public void googleApp(){openGoogleFeed();}public void cards(){showCards("");}public void widgets(){showWidgets();}public void folder(){newFolder();}public void overview(){showDesktopOverview();}public void manage(){showDesktopManager();}public void autoSort(){showAutoSort();}public String desktop(boolean add){return editDesktop(add);}public void apps(){showStart();}public void about(){showAbout();}public void backup(boolean restore){settingsDocument(restore);}public void restoreWidgets(){showRestoreWidgets();}public void photoWallpaper(){chooseWallpaperPhoto();}public void androidWallpaper(boolean live){chooseAndroidWallpaper(live);}public void createScene(){showSceneCreator();}public void removeScene(){MainActivity.this.removeScene();}public void dockSpaces(){showDockSpaces();}public void sceneWallpaper(){store.preferences.edit().putInt("wallpaper_source",0).apply();applySettings(false);showModes();}
             public boolean openApp(String query){List<AppCatalog.Entry> matches=catalog.filter(query,false);if(matches.size()==1){launch(matches.get(0).key);return true;}if(matches.size()>1){showStart();appSearch.setText(query);toast("Choose an app from the matching shortcuts.");return true;}return false;}
         },page);p.addView(settingsStudio,new LinearLayout.LayoutParams(-1,0,1));
     }
@@ -886,7 +914,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void welcome(){if(!destroyed&&resumed)showSetup(0);}
     private void showSetup(int step){LinearLayout body=openPanel("Setup & permissions");setupGuide=new SetupGuide(this,store,step,this::requestHome,this::closePanel);body.addView(setupGuide,new LinearLayout.LayoutParams(-1,0,1));}
     private void setPanelArea(String area){panelArea=area;if(areaButton!=null){areaButton.setVisibility(area==null||area.equals("nota")?View.GONE:View.VISIBLE);areaButton.setContentDescription(AreaSettingsMenu.title(area)+" settings menu");}}
-    private void showAreaSettings(){if(panelArea==null)return;areaMenu=new AreaSettingsMenu(this,settingsModel(),panelArea,new AreaSettingsMenu.Host(){public void page(String id){showSettings(id);}public void setting(String id){SettingsModel.Spec spec=settingsModel().specs.get(id);if(spec!=null){showSettings(spec.page);settingsStudio.focusSetting(id);}}public void setup(){showSetup(0);}}).show();}
+    private void showAreaSettings(){if(panelArea==null)return;areaMenu=new AreaSettingsMenu(this,settingsModel(),panelArea,new AreaSettingsMenu.Host(){public void page(String id){showSettings(id);}public void setting(String id){SettingsModel.Spec spec=settingsModel().specs.get(id);if(spec!=null){showSettings(spec.page);settingsStudio.focusSetting(id);}}public void setup(){showSetup(0);}public void action(String id){switch(id){case "scene":showSceneCreator();break;case "remove_scene":removeScene();break;case "dock":showDockSpaces();break;default:if(sceneComposer!=null)sceneComposer.focus(id);else{sceneFocus=id;showSceneCreator();}}}}).show();}
     private void requestHome(){
         store.preferences.edit().putBoolean("welcomed",true).apply();
         if(Build.VERSION.SDK_INT>=29){RoleManager roles=getSystemService(RoleManager.class);if(roles.isRoleAvailable(RoleManager.ROLE_HOME)){if(roles.isRoleHeld(RoleManager.ROLE_HOME)){toast("Nth Desktop 3D is already your Home app.");return;}try{startActivityForResult(roles.createRequestRoleIntent(RoleManager.ROLE_HOME),101);return;}catch(RuntimeException ignored){}}}

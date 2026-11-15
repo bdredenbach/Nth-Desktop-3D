@@ -45,7 +45,7 @@ final class SettingsPreview extends View {
         if(sample)text(c,"Sample preview",w/2,11*d,8*d,Ui.MUTED);
         if(folder&&model.value("folder_title")==1){text(c,model.store.folders().isEmpty()?"Folder":model.store.folders().get(0).label,w/2,16*d,11*d,Ui.TEXT);top=32*d;}
         if(folder&&!items.isEmpty())columns=Math.min(columns,items.size());
-        float dockHeight=20*d*(48+model.value("dock_padding")*2)/62f;float bottom=model.value("show_dock")==1&&!folder&&!drawer?dockHeight+8*d:6*d;
+        float contentHeight=model.value("dock_content")==1?model.value("dock_space_height")*.32f*d:0;float dockHeight=20*d*(48+model.value("dock_padding")*2)/62f;float bottom=model.value("show_dock")==1&&!folder&&!drawer?dockHeight+contentHeight+8*d:6*d;
         float cw=(w-2*padding)/columns,ch=(h-top-bottom)/2;
         boolean labels=model.value(folder?"folder_labels":drawer?"drawer_labels":"desktop_labels")==1;int percent=model.value(folder?"folder_icon_size":drawer?"drawer_icon_size":"icon_size");
         List<DesktopGrid.Cell> plan=new ArrayList<>();
@@ -63,7 +63,7 @@ final class SettingsPreview extends View {
             if(labels)Ui.drawMenuLabel(c,item.label,x,y+size+2*d,cw-4*d,ch-size-3*d,font,model.labelColor());
         }
         c.restoreToCount(transformed);
-        if(model.value("show_dock")==1&&!folder&&!drawer){int opacity=Math.max(50,Math.min(235,255*(100-model.crystal.transparency())/100+80));paint.setColor(model.value("dock_background")==1?(opacity<<24)|0x00223E58:0);float curve=Math.min(dockHeight/2,model.value("dock_radius")*d*.35f);c.drawRoundRect(new RectF(padding,h-4*d-dockHeight,w-padding,h-4*d),curve,curve,paint);text(c,"Start     Search     Controls"+(model.value("dock_clock")==1?"     12:00":""),w/2,h-4*d-dockHeight/2+3*d,9*d,Ui.TEXT);}
+        if(model.value("show_dock")==1&&!folder&&!drawer){int opacity=Math.max(50,Math.min(235,255*(100-model.crystal.transparency())/100+80));paint.setColor(model.value("dock_background")==1?(opacity<<24)|0x00223E58:0);float curve=Math.min(dockHeight/2,model.value("dock_radius")*d*.35f);c.drawRoundRect(new RectF(padding,h-4*d-dockHeight,w-padding,h-4*d),curve,curve,paint);if(contentHeight>0){int spaces=model.value("dock_space_count");float sw=(w-padding*2)/spaces;for(int i=0;i<spaces;i++){RectF slot=new RectF(padding+i*sw+2*d,h-7*d-dockHeight-contentHeight,padding+(i+1)*sw-2*d,h-7*d-dockHeight);paint.setColor(0x555394AB);c.drawRoundRect(slot,4*d,4*d,paint);DockStore.Slot dockSlot=model.store.dock.slots.get(i);text(c,dockSlot.item!=null?dockSlot.item.label:dockSlot.widget()?dockSlot.label:"+",slot.centerX(),slot.centerY()+3*d,8*d,Ui.TEXT);}}text(c,"Start     Search     Controls"+(model.value("dock_clock")==1?"     12:00":""),w/2,h-4*d-dockHeight/2+3*d,9*d,Ui.TEXT);}
         c.restoreToCount(saved);
     }
     private void text(Canvas c,String text,float x,float y,float size,int color){paint.setColor(color);paint.setTextSize(size);paint.setTextAlign(Paint.Align.CENTER);paint.setShadowLayer(2,0,1,0xFF000000);c.drawText(text,x,y,paint);paint.clearShadowLayer();}

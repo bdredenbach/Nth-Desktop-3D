@@ -130,6 +130,15 @@ for checked in (3,6):
     if checked==6:
         upper=np.s_[height//8:height//2,:,:3]
         assert np.mean(np.abs(a[upper]-b[upper]))>.1,'Jellyfish light shafts do not move'
+# Maximum supported camera tilt must retain real texture detail across the top edge.
+for checked in (3,6):
+    u1(uniform(p,b'mode'),checked);u1(uniform(p,b'motion'),0)
+    for tx,ty in ((1.5,1.5),(-1.5,-1.5)):
+        u2(uniform(p,b'tilt'),tx,ty)
+        pixels=np.frombuffer(aquatic_frame(),dtype=np.uint8).reshape(height,width,4)[::-1].astype(np.int16)
+        strip=pixels[2:height//22,:,:3]
+        assert np.mean(np.abs(strip[1:]-strip[:-1]))>.35,'Aquatic top edge is stretched at maximum tilt'
+        Image.fromarray(pixels[:,:,:3].clip(0,255).astype(np.uint8)).save(out/f'edge-{checked}-{tx}.png')
 u1(uniform(p,b'waterLight'),.75);u1(uniform(p,b'fishCount'),5)
 
 # Landscape shader draw without relying on a virtual device rotation.

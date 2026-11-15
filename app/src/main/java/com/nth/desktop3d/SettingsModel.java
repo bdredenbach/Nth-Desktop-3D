@@ -32,6 +32,9 @@ final class SettingsModel {
         bool("infinite_scroll","home","Infinite desktop scrolling","Wrap between the first and last desktop.",false,false);
         bool("auto_add_apps","home","Add newly installed apps","Place a shortcut on the current desktop when an app is installed.",false,false);
         bool("show_dock","dock","Show dock","Reveal the Start, search, controls and clock dock.",false,true);
+        bool("dock_content","dock","Dock spaces","Reserve persistent spaces for apps, folders or Android widgets.",false,true);
+        pref("dock_space_count","dock","Dock spaces count","How many content spaces are visible. Hidden spaces keep their contents.",1,5,1,3,true);
+        pref("dock_space_height","dock","Dock spaces height","Height available for apps, folders and widgets in dp.",64,180,4,96,true);
         bool("dock_background","dock","Dock background","Use the selected Crystal material behind the dock.",true,false);
         bool("dock_clock","dock","Dock clock","Show the clock in the dock.",true,false);
         pref("dock_padding","dock","Dock padding","Space inside the dock in dp.",4,14,1,7,false);
@@ -61,7 +64,7 @@ final class SettingsModel {
         pref("glass_feather","look","Fade width","Soft edge width around background objects in dp.",12,80,4,80,false);
         pref("glass_empty","look","Empty-area opacity","Set to zero for an invisible menu background over open wallpaper.",0,25,1,0,false);
         enumeration("label_color","look","Label color","A readable light palette for desktop, folders and app drawer.",new String[]{"Ice","White","Warm","Mint"},0,true);
-        add("transparency","look","Crystal transparency","Transparency of the fixed Crystal material when fading backgrounds are off.",0,100,1,null,false,false,c::transparency,c::setTransparency);
+        add("transparency","look","Crystal transparency","Transparency of the Crystal cards and fixed material surfaces.",0,100,1,null,false,true,c::transparency,c::setTransparency);
         add("material","look","Crystal material","Surface material for icons and the dock.",0,3,1,CrystalPreferences.MATERIALS,false,true,c::material,c::setMaterial);
         add("lighting","look","Lighting","Highlight intensity on Crystal surfaces.",0,2,1,CrystalPreferences.LIGHTING,false,true,c::lighting,c::setLighting);
         add("menu_animation","look","Menu opening animation","How menus rise from the desktop plane.",0,4,1,CrystalPreferences.MENU_ANIMATIONS,false,false,c::menuAnimation,c::setMenuAnimation);

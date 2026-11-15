@@ -100,7 +100,7 @@ vec3 gravityScene(vec2 uv) {
 vec3 environment(sampler2D image,vec2 uv) {
     float viewAspect=resolution.x/resolution.y;
     vec2 crop=vec2(min(1.0,viewAspect/(2.0/3.0)),min(1.0,(2.0/3.0)/viewAspect));
-    vec2 q=clamp((uv-.5)*crop+.5,vec2(.002),vec2(.998));
+    vec2 q=clamp((uv-.5)*crop*.92+.5,vec2(.002),vec2(.998));
     return texture2D(image,vec2(q.x,1.0-q.y)).rgb;
 }
 vec4 animal(sampler2D image,vec2 q) {
@@ -264,12 +264,15 @@ vec3 reef(vec2 uv) {
     // Broad shafts breathe and slowly change angle from the moving water surface.
     float rays=0.0;
     for(int beam=0;beam<3;beam++){
-        float k=float(beam),source=.04+k*.28+sin(t*.073+k*1.7)*.045;
-        float slope=.29+sin(t*.061+k)*.055;
+        float k=float(beam),source=.04+k*.28+sin(t*.33+k*1.7)*.070;
+        float slope=.29+sin(t*.23+k)*.075;
         float distance=uv.x-source-(1.0-uv.y)*slope;
         float width=.033+(1.0-uv.y)*.028;
-        rays+=exp(-pow(distance/width,2.0))*(.62+.38*sin(t*.28+k*2.0))*smoothstep(.03,.85,uv.y);
+        rays+=exp(-pow(distance/width,2.0))*(.62+.38*sin(t*.72+k*2.0))*smoothstep(.03,.85,uv.y);
     }
+    float dance=(sin(uv.x*13.0+uv.y*5.0-t*.85)+sin(uv.x*24.0-uv.y*8.0+t*.57))*.5;
+    float leftShaft=exp(-pow((uv.x-.20)/.40,2.0))*smoothstep(.15,.92,uv.y);
+    col*=1.0+dance*leftShaft*.16*waterLight;
     float surface=smoothstep(.80,.99,uv.y)*(.5+.5*sin(uv.x*29.0+sin(uv.x*11.0+t*.31)*2.0-t*.43));
     col+=vec3(.025,.09,.12)*(rays*.65+surface*.25)*waterLight;
     // Each animal has its own phase, depth and speed; no tilt is needed for swimming.

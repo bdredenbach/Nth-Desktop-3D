@@ -116,7 +116,7 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glDisable(GLES20.GL_DEPTH_TEST);
         GLES20.glUseProgram(program);quad.position(0);GLES20.glEnableVertexAttribArray(aPosition);GLES20.glVertexAttribPointer(aPosition,2,GLES20.GL_FLOAT,false,0,quad);
         for(int i=0;i<4;i++){GLES20.glActiveTexture(GLES20.GL_TEXTURE0+i);GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,aquaticTextures[i]);GLES20.glUniform1i(aquaticUniforms[i],i);}
-        GLES20.glUniform2f(uResolution,width,height);GLES20.glUniform2f(uTilt,reduced||!crystalParallax?0:tiltX*strength*crystalDepth*2f*crystalMotion/0.35f,reduced||!crystalParallax?0:tiltY*strength*crystalDepth*2f*crystalMotion/0.35f);
+        GLES20.glUniform2f(uResolution,width,height);float cameraX=SceneMath.clamp(tiltX,-1,1),cameraY=SceneMath.clamp(tiltY,-1,1);GLES20.glUniform2f(uTilt,reduced||!crystalParallax?0:SceneMath.clamp(cameraX*strength*crystalDepth*2f*crystalMotion/0.35f,-1.5f,1.5f),reduced||!crystalParallax?0:SceneMath.clamp(cameraY*strength*crystalDepth*2f*crystalMotion/0.35f,-1.5f,1.5f));
         GLES20.glUniform1f(uTime,t);GLES20.glUniform1f(uMotion,ambient?1:0);GLES20.glUniform1f(uMode,sceneMode);GLES20.glUniform1f(uCount,count);
         GLES20.glUniform1f(uSpeed,speed);GLES20.glUniform1f(uRipple,ripple?1:0);GLES20.glUniform1f(uShadow,shadows&&crystalShadows?1:0);
         GLES20.glUniform1f(uWaterLight,waterLight);

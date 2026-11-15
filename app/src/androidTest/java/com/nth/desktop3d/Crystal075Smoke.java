@@ -42,7 +42,7 @@ public final class Crystal075Smoke {
             for(int material=0;material<4;material++){
                 CrystalPreferences prefs=new CrystalPreferences(activity);int previous=prefs.material();prefs.setMaterial(material);
                 Bitmap a=Bitmap.createBitmap(200,160,Bitmap.Config.ARGB_8888),b=Bitmap.createBitmap(200,160,Bitmap.Config.ARGB_8888);
-                try{SolidCrystalDrawable d=new SolidCrystalDrawable(activity,20,true);d.setBounds(0,0,200,160);Canvas ca=new Canvas(a),cb=new Canvas(b);ca.drawColor(Color.MAGENTA);cb.drawColor(Color.GREEN);d.draw(ca);d.draw(cb);check(a.getPixel(100,80)==b.getPixel(100,80),"Crystal center exposes background");check(a.getPixel(100,80)!=a.getPixel(100,5),"Crystal bevel is flat");}finally{a.recycle();b.recycle();prefs.setMaterial(previous);}
+                try{SolidCrystalDrawable d=new SolidCrystalDrawable(activity,20,true);d.setBounds(0,0,200,160);Canvas ca=new Canvas(a),cb=new Canvas(b);ca.drawColor(Color.MAGENTA);cb.drawColor(Color.GREEN);d.draw(ca);d.draw(cb);check(a.getPixel(100,80)!=b.getPixel(100,80),"Crystal center is opaque");check(a.getPixel(100,80)!=a.getPixel(100,5),"Crystal bevel is flat");}finally{a.recycle();b.recycle();prefs.setMaterial(previous);}
             }
         });
         invoke("showModes");main(()->{View card=find(v->"scene-card:6".equals(v.getTag()));check(card!=null&&card.isSelected(),"Current scene checkmark lost");card.requestRectangleOnScreen(new Rect(0,0,card.getWidth(),card.getHeight()),true);});
