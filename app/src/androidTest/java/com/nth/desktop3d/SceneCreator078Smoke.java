@@ -41,7 +41,7 @@ public final class SceneCreator078Smoke {
     private Object invokeDirect(String name,Class<?>[] types,Object...args){try{java.lang.reflect.Method m=MainActivity.class.getDeclaredMethod(name,types);m.setAccessible(true);return m.invoke(activity,args);}catch(Exception e){throw new AssertionError(e);}}
     private void invoke(String name,Class<?>[] types,Object...args){main(()->invokeDirect(name,types,args));idle(250);}
     private View find(String text){return find(activity.getWindow().getDecorView(),text);}
-    private View find(View v,String text){if(v.getVisibility()!=View.VISIBLE)return null;if(v instanceof TextView&&text.contentEquals(((TextView)v).getText()))return v;if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++){View f=find(g.getChildAt(i),text);if(f!=null)return f;}}return null;}
+    private View find(View v,String text){if(v.getVisibility()!=View.VISIBLE)return null;if(text.contentEquals(v.getContentDescription()==null?"":v.getContentDescription())||v instanceof TextView&&text.contentEquals(((TextView)v).getText()))return v;if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++){View f=find(g.getChildAt(i),text);if(f!=null)return f;}}return null;}
     private void click(String value){main(()->{View v=find(value);check(v!=null,"Missing control: "+value);v.performClick();});idle(250);}
     private void main(Runnable r){AtomicReference<Throwable> error=new AtomicReference<>();test.runOnMainSync(()->{try{r.run();}catch(Throwable e){error.set(e);}});if(error.get()!=null)throw new AssertionError(error.get());}
     private void idle(long ms){SystemClock.sleep(ms);test.runOnMainSync(()->{});}
