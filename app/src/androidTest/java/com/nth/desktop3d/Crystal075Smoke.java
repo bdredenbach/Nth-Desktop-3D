@@ -45,7 +45,7 @@ public final class Crystal075Smoke {
                 try{SolidCrystalDrawable d=new SolidCrystalDrawable(activity,20,true);d.setBounds(0,0,200,160);Canvas ca=new Canvas(a),cb=new Canvas(b);ca.drawColor(Color.MAGENTA);cb.drawColor(Color.GREEN);d.draw(ca);d.draw(cb);check(a.getPixel(100,80)==b.getPixel(100,80),"Crystal center exposes background");check(a.getPixel(100,80)!=a.getPixel(100,5),"Crystal bevel is flat");}finally{a.recycle();b.recycle();prefs.setMaterial(previous);}
             }
         });
-        invoke("showModes");main(()->{View card=find(v->"scene-card:6".equals(v.getTag()));check(card!=null&&card.isSelected(),"Current scene checkmark lost");});
+        invoke("showModes");main(()->{View card=find(v->"scene-card:6".equals(v.getTag()));check(card!=null&&card.isSelected(),"Current scene checkmark lost");card.requestRectangleOnScreen(new Rect(0,0,card.getWidth(),card.getHeight()),true);});
         capture("crystal-selected-reef");invoke("closePanel");
     }
     private Object field(String name){try{java.lang.reflect.Field f=MainActivity.class.getDeclaredField(name);f.setAccessible(true);return f.get(activity);}catch(Exception e){throw new AssertionError(e);}}

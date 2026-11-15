@@ -74,8 +74,9 @@ jobs:
         with:
           # Pin the API 35-era emulator: newer software-GPU builds exit during rotation.
           emulator-build: 12414864
-          # Exercise settings/recreation on Android 14; other suites cover Android 15.
-          api-level: ${{ matrix.suite == 'settings' && 34 || 35 }}
+          # Exercise optical-card screenshots on Android 11 after API 35 software-GPU disconnects.
+          # Settings/recreation stays on Android 14; other suites cover Android 15.
+          api-level: ${{ matrix.suite == 'crystal' && 30 || matrix.suite == 'settings' && 34 || 35 }}
           target: default
           arch: x86_64
           profile: pixel_7
