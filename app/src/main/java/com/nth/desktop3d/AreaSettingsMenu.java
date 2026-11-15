@@ -57,7 +57,7 @@ final class AreaSettingsMenu {
         if(area.equals("root"))for(String[] page:SettingsStudio.PAGES)add(list,dialog,page[1],page[2],()->host.page(page[0]));
         else{
             for(SettingsModel.Spec spec:model.specs.values())if(includes(spec))add(list,dialog,spec.title,spec.value(),()->host.setting(spec.id));
-            if(area.equals("creator")){add(list,dialog,"Object transparency","Choose an object, then adjust its transparency",()->host.action("opacity"));add(list,dialog,"Caustic lighting","Intensity, speed and parallax depth",()->host.action("caustics"));}
+            if(area.equals("creator")){add(list,dialog,"Object transparency","Choose an object, then adjust its transparency",()->host.action("opacity"));add(list,dialog,"Caustic lighting","Intensity, speed and parallax depth",()->host.action("caustics"));add(list,dialog,"Dancing light shafts","Top-left, top-right or both corners",()->host.action("shafts"));}
             if(area.equals("motion")||area.equals("wallpaper")){add(list,dialog,"Create or edit a scene","Background, objects, transparency and caustics",()->host.action("scene"));if(LayeredScene.file(context,false).exists())add(list,dialog,"Remove my scene","Remove your saved custom scene",()->host.action("remove_scene"));}
             if(area.equals("dock"))add(list,dialog,"Manage dock spaces","Choose apps, folders and widgets for each space",()->host.action("dock"));
             if(area.equals("home")){add(list,dialog,"Desktop gestures","Choose swipe, tap and button actions",()->host.page("gestures"));add(list,dialog,"Dock settings","Visibility, spacing and material",()->host.page("dock"));}

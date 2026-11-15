@@ -32,7 +32,7 @@ final class DesktopView extends FrameLayout {
     private DesktopGrid.Cell dragStart;
     private String dragId,pendingRevealItem;
     private long lastBackgroundTap;
-    private int columns,rows,visibleRows,cw,ch;
+    private int columns,rows,visibleRows,cw,ch,originRow;
     private int renderedPage=-1,pendingRevealId=-1;
     private java.util.List<DesktopGrid.Cell> obstaclePlan;
     private float[][] widgetObstacles=new float[0][];
@@ -124,12 +124,13 @@ final class DesktopView extends FrameLayout {
     private boolean folderPattern(){return store.preferences.getBoolean("folder_pattern_page_"+store.page,false);}
     private int gridColumns(){if(folderPattern())return 5;return Math.max(3,Math.min(8,store.preferences.getInt("grid_columns",4)));}
     private int cellHeight(){
-        int preferred=IconTile.desktopRowHeight(getContext(),store.preferences);
-        if(folderPattern())return Math.max(preferred,(Math.max(height,getHeight())-top()-Ui.dp(getContext(),12))/10);
-        return Math.max(preferred,Ui.dp(getContext(),store.preferences.getInt("grid_row_dp",112)+Math.max(0,getResources().getConfiguration().fontScale-1)*30));
+        // Icon size changes its drawing, never the grid's row pitch or saved coordinates.
+        if(folderPattern())return Math.max(Ui.dp(getContext(),100),(Math.max(height,getHeight())-top()-Ui.dp(getContext(),12))/10);
+        return Ui.dp(getContext(),store.preferences.getInt("grid_row_dp",112)+Math.max(0,getResources().getConfiguration().fontScale-1)*30);
     }
+    private int gridTop(){return top()-originRow*ch;}
     private android.graphics.RectF rectangle(DesktopGrid.Cell cell){
-        return new android.graphics.RectF(cell.x*width/(float)columns,top()+cell.y*ch,(cell.x+cell.w)*width/(float)columns,top()+(cell.y+cell.h)*ch);
+        return new android.graphics.RectF(cell.x*width/(float)columns,gridTop()+cell.y*ch,(cell.x+cell.w)*width/(float)columns,gridTop()+(cell.y+cell.h)*ch);
     }
     private int span(int pixels,int cell){return Math.max(1,(int)Math.ceil(pixels/(double)Math.max(1,cell)));}
     int[] widgetSpan(android.appwidget.AppWidgetProviderInfo info){
@@ -176,11 +177,13 @@ final class DesktopView extends FrameLayout {
         // Legacy dense layouts may need additional scrollable rows; never stack or discard items.
         while(cells==null&&rows<120)cells=DesktopGrid.restore(desired,columns,++rows);
         if(cells==null)throw new IllegalStateException("Desktop layout exceeds safe capacity");
-        workspace.metrics(columns,ch,top());
+        // The decorative empty rows of the initial pattern need not consume a short landscape screen.
+        originRow=0;if(folderPattern()&&getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE&&!cells.isEmpty()){originRow=60;for(DesktopGrid.Cell cell:cells)originRow=Math.min(originRow,cell.y);}
+        workspace.metrics(columns,ch,gridTop());
         if(scroller!=null){
             // ScrollView measures its child with an unspecified height; translated cells
             // do not increase FrameLayout's desired size. Report the complete grid.
-            int contentHeight=Math.max(height,top()+rows*ch+Ui.dp(getContext(),12));workspace.setMinimumHeight(contentHeight);
+            int contentHeight=Math.max(height,gridTop()+rows*ch+Ui.dp(getContext(),12)+Math.max(0,(IconTile.desktopRowHeight(getContext(),store.preferences)-ch+1)/2));workspace.setMinimumHeight(contentHeight);
             android.view.ViewGroup.LayoutParams lp=workspace.getLayoutParams();if(lp.height!=contentHeight){lp.height=contentHeight;workspace.setLayoutParams(lp);}
         }
         positionCells(cells,true);
@@ -197,10 +200,10 @@ final class DesktopView extends FrameLayout {
                 if(save){int id=Integer.parseInt(cell.id.substring(7));editor.putInt("widget_cell_x_"+id,cell.x).putInt("widget_cell_y_"+id,cell.y).putInt("widget_span_x_"+id,cell.w).putInt("widget_span_y_"+id,cell.h).putInt("widget_left_"+id,Math.round(bounds.left)).putInt("widget_top_"+id,Math.round(bounds.top)).putInt("widget_width_"+id,w).putInt("widget_height_"+id,h);}
             }else{
                 if(!gravity()){
-                    LayoutParams lp=(LayoutParams)view.getLayoutParams();int w=Math.min(Ui.dp(getContext(),84),Math.round(bounds.width())),h=ch;
+                    LayoutParams lp=(LayoutParams)view.getLayoutParams();int w=Math.min(Ui.dp(getContext(),84),Math.round(bounds.width())),h=Math.max(ch,IconTile.desktopRowHeight(getContext(),store.preferences));
                     if(lp.width!=w||lp.height!=h){lp.width=w;lp.height=h;view.setLayoutParams(lp);}
                     ((IconTile)view).fitCell(w,h);
-                    float x=bounds.left+(bounds.width()-w)/2,y=bounds.top;
+                    float x=bounds.left+(bounds.width()-w)/2,y=bounds.top+(ch-h)/2f;
                     view.setTranslationX(x);view.setTranslationY(y);
                     for(Body body:bodies)if(body.item.id.equals(cell.id)){body.x=x;body.y=y;break;}
                 }
@@ -227,7 +230,7 @@ final class DesktopView extends FrameLayout {
         }
         positionCells(previewPlan==null?originalPlan:previewPlan,false);workspace.preview(rectangle(target),previewPlan!=null);
         View view=cellViews.get(dragId);android.graphics.RectF original=rectangle(dragStart);
-        if(view!=null){view.setTranslationX(original.left+dx+(dragStart.widget?0:(original.width()-view.getLayoutParams().width)/2));view.setTranslationY(original.top+dy);}
+        if(view!=null){view.setTranslationX(original.left+dx+(dragStart.widget?0:(original.width()-view.getLayoutParams().width)/2));view.setTranslationY(original.top+dy+(dragStart.widget?0:(ch-view.getLayoutParams().height)/2f));}
     }
     private void finishDrag(boolean cancel){
         if(originalPlan==null)return;
@@ -240,7 +243,7 @@ final class DesktopView extends FrameLayout {
     void dragPage(int page){savePositions();store.page=Math.max(0,Math.min(store.pageCount()-1,page));rebuild();host.pageChanged();}
     private DesktopGrid.Cell externalTarget(LauncherStore.Item item,float x,float y){
         if(workspace==null||columns<=0||x<0||x>=width||y<0||y>=height)return null;
-        float scroll=scroller==null?0:scroller.getScrollY();int cx=Math.max(0,Math.min(columns-1,(int)(x/cw))),cy=Math.max(0,(int)((y+scroll-top())/ch));
+        float scroll=scroller==null?0:scroller.getScrollY();int cx=Math.max(0,Math.min(columns-1,(int)(x/cw))),cy=Math.max(0,(int)((y+scroll-gridTop())/ch));
         java.util.List<DesktopGrid.Cell> occupied=new ArrayList<>();for(DesktopGrid.Cell cell:cells)if(!cell.id.equals(item.id))occupied.add(cell);
         return DesktopGrid.nearest(new DesktopGrid.Cell(item.id,false,cx,cy,1,1),occupied,columns,Math.max(rows,visibleRows));
     }
@@ -250,7 +253,7 @@ final class DesktopView extends FrameLayout {
         if(store.preferences.getBoolean("lock_layout",false))return false;
         DesktopGrid.Cell target=externalTarget(item,x,y);if(target==null)return false;
         if(!item.folder()){
-            float scroll=scroller==null?0:scroller.getScrollY();int cx=(int)(x/cw),cy=(int)((y+scroll-top())/ch);
+            float scroll=scroller==null?0:scroller.getScrollY();int cx=(int)(x/cw),cy=(int)((y+scroll-gridTop())/ch);
             for(LauncherStore.Item folder:store.pages.get(store.page))if(folder.folder()&&folder.cellX==cx&&folder.cellY==cy){for(LauncherStore.Item child:folder.children)if(child.key.equals(item.key))return false;if(folder.children.size()>=1000)return false;folder.children.add(item.copy());for(java.util.List<LauncherStore.Item> page:store.pages)page.remove(item);store.save();rebuild();return true;}
             for(LauncherStore.Item existing:store.pages.get(store.page))if(!existing.folder()&&existing.key.equals(item.key)){item=existing;break;}
         }
