@@ -27,7 +27,7 @@ public final class Polish074Smoke {
             SetupGuide guide=(SetupGuide)field(activity,"setupGuide");check(guide.step()==step,"Setup skipped a step");
             View back=find(v->v instanceof Button&&"Back".contentEquals(((Button)v).getText()));
             final String nextText=step==5?"Finish":"Next";View next=find(v->v instanceof Button&&nextText.contentEquals(((Button)v).getText()));
-            check(back!=null&&next!=null,"Setup navigation missing");check(back.isEnabled()==(step>0),"Back enabled on first step or disabled later");
+            check(back!=null&&next!=null,"Setup navigation missing");await(()->!guide.isLayoutRequested()&&back.getWidth()>0&&next.getWidth()>0,"Setup navigation did not finish layout");check(back.isEnabled()==(step>0),"Back enabled on first step or disabled later");
             int[] b=position(back),n=position(next),g=position(guide);
             check(b[0]+back.getWidth()<=n[0]&&Math.abs(b[1]-n[1])<=2,"Back and Next are not aligned at opposite sides");
             check(b[1]+back.getHeight()>=g[1]+guide.getHeight()-Ui.dp(activity,3),"Navigation is not pinned to the bottom");
@@ -75,8 +75,8 @@ public final class Polish074Smoke {
         }
         capture("swipe-down-opens-saved-folder");invoke("closePanel",new Class[]{});
         // Scrolling an overflowing desktop must take precedence when it can move toward the top.
-        main(()->{store().pages.get(store().page).clear();for(int i=0;i<40;i++)store().pages.get(store().page).add(new LauncherStore.Item("builtin:notes","Scroll "+i));store().save();desktop().rebuild();});idle(400);
-        android.widget.ScrollView sc=(android.widget.ScrollView)field(desktop(),"scroller");main(()->sc.scrollTo(0,Ui.dp(activity,170)));idle(100);check(sc.canScrollVertically(-1),"Overflow fixture did not scroll");int before=sc.getScrollY();int[] p=position(desktop());swipe(p[0]+Ui.dp(activity,8),p[1]+Ui.dp(activity,140),0,Ui.dp(activity,100),false,0);check(field(activity,"overlay")==null&&sc.getScrollY()<before,"Swipe down intercepted real desktop scrolling");
+        main(()->{store().preferences.edit().putInt("grid_row_dp",144).apply();store().pages.get(store().page).clear();for(int i=0;i<60;i++)store().pages.get(store().page).add(new LauncherStore.Item("builtin:notes","Scroll "+i));store().save();desktop().rebuild();});idle(400);
+        android.widget.ScrollView sc=(android.widget.ScrollView)field(desktop(),"scroller");await(()->!sc.isLayoutRequested()&&sc.canScrollVertically(1),"Overflow fixture did not finish layout");main(()->sc.scrollTo(0,Ui.dp(activity,170)));await(()->sc.canScrollVertically(-1),"Overflow fixture did not scroll");int before=sc.getScrollY();int[] p=position(desktop());swipe(p[0]+Ui.dp(activity,8),p[1]+Ui.dp(activity,140),0,Ui.dp(activity,100),false,0);check(field(activity,"overlay")==null&&sc.getScrollY()<before,"Swipe down intercepted real desktop scrolling");
         main(()->{store().preferences.edit().putInt("gesture_down",1).remove("gesture_down_target").apply();sc.scrollTo(0,0);});idle(150);
         long start=SystemClock.uptimeMillis();float x=p[0]+Ui.dp(activity,8),y=p[1]+Ui.dp(activity,140);pointer(start,0,x,y);for(int i=1;i<=24;i++){pointer(start,2,x,y+Ui.dp(activity,120)*i/24f);idle(16);}pointer(start,1,x,y+Ui.dp(activity,120));await(()->downwardOpened(1),"A gradual downward swipe at the top of a populated desktop was lost to scrolling");invoke("closePanel",new Class[]{});
     }
