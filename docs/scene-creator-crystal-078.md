@@ -15,3 +15,5 @@ Primary Android references:
 - https://developer.android.com/reference/android/app/WallpaperManager#EXTRA_LIVE_WALLPAPER_COMPONENT
 - https://developer.android.com/reference/android/app/WallpaperManager#ACTION_LIVE_WALLPAPER_CHOOSER
 - https://developer.android.com/reference/android/service/wallpaper/WallpaperService#SERVICE_INTERFACE
+
+Aquatic lighting: Living Pond uses a moving caustic cell network warped by image-derived rock relief, drawn before the koi. Biolume Reef applies the same treatment to the rock floor, with broad drifting light shafts, moving surface glints and a restrained jellyfish shimmer. Aquatic light (0–100, default 75) sets intensity; Ambient animation, Reduced motion and power saver freeze movement. This follows photographed surface features rather than reconstructing a 3D mesh from the photo. The GLES check isolates time-varying lit/unlit differences over the floor and checks pause; native PixelCopy checks real SurfaceView intensity/movement/pause.

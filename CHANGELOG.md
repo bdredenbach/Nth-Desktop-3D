@@ -1,5 +1,7 @@
 # 0.7.8
 
+- Animate caustic light across pond stones and reef rocks, plus drifting jellyfish-scene light shafts and surface glints. Add Aquatic light intensity while retaining motion/pause controls.
+
 - Add a three-step layered scene creator: gallery background, optional crystal/orb/star or transparent image objects, independent parallax depth and preview.
 - Keep drafts separate from applied wallpapers and embed applied scenes/assets in desktop backups.
 - Open Android wallpaper apps through a chooser; list installed live services with explicit component previews and system fallback. Forward desktop offsets and taps to live wallpapers.

@@ -72,6 +72,7 @@ final class SettingsModel {
         add("strength","motion","Tilt strength","How strongly device tilt affects the desktop.",0,100,1,null,false,false,()->Math.round(s.strength*100),v->s.strength=v/100f);
         add("motion","motion","Motion intensity","Strength of ambient Crystal movement.",0,100,1,null,false,false,c::motion,c::setMotion);
         add("ambient","motion","Ambient animation","Animate the environment while Home is visible.",0,1,1,null,true,false,()->s.ambient?1:0,v->s.ambient=v==1);
+        pref("aquatic_light","motion","Aquatic light","Caustic reflections over pond stones and reef rock, with moving jellyfish-scene light shafts. Ambient animation controls movement.",0,100,5,75,false);
         add("reduced_motion","motion","Reduced motion","Keep settings previews and navigation steady.",0,1,1,null,true,true,()->s.reducedMotion?1:0,v->s.reducedMotion=v==1);
         add("quality","motion","Rendering quality","Balance scene detail and battery use.",0,2,1,new String[]{"Performance","Balanced","Cinematic"},false,false,c::qualityIndex,c::setQuality);
         add("fish_count","motion","Fish count","Number of fish in Living Pond.",3,7,1,null,false,false,()->s.fishCount,v->s.fishCount=v);
