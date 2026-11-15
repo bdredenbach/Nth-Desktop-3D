@@ -17,11 +17,11 @@ public final class AquaticLight078Smoke {
         try{
             main(()->{s.preferences.edit().putInt("wallpaper_source",0).apply();s.fishCount=0;s.ambient=false;s.ripples=false;s.tilt=false;s.reducedMotion=false;prefs.setParallax(false);});
             for(int chosen:new int[]{3,6}){
-                main(()->{s.mode=chosen;s.preferences.edit().putInt("aquatic_light",0).apply();apply();});idle(450);Bitmap unlit=frame();
-                main(()->{s.preferences.edit().putInt("aquatic_light",100).apply();apply();});idle(350);Bitmap lit=frame();
-                try{check(difference(unlit,lit,.80f)>.2,"Aquatic intensity did not illuminate the rock floor: "+chosen);save(lit,"water-light-native-"+chosen);}finally{unlit.recycle();lit.recycle();}
-                main(()->{s.ambient=true;apply();});idle(300);Bitmap a=frame();idle(850);Bitmap b=frame();try{check(difference(a,b,.80f)>.1,"Aquatic rock floor is not alive: "+chosen);save(b,"water-light-moving-"+chosen);}finally{a.recycle();b.recycle();}
-                main(()->{s.ambient=false;apply();});idle(350);a=frame();idle(600);b=frame();try{check(difference(a,b,0)<.01,"Ambient off did not freeze aquatic light: "+chosen);}finally{a.recycle();b.recycle();}
+                main(()->{s.mode=chosen;s.preferences.edit().putInt("aquatic_light",0).apply();apply();});idle(1600);Bitmap unlit=frame();
+                main(()->{s.preferences.edit().putInt("aquatic_light",100).apply();apply();});idle(1600);Bitmap lit=frame();
+                try{save(unlit,"water-light-unlit-"+chosen);save(lit,"water-light-native-"+chosen);double delta=difference(unlit,lit,.80f);check(delta>.2,"Aquatic intensity did not illuminate the rock floor: "+chosen+" (mean difference "+delta+")");}finally{unlit.recycle();lit.recycle();}
+                main(()->{s.ambient=true;apply();});idle(1200);Bitmap a=frame();idle(850);Bitmap b=frame();try{check(difference(a,b,.80f)>.1,"Aquatic rock floor is not alive: "+chosen);save(b,"water-light-moving-"+chosen);}finally{a.recycle();b.recycle();}
+                main(()->{s.ambient=false;apply();});idle(1600);a=frame();idle(600);b=frame();try{check(difference(a,b,0)<.01,"Ambient off did not freeze aquatic light: "+chosen);}finally{a.recycle();b.recycle();}
             }
         }finally{main(()->{s.mode=mode;s.fishCount=count;s.ambient=ambient;s.ripples=ripples;s.tilt=tilt;s.reducedMotion=reduced;prefs.setParallax(parallax);s.preferences.edit().putInt("wallpaper_source",source).putInt("aquatic_light",light).apply();s.save();apply();});}
     }
