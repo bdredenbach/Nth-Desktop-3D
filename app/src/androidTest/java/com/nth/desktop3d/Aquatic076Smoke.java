@@ -37,7 +37,7 @@ public final class Aquatic076Smoke {
         tap(find(v->v instanceof Button&&((Button)v).getText().toString().startsWith("Desktop transition")));
         main(()->{check(find(v->v instanceof Button&&"Advanced  ▾".contentEquals(((Button)v).getText()))==null,"Transition choices are hidden behind Advanced");for(String name:PageTransitions.NAMES)check(find(v->v instanceof Button&&v.getContentDescription()!=null&&(name.contentEquals(v.getContentDescription())||("✓  "+name).contentEquals(v.getContentDescription())))!=null,"Missing transition: "+name);});
         capture("desktop-effect-choices");
-        invoke("showSettings",new Class[]{String.class},"look");tap(find(v->"Use 3D Stack everywhere".contentEquals(v.getContentDescription())));
+        invoke("showSettings",new Class[]{String.class},"look");tap(find(v->android.text.TextUtils.equals("Use 3D Stack everywhere",v.getContentDescription())));
         main(()->{LauncherStore store=(LauncherStore)field("store");SettingsModel model=(SettingsModel)field("settingsModel");check(store.transition==4&&new CrystalPreferences(activity).menuAnimation()==3&&model.value("folder_animation")==3,"Preset tap did not update the live launcher");});
         capture("stack-preset-selected");invoke("closePanel",new Class[]{});
         // Inspect the live GL surface with a clear desktop, without changing saved shortcuts.
