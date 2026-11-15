@@ -41,12 +41,12 @@ final class SettingsPreview extends View {
         if(folderIcons){items.clear();items.addAll(model.store.folders());if(items.isEmpty()){LauncherStore.Item example=new LauncherStore.Item("folder","Folder");for(AppCatalog.Entry e:catalog.entries){example.children.add(new LauncherStore.Item(e.key,e.label));if(example.children.size()==4)break;}items.add(example);}}
         boolean sample=items.isEmpty()||(!folder&&!drawer&&!folderIcons&&items.stream().allMatch(item->item.cellY>=2));
         if(items.isEmpty())for(AppCatalog.Entry entry:catalog.entries){items.add(new LauncherStore.Item(entry.key,entry.label));if(items.size()>=columns*2)break;}
-        float top=20*d,padding=12*d+model.value("desktop_padding")*d*.25f;
+        float top=20*d,padding=Math.max(0,12*d+model.value("desktop_padding")*d*.25f);
         if(sample)text(c,"Sample preview",w/2,11*d,8*d,Ui.MUTED);
         if(folder&&model.value("folder_title")==1){text(c,model.store.folders().isEmpty()?"Folder":model.store.folders().get(0).label,w/2,16*d,11*d,Ui.TEXT);top=32*d;}
         if(folder&&!items.isEmpty())columns=Math.min(columns,items.size());
         boolean controls=model.value("show_dock")==1,spaces=model.value("dock_content")==1;
-        float contentHeight=spaces?model.value("dock_space_height")*.32f*d:0,dockHeight=controls?20*d*(48+model.value("dock_padding")*2)/62f:0,bottom=(controls||spaces)&&!folder&&!drawer?dockHeight+contentHeight+8*d:6*d;
+        float contentHeight=spaces?model.value("dock_space_height")*.32f*d:0,dockHeight=controls?20*d*(48+PaddingSettings.inset(7,model.value("dock_padding"))*2)/62f:0,bottom=(controls||spaces)&&!folder&&!drawer?dockHeight+contentHeight+8*d:6*d;
         float cw=(w-2*padding)/columns,ch=(h-top-bottom)/2;
         boolean labels=model.value(folder?"folder_labels":drawer?"drawer_labels":"desktop_labels")==1;int percent=model.value(folder?"folder_icon_size":drawer?"drawer_icon_size":"icon_size");
         List<DesktopGrid.Cell> plan=new ArrayList<>();
