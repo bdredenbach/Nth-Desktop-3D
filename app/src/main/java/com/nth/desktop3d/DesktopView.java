@@ -43,6 +43,7 @@ final class DesktopView extends FrameLayout {
 
     private float downX,downY,tiltX,tiltY;
     private final float gestureSlop;
+    private android.view.VelocityTracker swipeVelocity;
     private boolean swiping,animating,touching,modal,reduced,powerSave,held,verticalGesture,startedOnItem;
     private boolean pinching,pinchWanted,doubleArmed;private float pinchDistance,pinchAngle,pinchX,pinchY;private String multiGesture;
     private ValueAnimator animator;
@@ -418,6 +419,12 @@ final class DesktopView extends FrameLayout {
     private void resetTransform(){stage.setRotationX(0);stage.setRotationY(0);stage.setTranslationX(0);stage.setTranslationY(0);stage.setRotation(0);stage.setClipBounds(null);stage.setScaleX(1);stage.setScaleY(1);stage.setAlpha(1);}
     @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){super.onSizeChanged(w,h,oldw,oldh);post(this::updateLayout);}
     @Override public boolean dispatchTouchEvent(MotionEvent e){
+        if(e.getActionMasked()==MotionEvent.ACTION_DOWN){if(swipeVelocity!=null)swipeVelocity.recycle();swipeVelocity=android.view.VelocityTracker.obtain();}
+        if(swipeVelocity!=null)swipeVelocity.addMovement(e);
+        try{return dispatchTrackedTouchEvent(e);}finally{if((e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL)&&swipeVelocity!=null){swipeVelocity.recycle();swipeVelocity=null;}}
+    }
+    private float swipeSpeed(){if(swipeVelocity==null)return 0;swipeVelocity.computeCurrentVelocity(1000,ViewConfiguration.get(getContext()).getScaledMaximumFlingVelocity());return swipeVelocity.getXVelocity();}
+    private boolean dispatchTrackedTouchEvent(MotionEvent e){
         if(!modal&&e.getActionMasked()==MotionEvent.ACTION_POINTER_DOWN&&e.getPointerCount()==2&&dragId==null&&(workspace==null||!workspace.resizing())&&!itemAt(e.getX(0),e.getY(0))&&!itemAt(e.getX(1),e.getY(1))){
             pinchDistance=(float)Math.hypot(e.getX(1)-e.getX(0),e.getY(1)-e.getY(0));pinchAngle=(float)Math.toDegrees(Math.atan2(e.getY(1)-e.getY(0),e.getX(1)-e.getX(0)));pinchX=(e.getX(0)+e.getX(1))/2;pinchY=(e.getY(0)+e.getY(1))/2;multiGesture=null;pinching=true;touching=false;removeCallbacks(backgroundHold);MotionEvent cancel=MotionEvent.obtain(e);cancel.setAction(MotionEvent.ACTION_CANCEL);super.dispatchTouchEvent(cancel);cancel.recycle();return true;
         }
@@ -447,7 +454,7 @@ final class DesktopView extends FrameLayout {
     @Override public boolean onInterceptTouchEvent(MotionEvent e){
         if(animating)return true;
         if(e.getActionMasked()==MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();swiping=false;verticalGesture=false;startedOnItem=itemAt(downX,downY);}
-        if(startedOnItem&&dragId==null&&e.getActionMasked()==MotionEvent.ACTION_MOVE&&!gravity()&&!widgetAt(downX,downY)){float dx=e.getX()-downX,dy=e.getY()-downY;if(Math.abs(dy)>ViewConfiguration.get(getContext()).getScaledTouchSlop()&&Math.abs(dy)>Math.abs(dx)*1.4f&&(scroller==null||!scroller.canScrollVertically(dy<0?1:-1))){startedOnItem=false;verticalGesture=true;removeCallbacks(backgroundHold);return true;}}
+        if(startedOnItem&&dragId==null&&e.getActionMasked()==MotionEvent.ACTION_MOVE&&!gravity()&&!widgetAt(downX,downY)){float dx=e.getX()-downX,dy=e.getY()-downY;int slop=ViewConfiguration.get(getContext()).getScaledTouchSlop();if(Math.abs(dx)>slop*2&&Math.abs(dx)>Math.abs(dy)*1.4f){startedOnItem=false;swiping=true;removeCallbacks(backgroundHold);return true;}if(Math.abs(dy)>slop&&Math.abs(dy)>Math.abs(dx)*1.4f&&(scroller==null||!scroller.canScrollVertically(dy<0?1:-1))){startedOnItem=false;verticalGesture=true;removeCallbacks(backgroundHold);return true;}}
         if(startedOnItem||dragId!=null||(workspace!=null&&workspace.resizing()))return false;
         if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&!gravity()&&!held){float dx=e.getX()-downX,dy=e.getY()-downY;
             int slop=ViewConfiguration.get(getContext()).getScaledTouchSlop();
@@ -466,7 +473,7 @@ final class DesktopView extends FrameLayout {
                 float endDx=e.getX()-downX,endDy=e.getY()-downY;
                 if(Math.abs(endDy)>gestureSlop&&Math.abs(endDy)>Math.abs(endDx)*1.4f&&endDy<0){host.assignedGesture(doubleArmed?"gesture_double_up":"gesture_up");lastBackgroundTap=0;}
                 else if(Math.abs(endDy)>gestureSlop&&Math.abs(endDy)>Math.abs(endDx)*1.4f&&endDy>0){host.assignedGesture(doubleArmed?"gesture_double_down":"gesture_down");lastBackgroundTap=0;}
-                else if(swiping&&Math.abs(endDx)>gestureSlop){
+                else if(swiping&&GestureAssignments.horizontalSwipe(endDx,endDy,swipeSpeed(),ViewConfiguration.get(getContext()).getScaledTouchSlop(),gestureSlop,Ui.dp(getContext(),600))){
                     if(store.preferences.getInt(endDx<0?"gesture_left":"gesture_right",4)!=4){host.assignedGesture(endDx<0?"gesture_left":"gesture_right");}
                     else if(endDx>0&&store.page==0&&host.feed()){}
                     else if(endDx<0&&store.page==store.pageCount()-1&&!store.preferences.getBoolean("infinite_scroll",false)){
@@ -479,5 +486,6 @@ final class DesktopView extends FrameLayout {
             default:return true;
         }
     }
+    @Override protected void onDetachedFromWindow(){if(swipeVelocity!=null){swipeVelocity.recycle();swipeVelocity=null;}super.onDetachedFromWindow();}
     @Override public boolean performClick(){super.performClick();return true;}
 }

@@ -51,8 +51,9 @@ final class AreaSettingsMenu {
         return spec.page.equals(area);
     }
     AlertDialog show(){
-        LinearLayout list=Ui.column(context);Ui.pad(list,12);ScrollView scroll=new ScrollView(context);scroll.addView(list);
-        AlertDialog dialog=new AlertDialog.Builder(context).setTitle(title(area)+" settings").setView(scroll).setNegativeButton("Close",null).create();
+        LinearLayout list=Ui.column(context);ScrollView scroll=new ScrollView(context);scroll.addView(list);
+        LinearLayout surface=Ui.column(context);surface.setPadding(Ui.dp(context,12),Ui.dp(context,12),Ui.dp(context,12),Ui.dp(context,16));
+        AlertDialog dialog=new AlertDialog.Builder(context).create();dialog.setView(surface,0,0,0,0);LinearLayout heading=Ui.row(context);android.widget.TextView label=Ui.text(context,title(area)+" settings",20,Ui.TEXT);label.setTypeface(android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL));heading.addView(label,new LinearLayout.LayoutParams(0,-2,1));heading.addView(Ui.icon(context,"close","Close "+title(area)+" settings",dialog::dismiss),new LinearLayout.LayoutParams(Ui.dp(context,46),Ui.dp(context,46)));surface.addView(heading);surface.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         if(area.equals("root"))for(String[] page:SettingsStudio.PAGES)add(list,dialog,page[1],page[2],()->host.page(page[0]));
         else{
             for(SettingsModel.Spec spec:model.specs.values())if(includes(spec))add(list,dialog,spec.title,spec.value(),()->host.setting(spec.id));
@@ -64,7 +65,7 @@ final class AreaSettingsMenu {
             if(area.equals("about")||area.equals("controls"))add(list,dialog,"Setup & permissions","Default Home and optional Android access",host::setup);
             add(list,dialog,"All settings","Browse launcher settings",()->host.page("root"));
         }
-        Ui.themeDialog(dialog);if(dialog.getWindow()!=null)dialog.getWindow().setLayout(-1,Math.round(context.getResources().getDisplayMetrics().heightPixels*.72f));return dialog;
+        if(context instanceof MainActivity)((MainActivity)context).presentAreaMenu(dialog,surface,title(area)+" settings");else Ui.themeDialog(dialog);return dialog;
     }
     private void add(LinearLayout list,AlertDialog dialog,String label,String detail,Runnable action){Button button=Ui.quiet(context,label+"\n"+detail,()->{dialog.dismiss();action.run();});button.setContentDescription(label);button.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);list.addView(button,new LinearLayout.LayoutParams(-1,-2));}
 }

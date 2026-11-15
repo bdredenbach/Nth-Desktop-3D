@@ -27,7 +27,7 @@ final class SettingsModel {
         enumeration("icon_shape","look","App icon shape","Shape of the Crystal surface around app icons on Home and in the drawer.",new String[]{"Rounded square","Circle","Square"},0,true);
         bool("desktop_labels","home","Desktop labels","Show shortcut and folder names.",true,true);
         pref("label_size","home","Label text size","Text size in sp, with system font scaling.",10,18,1,12,true);
-        pref("desktop_padding","home","Desktop side padding","Space beside the workspace in dp.",0,24,2,0,true);
+        pref("desktop_padding","home","Desktop side padding","Zero keeps standard spacing. Negative widens toward the screen edges; positive adds space.",-50,50,1,0,true);
         bool("lock_layout","home","Lock desktop layout","Prevent dragging and resizing while keeping taps and menus available.",false,false);
         bool("infinite_scroll","home","Infinite desktop scrolling","Wrap between the first and last desktop.",false,false);
         bool("auto_add_apps","home","Add newly installed apps","Place a shortcut on the current desktop when an app is installed.",false,false);
@@ -37,7 +37,7 @@ final class SettingsModel {
         pref("dock_space_height","dock","Dock spaces height","Height available for apps, folders and widgets in dp.",64,180,4,96,true);
         bool("dock_background","dock","Dock background","Use the selected Crystal material behind the dock.",true,false);
         bool("dock_clock","dock","Dock clock","Show the clock in the dock.",true,false);
-        pref("dock_padding","dock","Dock padding","Space inside the dock in dp.",4,14,1,7,false);
+        pref("dock_padding","dock","Dock padding","Zero keeps standard spacing. Negative expands the contents; positive adds space inside the dock.",-50,50,1,0,false);
         pref("dock_radius","dock","Dock corner radius","Round the dock surface in dp.",0,36,2,24,false);
         enumeration("folder_animation","look","Folder opening animation","Independent of menu opening animation. Tap the preview to replay.",PanelAnimations.FOLDERS,PanelAnimations.STACK,false);
         pref("folder_columns","folders","Folder columns","Number of icon columns inside folders.",2,6,1,3,false);
@@ -113,10 +113,10 @@ final class SettingsModel {
         undo=()->{store.transition=desktop;crystal.setMenuAnimation(menu);store.preferences.edit().putInt("folder_animation",folder).apply();store.save();changed.apply(false);};
         lastChange="3D Stack applied to desktops, menus and folders.";return lastChange;
     }
-    JSONObject exportSettings()throws org.json.JSONException {JSONObject values=new JSONObject();for(Spec s:specs.values())if(!s.id.equals("cloud_ai"))values.put(s.id,s.get.getAsInt());JSONObject targets=new JSONObject();for(String[] gesture:GestureAssignments.GESTURES){String target=store.preferences.getString(gesture[0]+"_target","");if(!target.isEmpty())targets.put(gesture[0],target);}return new JSONObject().put("format","nth-desktop-3d-settings").put("version",1).put("values",values).put("gestureTargets",targets);}
+    JSONObject exportSettings()throws org.json.JSONException {JSONObject values=new JSONObject();for(Spec s:specs.values())if(!s.id.equals("cloud_ai"))values.put(s.id,s.get.getAsInt());JSONObject targets=new JSONObject();for(String[] gesture:GestureAssignments.GESTURES){String target=store.preferences.getString(gesture[0]+"_target","");if(!target.isEmpty())targets.put(gesture[0],target);}return new JSONObject().put("format","nth-desktop-3d-settings").put("version",1).put("paddingOffsets",true).put("values",values).put("gestureTargets",targets);}
     void importSettings(JSONObject input)throws org.json.JSONException {
         if(!"nth-desktop-3d-settings".equals(input.optString("format"))||input.optInt("version")!=1)throw new org.json.JSONException("Not a supported 3D settings backup.");
-        JSONObject values=input.getJSONObject("values");Map<Spec,Integer> next=new LinkedHashMap<>(),old=new LinkedHashMap<>();
+        input=PaddingSettings.normalize(input);JSONObject values=input.getJSONObject("values");Map<Spec,Integer> next=new LinkedHashMap<>(),old=new LinkedHashMap<>();
         java.util.Iterator<String> keys=values.keys();while(keys.hasNext()){String key=keys.next();Spec s=specs.get(key);if(key.equals("cloud_ai"))continue;Object raw=values.get(key);if(s==null||!(raw instanceof Number)||((Number)raw).doubleValue()!=((Number)raw).intValue())throw new org.json.JSONException("Unsupported setting: "+key);int value=((Number)raw).intValue();if(value<s.min||value>s.max)throw new org.json.JSONException("Invalid value for "+s.title);next.put(s,value);old.put(s,s.get.getAsInt());}
         JSONObject targets=input.optJSONObject("gestureTargets");Map<String,String> oldTargets=new LinkedHashMap<>();if(targets!=null){java.util.Iterator<String> targetKeys=targets.keys();while(targetKeys.hasNext()){String key=targetKeys.next();Object target=targets.get(key);if(!key.startsWith("gesture_")||!specs.containsKey(key)||!(target instanceof String)||((String)target).length()>2048)throw new org.json.JSONException("Unsupported gesture target");oldTargets.put(key,store.preferences.getString(key+"_target",""));}}
         if(targets!=null)for(String key:oldTargets.keySet())store.preferences.edit().putString(key+"_target",targets.getString(key)).apply();

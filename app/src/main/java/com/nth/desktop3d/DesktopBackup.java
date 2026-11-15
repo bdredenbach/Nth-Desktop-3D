@@ -41,7 +41,7 @@ final class DesktopBackup {
         final int page,home;final String note,origin;final byte[] photo;final LayeredScene.Document scene;int folders,shortcuts;
         Prepared(JSONObject input,SettingsModel model)throws Exception {
             if(!FORMAT.equals(input.optString("format"))||input.optInt("version")!=2)throw new JSONException("Not a supported desktop backup");
-            settings=input.getJSONObject("settings");validateSettings(settings,model);
+            settings=PaddingSettings.normalize(input.getJSONObject("settings"));validateSettings(settings,model);
             pageData=input.getJSONArray("pages");if(pageData.length()<1||pageData.length()>LauncherStore.MAX_PAGES)throw new JSONException("Invalid desktop count");
             page=integer(input,"page",0,pageData.length()-1);home=integer(input,"home",0,pageData.length()-1);origin=text(input,"install",200);note=text(input,"note",1024*1024);
             Set<String> ids=new HashSet<>();int[] total={0};

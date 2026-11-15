@@ -155,8 +155,6 @@ public final class MainActivity extends Activity implements MotionController.Lis
             // IME remains inside the safe panel and does not move the taskbar sideways.
             imeBottom=Build.VERSION.SDK_INT>=30&&insets.isVisible(WindowInsets.Type.ime())?insets.getInsets(WindowInsets.Type.ime()).bottom:0;
             applyDesktopChrome();
-            int chromeWidth=Math.min(dp(560),Math.max(1,(root.getWidth()>0?root.getWidth():getResources().getDisplayMetrics().widthPixels)-insetLeft-insetRight-dp(compact()?32:40)));
-            for(View chrome:new View[]{dock,paging,dockContents}){LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(chromeWidth,-2);cp.gravity=Gravity.CENTER_HORIZONTAL;chrome.setLayoutParams(cp);}
             layoutPanel();return insets;
         });root.requestApplyInsets();
         catalog.launcher.registerCallback(packageCallback,handler);
@@ -200,13 +198,16 @@ public final class MainActivity extends Activity implements MotionController.Lis
         dock.setOnLongClickListener(v->{backgroundMenu();return true;});bar.addView(dock);shell.addView(bar,new LinearLayout.LayoutParams(-1,-2));updateClock();
     }
     private void applyDesktopChrome(){
-        int padding=Math.max(0,Math.min(24,store.preferences.getInt("desktop_padding",0)));
-        shell.setPadding(insetLeft+dp((compact()?16:20)+padding),insetTop+dp(8),insetRight+dp((compact()?16:20)+padding),insetBottom+dp(8));
+        int padding=PaddingSettings.inset(compact()?16:20,store.preferences.getInt("desktop_padding",0));
+        shell.setPadding(insetLeft+dp(padding),insetTop+dp(8),insetRight+dp(padding),insetBottom+dp(8));
         boolean controls=store.preferences.getBoolean("show_dock",false),spaces=store.preferences.getBoolean("dock_content",false),visibleDock=controls||spaces;
         bar.setVisibility(visibleDock?View.VISIBLE:View.GONE);dock.setVisibility(controls?View.VISIBLE:View.GONE);paging.setVisibility(controls?View.VISIBLE:View.GONE);desktop.setClipChildren(visibleDock);desktop.setClipToPadding(visibleDock);
         dockContents.rebuild();
         clockButton.setVisibility(store.preferences.getBoolean("dock_clock",true)?View.VISIBLE:View.GONE);
-        int p=Math.max(4,Math.min(14,store.preferences.getInt("dock_padding",7)));dock.setPadding(dp(8),dp(p),dp(8),dp(p));
+        int adjustment=store.preferences.getInt("dock_padding",0),horizontal=PaddingSettings.inset(8,adjustment),vertical=PaddingSettings.inset(7,adjustment);
+        int chromeWidth=Math.min(dp(560),Math.max(1,(root.getWidth()>0?root.getWidth():getResources().getDisplayMetrics().widthPixels)-insetLeft-insetRight-dp(padding*2)));
+        int safeHorizontal=Math.min(dp(horizontal),Math.max(0,(chromeWidth-dp(store.preferences.getBoolean("dock_clock",true)?223:158))/2));dock.setPadding(safeHorizontal,dp(vertical),safeHorizontal,dp(vertical));
+        for(View chrome:new View[]{dock,paging,dockContents}){LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(chromeWidth,-2);cp.gravity=Gravity.CENTER_HORIZONTAL;chrome.setLayoutParams(cp);}
     }
     private void applyCrystalAppearance(){
         if(dock!=null){int opacity=Math.max(50,Math.min(235,255*(100-crystal.transparency())/100+80));dock.setBackground(store.preferences.getBoolean("dock_background",true)?Ui.satin(this,(opacity<<24)|0x0044819C,0xCF0B1E36,store.preferences.getInt("dock_radius",24)):new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));}
@@ -216,10 +217,33 @@ public final class MainActivity extends Activity implements MotionController.Lis
             if(adaptive){if(!(panel.getBackground() instanceof AdaptiveMenuDrawable)){menuGlass=new AdaptiveMenuDrawable(getResources().getDisplayMetrics().density);panel.setBackground(menuGlass);}menuGlass.radius("folder".equals(panel.getTag())?store.preferences.getInt("folder_radius",26):26);}
             else{menuGlass=null;int alpha=Math.max(175,Math.min(245,255-crystal.transparency()*2/3));panel.setBackground(flyoutPanel?new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT):Ui.satin(this,(alpha<<24)|0x00335C76,0xF20B1A30,26));}
         }
+        styleAreaMenu();
+    }
+    private View areaMenuBody;private AdaptiveMenuDrawable areaMenuGlass;
+    private java.util.List<android.graphics.RectF> menuBackdrops(View target){
+        java.util.List<android.graphics.RectF> boxes=desktopManager==null||target!=panel?desktop.backdropRects(target):new java.util.ArrayList<>();
+        if(dockContents!=null&&dockContents.isShown())for(int i=0;i<dockContents.getChildCount();i++)BackdropGeometry.append(boxes,dockContents.getChildAt(i),target);
+        BackdropGeometry.append(boxes,dock,target);BackdropGeometry.append(boxes,paging,target);return boxes;
+    }
+    private void styleAreaMenu(){
+        if(areaMenuBody==null)return;if(store.preferences.getBoolean("adaptive_glass",true)){
+            if(!(areaMenuBody.getBackground() instanceof AdaptiveMenuDrawable)){areaMenuGlass=new AdaptiveMenuDrawable(getResources().getDisplayMetrics().density);areaMenuBody.setBackground(areaMenuGlass);}else areaMenuGlass=(AdaptiveMenuDrawable)areaMenuBody.getBackground();areaMenuGlass.radius(26);
+        }else{areaMenuGlass=null;areaMenuBody.setBackground(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));}
+    }
+    void presentAreaMenu(AlertDialog dialog,View body,String title){
+        if(areaMenu!=null&&areaMenu.isShowing())areaMenu.dismiss();View covered=panel;if(covered!=null)covered.setVisibility(View.INVISIBLE);areaMenu=dialog;areaMenuBody=body;styleAreaMenu();
+        body.setTag("fading-area-menu");body.setCameraDistance(dp(2400));if(Build.VERSION.SDK_INT>=28)body.setAccessibilityPaneTitle(title);
+        dialog.setOnDismissListener(d->{if(covered!=null&&panel==covered)covered.setVisibility(View.VISIBLE);if(areaMenu==dialog){areaMenu=null;areaMenuBody=null;areaMenuGlass=null;}});
+        dialog.show();android.view.Window window=dialog.getWindow();if(window!=null){window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);window.addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN);window.getDecorView().setSystemUiVisibility(getWindow().getDecorView().getSystemUiVisibility());window.setTitle(title);
+            PanelGeometry.Bounds bounds=PanelGeometry.place(root.getWidth(),root.getHeight(),insetLeft,insetTop,insetRight,Math.max(insetBottom,imeBottom),dp(420),dp(540),dp(10),imeBottom==0?dp(84):0);
+            window.setGravity(Gravity.TOP|Gravity.LEFT);window.setLayout(bounds.width,bounds.height);android.view.WindowManager.LayoutParams attributes=window.getAttributes();attributes.x=bounds.left;attributes.y=flyoutTop(bounds.height);window.setAttributes(attributes);
+        }
+        lastGlassUpdate=0;body.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener(){public boolean onPreDraw(){body.getViewTreeObserver().removeOnPreDrawListener(this);if(areaMenu==dialog){PanelAnimations.play(body,crystal.menuAnimation(),store.reducedMotion||systemReduced);updateMenuGlass();}return true;}});
     }
     private void updateMenuGlass(){
-        if(menuGlass==null||panel==null)return;long now=System.nanoTime();if(now-lastGlassUpdate<33_000_000L)return;float dt=lastGlassUpdate==0?.05f:Math.min(.1f,(now-lastGlassUpdate)/1_000_000_000f);lastGlassUpdate=now;
-        menuGlass.update(desktopManager==null?desktop.backdropRects(panel):java.util.Collections.emptyList(),store.preferences.getInt("glass_strength",90),store.preferences.getInt("glass_feather",80),store.preferences.getInt("glass_empty",0),store.reducedMotion||systemReduced,dt);
+        if((menuGlass==null||panel==null)&&areaMenuGlass==null)return;long now=System.nanoTime();if(now-lastGlassUpdate<33_000_000L)return;float dt=lastGlassUpdate==0?.05f:Math.min(.1f,(now-lastGlassUpdate)/1_000_000_000f);lastGlassUpdate=now;
+        if(menuGlass!=null&&panel!=null)menuGlass.update(menuBackdrops(panel),store.preferences.getInt("glass_strength",90),store.preferences.getInt("glass_feather",80),store.preferences.getInt("glass_empty",0),store.reducedMotion||systemReduced,dt);
+        if(areaMenuGlass!=null&&areaMenuBody!=null)areaMenuGlass.update(menuBackdrops(areaMenuBody),store.preferences.getInt("glass_strength",90),store.preferences.getInt("glass_feather",80),store.preferences.getInt("glass_empty",0),store.reducedMotion||systemReduced,dt);
     }
     private void updateClock(){
         Date now=new Date();String pattern=android.text.format.DateFormat.is24HourFormat(this)?"HH:mm":"h:mm";
