@@ -41,7 +41,7 @@ final class PolishSmoke {
         invoke("feed",new Class[0]);await(()->systemHas("Discover protocol fixture"),"Remote Discover overlay did not render from the separate UID");capture("discover-cross-process-overlay");
         check(((View)field(activity,"root")).getTranslationX()>0,"Overlay scroll callback did not move the desktop");clickSystem("Close fixture feed");await(()->((View)field(activity,"root")).getTranslationX()==0,"Closing Discover did not restore the desktop");
         invoke("feed",new Class[0]);await(()->systemHas("Discover protocol fixture"),"Overlay could not reopen");main(()->call(field(activity,"discover"),"pause"));await(()->((View)field(activity,"root")).getTranslationX()==0,"Pausing did not restore the desktop");
-        main(()->{Object client=field(activity,"discover");call(client,"resume");set(client,"targetOverride",null);call(client,"reconnect");});invoke("feed",new Class[0]);await(()->findText("Reconnect Google Discover")!=null,"Missing Google app did not expose a usable setup fallback");capture("discover-direct-fallback");
+        main(()->{Object client=field(activity,"discover");call(client,"resume");set(client,"targetOverride",null);call(client,"reconnect");});invoke("feed",new Class[0]);await(()->findText("Repair Google Discover")!=null,"Missing Google app did not expose a usable setup fallback");capture("discover-direct-fallback");
         main(()->{activity.onBackPressed();crystal.setFeedProvider(original);crystal.setFeedEnabled(enabled);crystal.setFeedEdgeSwipe(edge);call(field(activity,"discover"),"disable");});
     }
     private void fadePixels(){try{

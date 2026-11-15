@@ -51,6 +51,10 @@ final class SettingsModel {
         bool("cloud_ai","search","Cloud questions for Nth Nota AI","Send your question and current setting values to Nth Nota's cloud service. Local setting commands always work offline.",false,false);
         bool("cards_in_search","cards","Cards in app search","Show the Cards action beside filtered app results.",true,false);
         for(String[] type:CrystalCards.TYPES)bool("card_"+type[0],"cards",type[1],"Show this crystal card.",true,false);
+        enumeration("wallpaper_source","wallpaper","Wallpaper source","Use a 3D scene, your own photo, or Android’s current wallpaper.",new String[]{"3D scene","Photo","Android wallpaper"},0,true);
+        enumeration("wallpaper_fit","wallpaper","Photo fit","Fill the screen or show the complete photo.",new String[]{"Fill screen","Fit image"},0,false);
+        pref("wallpaper_dim","wallpaper","Wallpaper dimming","Darken photo and Android wallpapers for readable icons.",0,70,5,20,false);
+        bool("wallpaper_parallax","wallpaper","Photo parallax","Add gentle depth to your photo when tilt is enabled.",true,false);
         enumeration("home_rotation","look","Home screen rotation","Follow Android rotation, allow all device orientations, or keep a fixed orientation.",new String[]{"Follow system","Auto rotate","Portrait","Landscape"},0,false);
         bool("adaptive_glass","look","Fading menu backgrounds","Add opacity over desktop content and feather it to transparent in empty areas.",true,false);
         pref("glass_strength","look","Opacity over content","Maximum opacity percentage over icons, folders and widgets.",20,90,5,90,false);
@@ -61,7 +65,7 @@ final class SettingsModel {
         add("material","look","Crystal material","Surface material for icons and the dock.",0,3,1,CrystalPreferences.MATERIALS,false,true,c::material,c::setMaterial);
         add("lighting","look","Lighting","Highlight intensity on Crystal surfaces.",0,2,1,CrystalPreferences.LIGHTING,false,true,c::lighting,c::setLighting);
         add("menu_animation","look","Menu opening animation","How menus rise from the desktop plane.",0,4,1,CrystalPreferences.MENU_ANIMATIONS,false,false,c::menuAnimation,c::setMenuAnimation);
-        add("scene","motion","Scene","Choose the desktop environment.",0,LauncherStore.MODES.length-1,1,LauncherStore.MODES,false,true,()->s.mode,v->s.mode=v);
+        add("scene","motion","Scene","Choose the desktop environment.",0,LauncherStore.MODES.length-1,1,LauncherStore.MODES,false,true,()->s.mode,v->{s.mode=v;s.preferences.edit().putInt("wallpaper_source",0).apply();});
         add("transition","look","Desktop transition","Perspective animation when changing desktops.",0,LauncherStore.TRANSITIONS.length-1,1,LauncherStore.TRANSITIONS,false,false,()->s.transition,v->s.transition=v);
         add("tilt","motion","Tilt parallax","Use device tilt to move the desktop perspective.",0,1,1,null,true,false,()->s.tilt?1:0,v->{s.tilt=v==1;c.setParallax(v==1);});
         add("depth","motion","3D depth","Depth of the scene and layered elements.",0,100,1,null,false,false,c::depth,c::setDepth);
@@ -86,9 +90,9 @@ final class SettingsModel {
     private void bool(String id,String page,String title,String help,boolean fallback,boolean rebuild){add(id,page,title,help,0,1,1,null,true,rebuild,()->store.preferences.getBoolean(id,fallback)?1:0,v->store.preferences.edit().putBoolean(id,v==1).apply());}
     private void enumeration(String id,String page,String title,String help,String[] options,int fallback,boolean rebuild){add(id,page,title,help,0,options.length-1,1,options,false,rebuild,()->Math.max(0,Math.min(options.length-1,store.preferences.getInt(id,fallback))),v->store.preferences.edit().putInt(id,v).apply());}
     private Runnable layoutUndo(){
-        List<Runnable> restore=new ArrayList<>();for(List<LauncherStore.Item> page:store.pages)for(LauncherStore.Item item:page){int x=item.cellX,y=item.cellY;float px=item.x,py=item.y;restore.add(()->{item.cellX=x;item.cellY=y;item.x=px;item.y=py;});}
+        int wallpaperSource=store.preferences.getInt("wallpaper_source",0);List<Runnable> restore=new ArrayList<>();for(List<LauncherStore.Item> page:store.pages)for(LauncherStore.Item item:page){int x=item.cellX,y=item.cellY;float px=item.x,py=item.y;restore.add(()->{item.cellX=x;item.cellY=y;item.x=px;item.y=py;});}
         Map<String,Object> widget=new LinkedHashMap<>();for(Map.Entry<String,?> entry:store.preferences.getAll().entrySet())if(widgetPosition(entry.getKey()))widget.put(entry.getKey(),entry.getValue());
-        return ()->{for(Runnable task:restore)task.run();SharedPreferences.Editor edit=store.preferences.edit();for(String key:store.preferences.getAll().keySet())if(widgetPosition(key))edit.remove(key);for(Map.Entry<String,Object> e:widget.entrySet())if(e.getValue() instanceof Integer)edit.putInt(e.getKey(),(Integer)e.getValue());edit.apply();};
+        return ()->{store.preferences.edit().putInt("wallpaper_source",wallpaperSource).apply();for(Runnable task:restore)task.run();SharedPreferences.Editor edit=store.preferences.edit();for(String key:store.preferences.getAll().keySet())if(widgetPosition(key))edit.remove(key);for(Map.Entry<String,Object> e:widget.entrySet())if(e.getValue() instanceof Integer)edit.putInt(e.getKey(),(Integer)e.getValue());edit.apply();};
     }
     private boolean widgetPosition(String k){return k.startsWith("widget_cell_")||k.startsWith("widget_span_")||k.startsWith("widget_left_")||k.startsWith("widget_top_")||k.startsWith("widget_width_")||k.startsWith("widget_height_");}
     String set(String id,int value){Spec s=specs.get(id);if(s==null)return "That setting is not available.";if(value<s.min||value>s.max)return s.title+" must be between "+s.min+" and "+s.max+".";
@@ -98,7 +102,7 @@ final class SettingsModel {
     void beginGesture(){gesture=true;gestureUndo=null;pendingRebuild=false;}
     void endGesture(){gesture=false;gestureUndo=null;if(pendingRebuild){pendingRebuild=false;changed.apply(true);}}
     boolean canUndo(){return undo!=null;}
-    String undo(){if(undo==null)return "There is no setting change to undo.";Runnable previous=undo;undo=null;previous.run();return lastChange="Last setting change undone.";}
+    String undo(){if(undo==null)return "There is no setting change to undo.";Runnable previous=undo;undo=null;try{previous.run();return lastChange="Last change undone.";}catch(RuntimeException error){undo=previous;return lastChange="Could not complete Undo. Please try again.";}}
     String useStackAnimations(){
         int desktop=store.transition,menu=crystal.menuAnimation(),folder=value("folder_animation");
         store.transition=PageTransitions.STACK;crystal.setMenuAnimation(PanelAnimations.STACK);store.preferences.edit().putInt("folder_animation",PanelAnimations.STACK).apply();store.save();changed.apply(false);
@@ -112,7 +116,13 @@ final class SettingsModel {
         java.util.Iterator<String> keys=values.keys();while(keys.hasNext()){String key=keys.next();Spec s=specs.get(key);if(key.equals("cloud_ai"))continue;Object raw=values.get(key);if(s==null||!(raw instanceof Number)||((Number)raw).doubleValue()!=((Number)raw).intValue())throw new org.json.JSONException("Unsupported setting: "+key);int value=((Number)raw).intValue();if(value<s.min||value>s.max)throw new org.json.JSONException("Invalid value for "+s.title);next.put(s,value);old.put(s,s.get.getAsInt());}
         JSONObject targets=input.optJSONObject("gestureTargets");Map<String,String> oldTargets=new LinkedHashMap<>();if(targets!=null){java.util.Iterator<String> targetKeys=targets.keys();while(targetKeys.hasNext()){String key=targetKeys.next();Object target=targets.get(key);if(!key.startsWith("gesture_")||!specs.containsKey(key)||!(target instanceof String)||((String)target).length()>2048)throw new org.json.JSONException("Unsupported gesture target");oldTargets.put(key,store.preferences.getString(key+"_target",""));}}
         if(targets!=null)for(String key:oldTargets.keySet())store.preferences.edit().putString(key+"_target",targets.getString(key)).apply();
-        Runnable layout=layoutUndo();for(Map.Entry<Spec,Integer> entry:next.entrySet())entry.getKey().put.accept(entry.getValue());store.save();changed.apply(true);undo=()->{for(Map.Entry<String,String> target:oldTargets.entrySet())store.preferences.edit().putString(target.getKey()+"_target",target.getValue()).apply();for(Map.Entry<Spec,Integer> entry:old.entrySet())entry.getKey().put.accept(entry.getValue());layout.run();store.save();changed.apply(true);};lastChange="Settings restored. Desktop items and notes were kept.";
+        Runnable layout=layoutUndo();for(Map.Entry<Spec,Integer> entry:next.entrySet())entry.getKey().put.accept(entry.getValue());if(next.containsKey(specs.get("wallpaper_source")))specs.get("wallpaper_source").put.accept(next.get(specs.get("wallpaper_source")));store.save();changed.apply(true);undo=()->{for(Map.Entry<String,String> target:oldTargets.entrySet())store.preferences.edit().putString(target.getKey()+"_target",target.getValue()).apply();for(Map.Entry<Spec,Integer> entry:old.entrySet())entry.getKey().put.accept(entry.getValue());layout.run();store.save();changed.apply(true);};lastChange="Settings restored. Desktop items and notes were kept.";
+    }
+    void importDesktopBackup(android.content.Context context,DesktopBackup.Prepared next)throws Exception {
+        DesktopBackup.Prepared before=new DesktopBackup.Prepared(DesktopBackup.capture(context,this),this);
+        next.apply(context,this);changed.apply(true);
+        undo=()->{try{before.apply(context,this);changed.apply(true);}catch(Exception error){throw new IllegalStateException("Could not restore the previous desktop",error);}};
+        lastChange="Desktop backup restored. Undo is available.";
     }
     int value(String id){return specs.get(id).get.getAsInt();}
     int labelColor(){return TEXT_COLORS[value("label_color")];}

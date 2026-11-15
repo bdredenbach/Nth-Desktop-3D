@@ -10,21 +10,21 @@ import com.google.android.libraries.launcherclient.*;
 /** Separate-UID overlay protocol fixture. Never shipped in the launcher or companion. */
 public class FixtureDiscoverService extends Service {
     private final Handler main=new Handler(Looper.getMainLooper());
-    private ILauncherOverlayCallback callback;private WindowManager.LayoutParams parent;private View window;private String mode="normal";private boolean invalid,scrollStarted;private float scrollPosition;private int lifecycle,attachCount;
+    private ILauncherOverlayCallback callback;private WindowManager.LayoutParams parent;private View window;private String mode="normal";private boolean invalid,scrollStarted,registrationCleared;private float scrollPosition;private int lifecycle,attachCount;
     protected int apiVersion(){return 11;}
     private final ILauncherOverlay.Stub overlay=new ILauncherOverlay.Stub(){
         public void startScroll(){main.post(()->scrollStarted=true);}public void onScroll(float p){main.post(()->scrollPosition=p);}public void endScroll(){main.post(()->{if(mode.equals("gesture_only")&&scrollStarted&&scrollPosition>.99f)show();});}
         public void windowAttached(WindowManager.LayoutParams p,ILauncherOverlayCallback cb,int flags){main.post(()->attach(p,cb,false));}
         public void windowAttached2(Bundle b,ILauncherOverlayCallback cb){WindowManager.LayoutParams p=b.getParcelable("layout_params");main.post(()->attach(p,cb,true));}
-        public void windowDetached(boolean changing){main.post(()->hide());}
+        public void windowDetached(boolean changing){main.post(()->{if(!changing)registrationCleared=true;hide();});}
         public void closeOverlay(int flags){main.post(()->hide());}
         public void onPause(){main.post(()->{if(apiVersion()>=4)invalid=true;hide();});}public void onResume(){main.post(()->{if(apiVersion()>=4)invalid=true;else lifecycle=3;});}
         public void openOverlay(int flags){main.post(()->{if(!mode.equals("gesture_only"))show();});}
         public void requestVoiceDetection(boolean start){}public String getVoiceSearchLanguage(){return "en";}public boolean isVoiceDetectionRunning(){return false;}
         public boolean hasOverlayContent(){return true;}public void unusedMethod(){}public void setActivityState(int flags){main.post(()->{if(apiVersion()<4)invalid=true;else lifecycle=flags;if(mode.equals("early_scroll")&&flags==3)show();});}public boolean startSearch(byte[] data,Bundle bundle){return false;}
     };
-    @Override public IBinder onBind(Intent intent){mode=getSharedPreferences("discover_fixture",0).getString("mode","normal");invalid=scrollStarted=false;scrollPosition=0;lifecycle=attachCount=0;return mode.equals("null")?null:overlay;}
-    private void attach(WindowManager.LayoutParams params,ILauncherOverlayCallback cb,boolean bundle){hide();parent=params;callback=cb;attachCount++;invalid=bundle!=(apiVersion()>=3)&&!mode.equals("legacy_only");if(mode.equals("silent")||mode.equals("early_scroll")||(mode.equals("legacy_only")&&bundle))return;
+    @Override public IBinder onBind(Intent intent){mode=getSharedPreferences("discover_fixture",0).getString("mode","normal");invalid=scrollStarted=registrationCleared=false;scrollPosition=0;lifecycle=attachCount=0;return mode.equals("null")?null:overlay;}
+    private void attach(WindowManager.LayoutParams params,ILauncherOverlayCallback cb,boolean bundle){hide();parent=params;callback=cb;attachCount++;invalid=bundle!=(apiVersion()>=3)&&!mode.equals("legacy_only");if(mode.equals("silent")||mode.equals("early_scroll")||(mode.equals("requires_reset")&&!registrationCleared)||(mode.equals("legacy_only")&&bundle))return;
         if(mode.equals("reattach")&&attachCount==1){main.postDelayed(()->{try{cb.overlayStatusChanged(0);}catch(RemoteException ignored){}},5500);return;}
         Runnable ready=()->{try{if(callback==cb)cb.overlayStatusChanged(invalid||mode.equals("not_ready")?0:1);}catch(RemoteException ignored){}};if(mode.equals("slow"))main.postDelayed(ready,3500);else ready.run();}
     // TYPE_APPLICATION requires the activity token. A panel would wrongly accept

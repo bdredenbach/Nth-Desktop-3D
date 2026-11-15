@@ -1,3 +1,11 @@
+## 0.7.7 — 2026-11-15
+
+- Replace settings-only export with a self-contained desktop backup containing folders and children, shortcut identities/order/positions, desktop names/Home/page order, settings, notes, a bounded photo wallpaper and widget placement/provider records. Verify saved bytes by reading them back. Validate all records before showing a restore confirmation; keep a one-step Undo and reject malformed/corrupt data before replacing contents.
+- Keep legacy .nth3dsettings imports with an explicit settings-only warning. Old files cannot recover folders they never contained. After reinstalling, widget placements are queued for Android binding/configuration approval rather than trusting stale widget IDs; same-install valid bindings can be reused.
+- Add Wallpaper settings: app-owned photo selection, Fill/Fit, dimming and gentle parallax, plus Android wallpaper and live-wallpaper pickers. Photo bytes travel in the backup. Hide the GL scene when a photo or Android wallpaper is active, and switch back to live scenery when choosing a scene.
+- Refresh the Discover registration after launcher/provider updates and when Repair is selected; acknowledge successful update handshakes and make one bounded fresh connection after a dead binding. Keep paused retry behavior and all desktop data. Add a stale-registration cross-process fixture.
+- Add focused native data-loss and wallpaper checks, including a >64 KiB folder backup, simulated reinstall, preserved identities/contents/photos/notes, invalid-input rejection, restore Cancel/Undo and widget reapproval metadata.
+
 ## 0.7.6 — 2026-11-15
 
 - Rebuild Living Pond and Biolume Reef with generated photographic environments and detailed transparent animal textures. Koi follow smooth paths with body/tail strokes and fin motion; jellyfish swim independently with bell pulses and trailing-arm motion. Both retain tilt, ambient pause, power saving and reduced-motion support. Pond count, speed and touch ripples remain functional.
