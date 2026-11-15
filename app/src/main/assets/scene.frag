@@ -120,17 +120,21 @@ float causticNet(vec2 p,float t) {
         vec2 delta=offset+point-f;float distance=dot(delta,delta);
         if(distance<nearest){next=nearest;nearest=distance;}else next=min(next,distance);
     }
-    float ridge=1.0-smoothstep(.022,.105,next-nearest);
+    float ridge=1.0-smoothstep(.025,.14,next-nearest);
     float focus=.68+.32*sin(p.x*2.1+p.y*1.6+t*.37);
     return ridge*ridge*focus;
 }
 float stoneCaustics(sampler2D bed,vec2 uv,vec2 aspect,float t) {
     const vec3 luminance=vec3(.2126,.7152,.0722);
     // Image-derived relief anchors the light to the same rock contours as the photograph.
-    float height=dot(environment(bed,uv),luminance);
-    float dx=dot(environment(bed,uv+vec2(.018,0.0))-environment(bed,uv-vec2(.018,0.0)),luminance);
-    float dy=dot(environment(bed,uv+vec2(0.0,.014))-environment(bed,uv-vec2(0.0,.014)),luminance);
-    vec2 q=uv*aspect*18.0+vec2(dx,dy)*2.8+height*.52;
+    // Interpolate a coarse relief field: photographic pebble grain must not become light noise.
+    vec2 grid=vec2(14.0,21.0),cell=floor(uv*grid)/grid,f=fract(uv*grid),s=f*f*(3.0-2.0*f);
+    float a=dot(environment(bed,cell),luminance),b=dot(environment(bed,cell+vec2(1.0/grid.x,0.0)),luminance);
+    float c=dot(environment(bed,cell+vec2(0.0,1.0/grid.y)),luminance),d=dot(environment(bed,cell+1.0/grid),luminance);
+    float height=mix(mix(a,b,s.x),mix(c,d,s.x),s.y);
+    float dx=mix(b-a,d-c,s.y)*6.0*f.x*(1.0-f.x);
+    float dy=mix(c-a,d-b,s.x)*6.0*f.y*(1.0-f.y);
+    vec2 q=uv*aspect*18.0+vec2(dx,dy)*.65+height*.20;
     return causticNet(q,t);
 }
 
