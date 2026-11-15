@@ -1,0 +1,17 @@
+# Desktop backup, wallpaper and Discover recovery — 0.7.7
+
+The older export was deliberately settings-only. Version 0.7.7 makes the primary action a desktop backup (.nth3dbackup). Its JSON format is nth-desktop-3d-backup/version 2, embedding a legacy settings record plus validated desktop pages/items, page names, Home/current page, folder patterns, notes, photo bytes/checksum and widget records. Save reads the selected destination back and compares the complete bytes before reporting success. Input is capped at 16 MiB, layout identities/depth/counts and setting ranges are validated, and photo dimensions/bytes/checksum are checked before mutation.
+
+Restore first shows counts and replacement scope. Cancel makes no change. Undo retains the pre-restore desktop/settings/photo snapshot. Old .nth3dsettings files remain readable and are explicitly labelled as lacking folders and other desktop contents; no missing folders can be reconstructed from those files. Cloud consent, Android permissions, signing keys and Discover connection caches are not restored.
+
+Widget records contain provider/profile and layout, not another app’s private widget data. A binding is reused only for the same installation and matching live provider/profile. Otherwise it enters the Restore widgets queue and uses the existing Android bind/configuration flow with newly allocated IDs. Saved geometry/padding is applied after approval; Cancel retains the queue record. Pending placements follow page reordering and prevent accidental removal of their desktop. Hold a queued row to remove that saved placement. Special Android app shortcuts and work-profile apps may need their originating app/profile available again.
+
+Wallpaper supports the live 3D scenes, a private copied photo, or Android’s existing wallpaper, including live wallpaper. Photo picking does not require broad storage access: it decodes the chosen URI, normalizes EXIF orientation, downsamples/encodes a bounded image and writes atomically. Fill/Fit, dimming and optional tilt apply to the photo. Photo backups embed the actual bytes, while Android-managed wallpapers remain managed by Android. The hidden GL surface is not rendered continuously behind a photo/system wallpaper. Preview bitmaps are cached instead of decoded on every slider change.
+
+Discover failures after updating cannot be diagnosed as a cache issue from reinstall success alone. This change handles stale connection/window registration without deleting launcher data: own-package replacement marks the next connection for a final old-window detach; launcher/provider timestamps and Google package callbacks detect updates; Repair forces a clean handshake on a fresh binding. A dead active binding is unbound and rebound once, with bounded startup recovery. Success acknowledges the update. A separate-UID test service refuses readiness until its registration is explicitly cleared, exercising both manual repair and the package-update marker. Real Google acceptance remains a physical-device check.
+
+Primary platform references:
+- https://developer.android.com/reference/android/content/ServiceConnection#onBindingDied(android.content.ComponentName)
+- https://developer.android.com/reference/android/content/Intent#ACTION_MY_PACKAGE_REPLACED
+- https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_SHOW_WALLPAPER
+- https://developer.android.com/reference/android/app/WallpaperManager#ACTION_LIVE_WALLPAPER_CHOOSER

@@ -82,7 +82,7 @@ public final class LauncherStore {
     public int homePage(){return Math.max(0,Math.min(pages.size()-1,preferences.getInt("home_page",0)));}
     public void setHomePage(int index){if(index>=0&&index<pages.size())preferences.edit().putInt("home_page",index).apply();}
     public String pageName(int index){String name=preferences.getString("desktop_name_"+index,"");return name.isEmpty()?"Desktop "+(index+1):name;}
-    public boolean emptyPage(int index){return index>=0&&index<pages.size()&&pages.get(index).isEmpty()&&preferences.getString("widget_ids_page_"+index,"").isEmpty();}
+    public boolean emptyPage(int index){try{JSONArray queue=new JSONArray(preferences.getString("restore_widgets","[]"));for(int i=0;i<queue.length();i++)if(queue.getJSONObject(i).optInt("page",-1)==index)return false;}catch(JSONException ignored){}return index>=0&&index<pages.size()&&pages.get(index).isEmpty()&&preferences.getString("widget_ids_page_"+index,"").isEmpty();}
     public int appendPage(){if(pages.size()>=MAX_PAGES)return -1;int index=pages.size();preferences.edit().remove("desktop_name_"+index).remove("widget_ids_page_"+index).remove("folder_pattern_page_"+index).apply();pages.add(new ArrayList<>());save();return pages.size()-1;}
     public boolean movePage(int from,int to){
         if(from<0||to<0||from>=pages.size()||to>=pages.size()||from==to)return false;
@@ -98,6 +98,7 @@ public final class LauncherStore {
         for(int n=0;n<order.size();n++){int old=order.get(n);next.add(previous.get(old));edit.putString("widget_ids_page_"+n,preferences.getString("widget_ids_page_"+old,"")).putBoolean("folder_pattern_page_"+n,preferences.getBoolean("folder_pattern_page_"+old,false)).putString("desktop_name_"+n,preferences.getString("desktop_name_"+old,""));}
         page=order.indexOf(oldPage);if(page<0)page=Math.min(oldPage,order.size()-1);int newHome=order.indexOf(home);edit.putInt("home_page",newHome<0?Math.min(home,order.size()-1):newHome);
         int newSorted=order.indexOf(sorted);if(newSorted<0)edit.remove("sort_undo_page");else edit.putInt("sort_undo_page",newSorted);
+        try{JSONArray queue=new JSONArray(preferences.getString("restore_widgets","[]"));for(int i=0;i<queue.length();i++){JSONObject record=queue.getJSONObject(i);record.put("page",Math.max(0,order.indexOf(record.optInt("page",0))));}edit.putString("restore_widgets",queue.toString());}catch(JSONException ignored){}
         edit.apply();pages.clear();pages.addAll(next);save();
     }
     public boolean add(int page, String key, String label) {

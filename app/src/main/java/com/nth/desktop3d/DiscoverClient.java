@@ -20,7 +20,7 @@ final class DiscoverClient {
     private ILauncherOverlay overlay;private ServiceConnection connection;private ILauncherOverlayCallback activeCallback;
     private boolean bound,ready,usable,requested,resumed,started,destroyed,showing,opening,allowScroll,attached,failed,reporting;
     private int generation,attempt,attachment,apiVersion=1,serviceStatus=-1,recoveryStep;private String status="Not connected",result="NOT_TRIED",targetOverride,componentOverride,serviceName="Not resolved",servicePermission="None",googleVersion="Not checked";
-    private long began;private Runnable deadline,recovery;private boolean legacyAttach;private String windowContract="Not submitted";
+    private long began;private Runnable deadline,recovery;private boolean legacyAttach,cleanNextBind,rebound;private String windowContract="Not submitted";
     DiscoverClient(Activity activity,View desktop,Runnable unavailable,Runnable attention){this.activity=activity;this.desktop=desktop;this.unavailable=unavailable;this.attention=attention;}
     private long versionCode(PackageInfo info){return Build.VERSION.SDK_INT>=28?info.getLongVersionCode():info.versionCode;}
     void onDesktopReturn(Runnable restore){desktopReturn=restore;}
@@ -46,21 +46,24 @@ final class DiscoverClient {
     void pause(){resumed=false;close();state();persist();}
     void stop(){started=false;close();state();}
     private void state(){if(overlay==null||!attached)return;int flags=(started?1:0)|(resumed?2:0);remote("Activity lifecycle",()->{if(apiVersion>=4)overlay.setActivityState(flags);else if(resumed)overlay.onResume();else overlay.onPause();});}
-    void reconnect(){disconnect();failed=false;ready=false;result="NOT_TRIED";status="Ready to retry";}
+    void reconnect(){disconnect();cleanNextBind=true;activity.getSharedPreferences("discover_connection",0).edit().putBoolean("clean_attach",true).apply();failed=false;ready=false;result="NOT_TRIED";status="Ready to retry";}
+    void providerChanged(){boolean reopen=requested||showing;reconnect();if(reopen&&resumed)main.post(this::open);}
     void configurationChanged(){close();if(overlay!=null){quiet(()->overlay.windowDetached(true));attached=false;attach(generation);}}
     void open(){
         if(destroyed)return;
         if(requested||showing)return;
         if(failed||(bound&&overlay==null))disconnect();
-        requested=true;opening=false;allowScroll=false;failed=false;reporting=false;if(!bound)legacyAttach=false;recoveryStep=0;began=SystemClock.elapsedRealtime();events.clear();attempt++;result="CONNECTING";event("User requested Google Discover");
+        requested=true;opening=false;allowScroll=false;failed=false;reporting=false;rebound=false;if(!bound)legacyAttach=false;recoveryStep=0;began=SystemClock.elapsedRealtime();events.clear();attempt++;result="CONNECTING";event("User requested Google Discover");
         if(!bound&&!connect())return;
         if(usable&&overlay!=null){openReady();return;}
         status="Connecting to Google Discover Allowing up to 15 seconds for startup.";schedule(STARTUP_MS,false);scheduleRecovery();
     }
     private boolean connect(){
         final int token=++generation;apiVersion=1;serviceStatus=-1;attached=false;ready=usable=false;serviceName="Not resolved";servicePermission="None";windowContract="Not submitted";
+        android.content.SharedPreferences history=activity.getSharedPreferences("discover_connection",0);
+        try{PackageInfo launcher=activity.getPackageManager().getPackageInfo(activity.getPackageName(),0);long last=history.getLong("launcher_update",-1);cleanNextBind|=history.getBoolean("clean_attach",false)||(last>=0&&last!=launcher.lastUpdateTime)||(last<0&&launcher.lastUpdateTime>launcher.firstInstallTime);}catch(PackageManager.NameNotFoundException ignored){}
         PackageManager pm=activity.getPackageManager();
-        try{PackageInfo info=pm.getPackageInfo(target(),0);googleVersion=info.versionName+" ("+versionCode(info)+")";if(!info.applicationInfo.enabled){fail("APP_DISABLED","The Google app is disabled. Enable it in App info, then retry.");return false;}}
+        try{PackageInfo info=pm.getPackageInfo(target(),0);googleVersion=info.versionName+" ("+versionCode(info)+")";long previous=history.getLong("provider_update_"+target(),-1);cleanNextBind|=previous>=0&&previous!=info.lastUpdateTime;if(!info.applicationInfo.enabled){fail("APP_DISABLED","The Google app is disabled. Enable it in App info, then retry.");return false;}}
         catch(PackageManager.NameNotFoundException absent){googleVersion="Not installed";fail("APP_MISSING","The Google app is not installed or is unavailable in this Android profile.");return false;}
         try{
             ResolveInfo match=pm.resolveService(intent(),PackageManager.GET_META_DATA);
@@ -73,7 +76,12 @@ final class DiscoverClient {
             @Override public void onServiceConnected(ComponentName name,IBinder binder){if(destroyed||token!=generation)return;try{String descriptor=binder.getInterfaceDescriptor();event("Service connected · "+descriptor);if(!"com.google.android.libraries.launcherclient.ILauncherOverlay".equals(descriptor)){fail("PROTOCOL_MISMATCH","The service returned an unsupported overlay interface.");return;}overlay=ILauncherOverlay.Stub.asInterface(binder);desktop.post(()->attach(token));}catch(RemoteException|RuntimeException error){remoteFailure("Service connection",error);}}
             @Override public void onServiceDisconnected(ComponentName name){lost(token,"SERVICE_DISCONNECTED","Google's overlay service disconnected.");}
             @Override public void onNullBinding(ComponentName name){lost(token,"NULL_BINDING","Google returned no overlay connection. Its access rules may reject this launcher build.");}
-            @Override public void onBindingDied(ComponentName name){lost(token,"BINDING_DIED","The Google connection expired, for example after an app update. Retry to reconnect.");}
+            @Override public void onBindingDied(ComponentName name){
+                if(!destroyed&&token==generation&&(requested||showing)&&resumed&&!rebound){
+                    rebound=true;disconnect();cleanNextBind=true;requested=true;opening=false;failed=false;recoveryStep=0;began=SystemClock.elapsedRealtime();attempt++;result="CONNECTING";status="Refreshing Google Discover after an update";int retry=generation;event("Binding expired after an update; making one fresh connection");
+                    main.postDelayed(()->{if(!destroyed&&requested&&resumed&&retry==generation&&connect()){schedule(STARTUP_MS,false);scheduleRecovery();}},500);
+                }else lost(token,"BINDING_DIED","The Google connection expired. Retry to reconnect.");
+            }
         };
         try{bound=activity.bindService(intent(),connection,Context.BIND_AUTO_CREATE|Context.BIND_IMPORTANT|Context.BIND_ADJUST_WITH_ACTIVITY);event("bindService returned "+bound);if(!bound){fail("BIND_REJECTED","Android could not bind Google's overlay service.");return false;}return true;}
         catch(SecurityException denied){bound=false;event(denied.getClass().getSimpleName()+": "+safe(denied));fail("PERMISSION_DENIED","Google or Android rejected this launcher’s access to the overlay service.");return false;}
@@ -81,6 +89,7 @@ final class DiscoverClient {
     }
     private void visible(String reason){
         showing=true;requested=false;opening=false;ready=usable=true;allowScroll=true;cancelDeadline();cancelRecovery();result="VISIBLE";status="Google Discover overlay is visible";event(reason);persist();
+        try{android.content.SharedPreferences.Editor history=activity.getSharedPreferences("discover_connection",0).edit();history.putLong("launcher_update",activity.getPackageManager().getPackageInfo(activity.getPackageName(),0).lastUpdateTime).putLong("provider_update_"+target(),activity.getPackageManager().getPackageInfo(target(),0).lastUpdateTime).putBoolean("clean_attach",false).apply();}catch(PackageManager.NameNotFoundException ignored){}
     }
     private ILauncherOverlayCallback callback(int token,int attachToken){return new ILauncherOverlayCallback.Stub(){
         public void overlayScrollChanged(float progress){main.post(()->{
@@ -110,6 +119,11 @@ final class DiscoverClient {
         if(params.token==null){windowContract="Activity token missing";fail("WINDOW_TOKEN_MISSING","Android has not supplied the launcher's activity window token. Return to the desktop, then retry.");return;}
         windowContract="Activity attributes; type "+params.type+"; distinct from view token: "+!params.token.equals(desktop.getWindowToken());
         event("Window contract · "+windowContract);
+        if(cleanNextBind){
+            event("Update or repair: clearing the previous Google window registration");
+            if(!remote("Reset overlay registration",()->{overlay.closeOverlay(0);if(apiVersion>=4)overlay.setActivityState(0);else overlay.onPause();overlay.windowDetached(false);}))return;
+            cleanNextBind=false;
+        }
         activeCallback=callback(token,++attachment);
         if(!remote("Attach window",()->{if(apiVersion<3||legacyAttach)overlay.windowAttached(params,activeCallback,15);else{Bundle bundle=new Bundle();bundle.putParcelable("layout_params",params);bundle.putParcelable("configuration",activity.getResources().getConfiguration());bundle.putInt("client_options",15);bundle.putInt("system_ui_visibility",desktop.getSystemUiVisibility());overlay.windowAttached2(bundle,activeCallback);}}))return;
         attached=true;if(needsAttention())allowScroll=true;event("Submitted activity window attributes · "+(apiVersion<3||legacyAttach?"legacy":"bundle"));state();persist();
