@@ -4,6 +4,7 @@ package com.nth.desktop3d;
 public final class GestureAccess extends android.accessibilityservice.AccessibilityService {
     private static java.lang.ref.WeakReference<GestureAccess> active=new java.lang.ref.WeakReference<>(null);
     @Override protected void onServiceConnected(){active=new java.lang.ref.WeakReference<>(this);}
+    @Override public boolean onUnbind(android.content.Intent intent){if(active.get()==this)active.clear();return super.onUnbind(intent);}
     @Override public void onDestroy(){if(active.get()==this)active.clear();super.onDestroy();}
     @Override public void onAccessibilityEvent(android.view.accessibility.AccessibilityEvent event){}
     @Override public void onInterrupt(){}
