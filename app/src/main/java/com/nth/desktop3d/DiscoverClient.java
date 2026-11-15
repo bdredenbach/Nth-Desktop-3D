@@ -46,7 +46,7 @@ final class DiscoverClient {
     void pause(){resumed=false;close();state();persist();}
     void stop(){started=false;close();state();}
     private void state(){if(overlay==null||!attached)return;int flags=(started?1:0)|(resumed?2:0);remote("Activity lifecycle",()->{if(apiVersion>=4)overlay.setActivityState(flags);else if(resumed)overlay.onResume();else overlay.onPause();});}
-    void reconnect(){disconnect();cleanNextBind=true;activity.getSharedPreferences("discover_connection",0).edit().putBoolean("clean_attach",true).apply();failed=false;ready=false;result="NOT_TRIED";status="Ready to retry";}
+    void reconnect(){disconnect();requested=false;opening=false;cleanNextBind=true;activity.getSharedPreferences("discover_connection",0).edit().putBoolean("clean_attach",true).apply();failed=false;ready=false;result="NOT_TRIED";status="Ready to retry";}
     void providerChanged(){boolean reopen=requested||showing;reconnect();if(reopen&&resumed)main.post(this::open);}
     void configurationChanged(){close();if(overlay!=null){quiet(()->overlay.windowDetached(true));attached=false;attach(generation);}}
     void open(){
