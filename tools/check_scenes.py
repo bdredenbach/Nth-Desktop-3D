@@ -83,7 +83,7 @@ for unit,(name,filename) in enumerate([('pondBed','pond_bed'),('koiFish','koi_fi
 quad=(F*8)(-1,-1,1,-1,-1,1,1,1);a=attribute(p,b'position');enable(a);vertex(a,2,0x1406,0,0,C.cast(quad,P));viewport(0,0,width,height)
 u2(uniform(p,b'resolution'),width,height)
 u3v(uniform(p,b'touches[0]'),4,(F*12)(0,0,-100,0,0,-100,0,0,-100,0,0,-100))
-for name,value in [('clockTime',20),('motion',1),('fishCount',5),('fishSpeed',.6),('rippleEnabled',1),('shadowEnabled',1)]:u1(uniform(p,name.encode()),value)
+for name,value in [('clockTime',20),('motion',1),('fishCount',5),('fishSpeed',.6),('rippleEnabled',1),('shadowEnabled',1),('waterLight',.75)]:u1(uniform(p,name.encode()),value)
 results=[]
 for mode in range(7):
     u1(uniform(p,b'mode'),mode);u2(uniform(p,b'tilt'),0,0);draw(5,0,4);finish();assert error()==0
@@ -111,6 +111,27 @@ def aquatic_frame():
 u1(uniform(p,b'fishCount'),3);few=aquatic_frame();u1(uniform(p,b'fishCount'),7);assert few!=aquatic_frame(),'Fish count does not affect rendering'
 u1(uniform(p,b'fishCount'),5);u1(uniform(p,b'fishSpeed'),.3);slow=aquatic_frame();u1(uniform(p,b'fishSpeed'),1.2);assert slow!=aquatic_frame(),'Fish speed does not affect rendering'
 u1(uniform(p,b'fishSpeed'),.6)
+# Isolate new light from animal movement: compare lit/unlit differences at equal times.
+import numpy as np
+for checked in (3,6):
+    u1(uniform(p,b'mode'),checked);u1(uniform(p,b'fishCount'),0);u2(uniform(p,b'tilt'),0,0)
+    def light_frame(time,moving,strength):
+        u1(uniform(p,b'clockTime'),time);u1(uniform(p,b'motion'),moving);u1(uniform(p,b'waterLight'),strength)
+        return np.frombuffer(aquatic_frame(),dtype=np.uint8).reshape(height,width,4)[::-1].astype(np.int16)
+    a=light_frame(2,1,.75)-light_frame(2,1,0)
+    b=light_frame(10,1,.75)-light_frame(10,1,0)
+    region=np.s_[height*3//4:height,:,:3]
+    assert np.mean(np.abs(a[region]))>.1,'Rock caustics are invisible'
+    assert np.mean(np.abs(a[region]-b[region]))>.1,'Rock caustics do not move'
+    assert np.array_equal(light_frame(2,0,.75),light_frame(45,0,.75)),'Paused aquatic light still moves'
+    for time in (2,10):
+        pixels=light_frame(time,1,.75).clip(0,255).astype(np.uint8)
+        Image.fromarray(pixels[:,:,:3]).save(out/f'water-light-{checked}-t{time}.png')
+    if checked==6:
+        upper=np.s_[height//8:height//2,:,:3]
+        assert np.mean(np.abs(a[upper]-b[upper]))>.1,'Jellyfish light shafts do not move'
+u1(uniform(p,b'waterLight'),.75);u1(uniform(p,b'fishCount'),5)
+
 # Landscape shader draw without relying on a virtual device rotation.
 u2(uniform(p,b'resolution'),height,width)
 for mode in range(7):

@@ -26,10 +26,10 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
     private final float[] touchData = {0,0,-100, 0,0,-100, 0,0,-100, 0,0,-100};
     private int touchIndex;
     private volatile int sceneMode, count = 5;
-    private volatile float tiltX, tiltY, strength = .5f, speed = .6f, crystalDepth = .60f, crystalMotion = .35f;
+    private volatile float tiltX, tiltY, strength = .5f, speed = .6f, crystalDepth = .60f, crystalMotion = .35f, waterLight=.75f;
     private volatile boolean crystalParallax = true, crystalShadows = true;
     private volatile boolean ambient = true, reduced, ripple = true, shadows = true;
-    private int aPosition, uResolution, uTilt, uTime, uMotion, uMode, uCount, uSpeed, uRipple, uShadow, uTouches;
+    private int aPosition, uResolution, uTilt, uTime, uMotion, uMode, uCount, uSpeed, uRipple, uShadow, uTouches, uWaterLight;
     private int mPosition, mNormal, mMatrix, mNormalMatrix;
     private final int[] aquaticTextures=new int[4];
     private final int[] aquaticUniforms=new int[4];
@@ -63,6 +63,7 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
         sceneMode=store.mode; count=store.fishCount; strength=store.strength; speed=store.fishSpeed;
         reduced=store.reducedMotion || systemReduced; ambient=store.ambient && !powerSave && !reduced;
         ripple=store.ripples && !reduced; shadows=store.shadows;
+        waterLight=Math.max(0,Math.min(100,store.preferences.getInt("aquatic_light",75)))/100f;
     }
     public void configureCrystal(CrystalPreferences prefs) {
         crystalDepth=prefs.depth()/100f; crystalMotion=prefs.motion()/100f;
@@ -88,6 +89,7 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
         uResolution=GLES20.glGetUniformLocation(program,"resolution");uTilt=GLES20.glGetUniformLocation(program,"tilt");uTime=GLES20.glGetUniformLocation(program,"clockTime");
         uMotion=GLES20.glGetUniformLocation(program,"motion");uMode=GLES20.glGetUniformLocation(program,"mode");uCount=GLES20.glGetUniformLocation(program,"fishCount");
         uSpeed=GLES20.glGetUniformLocation(program,"fishSpeed");uRipple=GLES20.glGetUniformLocation(program,"rippleEnabled");uShadow=GLES20.glGetUniformLocation(program,"shadowEnabled");uTouches=GLES20.glGetUniformLocation(program,"touches");
+        uWaterLight=GLES20.glGetUniformLocation(program,"waterLight");
         String[] names={"pondBed","koiFish","reefWater","jellyfish"};
         int[] images={R.drawable.pond_bed,R.drawable.koi_fish,R.drawable.reef_water,R.drawable.jellyfish};
         GLES20.glGenTextures(4,aquaticTextures,0);
@@ -117,6 +119,7 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
         GLES20.glUniform2f(uResolution,width,height);GLES20.glUniform2f(uTilt,reduced||!crystalParallax?0:tiltX*strength*crystalDepth*2f*crystalMotion/0.35f,reduced||!crystalParallax?0:tiltY*strength*crystalDepth*2f*crystalMotion/0.35f);
         GLES20.glUniform1f(uTime,t);GLES20.glUniform1f(uMotion,ambient?1:0);GLES20.glUniform1f(uMode,sceneMode);GLES20.glUniform1f(uCount,count);
         GLES20.glUniform1f(uSpeed,speed);GLES20.glUniform1f(uRipple,ripple?1:0);GLES20.glUniform1f(uShadow,shadows&&crystalShadows?1:0);
+        GLES20.glUniform1f(uWaterLight,waterLight);
         synchronized(touchData){GLES20.glUniform3fv(uTouches,4,touchData,0);}
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP,0,4);GLES20.glDisableVertexAttribArray(aPosition);
         if(sceneMode<2) {

@@ -31,12 +31,13 @@ final class DesktopBackup {
         }
         JSONArray pending=new JSONArray(s.preferences.getString("restore_widgets","[]"));for(int i=0;i<pending.length();i++)widgets.put(pending.getJSONObject(i));
         JSONObject out=new JSONObject().put("format",FORMAT).put("version",2).put("created",System.currentTimeMillis()).put("install",install(c)).put("settings",model.exportSettings()).put("pages",pages).put("page",s.page).put("home",s.homePage()).put("note",s.preferences.getString("note","")).put("widgets",widgets);
+        LayeredScene.Document scene=LayeredScene.read(c,false);if(scene!=null)out.put("customScene",scene.json());
         byte[] photo=WallpaperStore.bytes(c);if(photo!=null)out.put("wallpaper",new JSONObject().put("sha256",digest(photo)).put("data",Base64.encodeToString(photo,Base64.NO_WRAP)));
         if(out.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>MAX_BYTES)throw new IOException("Desktop backup is too large");return out;
     }
     static final class Prepared {
         final JSONObject settings;final List<List<LauncherStore.Item>> pages=new ArrayList<>();final JSONArray pageData,widgets;
-        final int page,home;final String note,origin;final byte[] photo;int folders,shortcuts;
+        final int page,home;final String note,origin;final byte[] photo;final LayeredScene.Document scene;int folders,shortcuts;
         Prepared(JSONObject input,SettingsModel model)throws Exception {
             if(!FORMAT.equals(input.optString("format"))||input.optInt("version")!=2)throw new JSONException("Not a supported desktop backup");
             settings=input.getJSONObject("settings");validateSettings(settings,model);
@@ -53,14 +54,15 @@ final class DesktopBackup {
                 JSONObject w=widgets.getJSONObject(i);integer(w,"id",-1,Integer.MAX_VALUE);integer(w,"page",0,pages.size()-1);String provider=text(w,"provider",1000);if(!provider.isEmpty()&&ComponentName.unflattenFromString(provider)==null)throw new JSONException("Invalid widget provider");text(w,"label",512);String token=text(w,"token",200);if(!tokens.add(token))throw new JSONException("Duplicate widget record");
                 integer(w,"cell_x",0,7);integer(w,"cell_y",0,119);integer(w,"span_x",1,8);integer(w,"span_y",1,12);if(!(w.get("padding") instanceof Boolean)||!(w.get("user") instanceof Number))throw new JSONException("Invalid widget placement");
             }
+            scene=input.has("customScene")?LayeredScene.parse(input.getJSONObject("customScene")):null;
             if(input.has("wallpaper")&&!(input.get("wallpaper") instanceof JSONObject))throw new JSONException("Invalid wallpaper record");JSONObject wallpaper=input.optJSONObject("wallpaper");if(wallpaper!=null){String encoded=text(wallpaper,"data",3*1024*1024);photo=Base64.decode(encoded,Base64.DEFAULT);if(!digest(photo).equals(text(wallpaper,"sha256",64)))throw new JSONException("Wallpaper checksum failed");WallpaperStore.validate(photo);}else photo=null;
         }
         private void count(JSONObject item)throws JSONException {if("folder".equals(item.getString("key")))folders++;else shortcuts++;JSONArray children=item.getJSONArray("children");for(int i=0;i<children.length();i++)count(children.getJSONObject(i));}
-        String summary(){return pages.size()+" desktops, "+folders+" folders, "+shortcuts+" shortcuts"+(widgets.length()>0?", "+widgets.length()+" widget placements":"")+".\n\nIncludes launcher settings, notes and the selected photo wallpaper. Android widgets may need permission again after reinstalling. Current desktop contents will be replaced. Undo is available.";}
+        String summary(){return pages.size()+" desktops, "+folders+" folders, "+shortcuts+" shortcuts"+(widgets.length()>0?", "+widgets.length()+" widget placements":"")+".\n\nIncludes launcher settings, notes, photo wallpaper and your applied layered scene. Android widgets may need permission again after reinstalling. Current desktop contents will be replaced. Undo is available.";}
         void apply(Context c,SettingsModel model)throws Exception {
             LauncherStore s=model.store;Map<String,?> previousPreferences=s.preferences.getAll();JSONObject values=settings.getJSONObject("values");JSONArray oldIds=new JSONArray();
             for(String key:s.preferences.getAll().keySet())if(key.startsWith("widget_ids_page_"))for(String id:s.preferences.getString(key,"").split(","))try{oldIds.put(Integer.parseInt(id));}catch(NumberFormatException ignored){}
-            byte[] previousPhoto=WallpaperStore.bytes(c);WallpaperStore.write(c,photo);
+            byte[] previousPhoto=WallpaperStore.bytes(c);LayeredScene.Document previousScene=LayeredScene.read(c,false);LayeredScene.write(c,scene,false);try{WallpaperStore.write(c,photo);}catch(Exception error){LayeredScene.write(c,previousScene,false);throw error;}
             // All values and layout records have already been checked. No Activity or app is launched from a backup.
             Map<SettingsModel.Spec,Integer> oldValues=new LinkedHashMap<>();for(Iterator<String> it=values.keys();it.hasNext();){String key=it.next();if(key.equals("cloud_ai"))continue;SettingsModel.Spec spec=model.specs.get(key);oldValues.put(spec,spec.get.getAsInt());}for(SettingsModel.Spec spec:oldValues.keySet())spec.put.accept(values.getInt(spec.id));if(values.has("wallpaper_source"))model.specs.get("wallpaper_source").put.accept(values.getInt("wallpaper_source"));
             SharedPreferences.Editor edit=s.preferences.edit();for(String key:s.preferences.getAll().keySet())if(key.startsWith("desktop_name_")||key.startsWith("folder_pattern_page_")||key.startsWith("widget_"))edit.remove(key);
@@ -76,7 +78,7 @@ final class DesktopBackup {
             }
             for(Map.Entry<Integer,List<Integer>> entry:perPage.entrySet()){StringBuilder ids=new StringBuilder();for(int id:entry.getValue()){if(ids.length()>0)ids.append(',');ids.append(id);}edit.putString("widget_ids_page_"+entry.getKey(),ids.toString());}
             edit.putString("layout",layout.toString()).putInt("page_count",pages.size()).putInt("page",page).putInt("home_page",home).putString("note",note).putBoolean("seeded",true).putBoolean("appsSeeded",true).putString("restore_widgets",pending.toString()).putBoolean("padding_expands_073",true).remove("sort_undo_page").remove("pending_widget_restore");
-            if(!edit.commit()){restorePreferences(s.preferences,previousPreferences);for(Map.Entry<SettingsModel.Spec,Integer> entry:oldValues.entrySet())entry.getKey().put.accept(entry.getValue());if(oldValues.containsKey(model.specs.get("wallpaper_source")))model.specs.get("wallpaper_source").put.accept(oldValues.get(model.specs.get("wallpaper_source")));WallpaperStore.write(c,previousPhoto);throw new IOException("Could not save restored desktops");}
+            if(!edit.commit()){restorePreferences(s.preferences,previousPreferences);for(Map.Entry<SettingsModel.Spec,Integer> entry:oldValues.entrySet())entry.getKey().put.accept(entry.getValue());if(oldValues.containsKey(model.specs.get("wallpaper_source")))model.specs.get("wallpaper_source").put.accept(oldValues.get(model.specs.get("wallpaper_source")));WallpaperStore.write(c,previousPhoto);LayeredScene.write(c,previousScene,false);throw new IOException("Could not save restored desktops");}
             s.pages.clear();s.pages.addAll(pages);s.page=page;s.save();
             LauncherWidgetHost host=new LauncherWidgetHost(c);for(int i=0;i<oldIds.length();i++){int id=oldIds.getInt(i);if(!reused.contains(id))try{host.deleteAppWidgetId(id);}catch(RuntimeException ignored){}}
         }

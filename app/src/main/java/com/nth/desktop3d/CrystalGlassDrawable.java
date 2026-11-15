@@ -71,7 +71,7 @@ final class CrystalGlassDrawable extends Drawable {
                 new float[]{0f,.48f,1f},Shader.TileMode.CLAMP));
             paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(Math.max(1f,density*2f));
             RectF inner=new RectF(rect);inner.inset(density*2,density*2);
-            canvas.drawRoundRect(inner,Math.max(0,r-density*2),Math.max(0,r-density*2),paint);
+            Path open=new Path();open.moveTo(inner.left,inner.bottom-r);open.lineTo(inner.left,inner.top+r);open.quadTo(inner.left,inner.top,inner.left+r,inner.top);open.lineTo(inner.right-r,inner.top);canvas.drawPath(open,paint);
             paint.setShader(null);paint.setStyle(Paint.Style.FILL);
         }
         // Prism Crystal: restrained spectral edge dispersion and a curved caustic.
@@ -103,20 +103,22 @@ final class CrystalGlassDrawable extends Drawable {
             canvas.drawPath(glint,paint);
             paint.setShader(null);
         }
+        // Rounded, refractive shoulders replace the right/bottom border.
+        paint.setStyle(Paint.Style.FILL);float roll=Math.min(density*10,Math.min(w,h)*.22f);
+        paint.setShader(new LinearGradient(rect.right-roll,0,rect.right,0,new int[]{0,modulate(0x53010B1A),modulate(0x468DD7EA)},new float[]{0,.78f,1},Shader.TileMode.CLAMP));canvas.drawRect(rect,paint);
+        paint.setShader(new LinearGradient(0,rect.bottom-roll,0,rect.bottom,new int[]{0,modulate(0x73020B17),modulate(0x428BD5E6)},new float[]{0,.82f,1},Shader.TileMode.CLAMP));canvas.drawRect(rect,paint);paint.setShader(null);
         canvas.restoreToCount(save);
 
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(Math.max(1f,density));
         paint.setColor(modulate(material==2?0xB6B5EFFF:material==3?0x7D57B8F3:0xA3B9F6FF));
         rect.inset(paint.getStrokeWidth()*.5f,paint.getStrokeWidth()*.5f);
-        canvas.drawRoundRect(rect,Math.max(0,r-density*.5f),Math.max(0,r-density*.5f),paint);
+        Path shoulder=new Path();shoulder.moveTo(rect.left,rect.bottom-r);shoulder.lineTo(rect.left,rect.top+r);shoulder.quadTo(rect.left,rect.top,rect.left+r,rect.top);shoulder.lineTo(rect.right-r,rect.top);paint.setStrokeCap(Paint.Cap.ROUND);canvas.drawPath(shoulder,paint);
 
         // Inner rim catches light on top and left; the darker bottom suggests thickness.
         paint.setStrokeWidth(Math.max(.8f,density*.7f));
         paint.setColor(modulate(0x78FFFFFF));
         canvas.drawLine(rect.left+r,rect.top+density,rect.right-r,rect.top+density,paint);
-        paint.setColor(modulate(0x466FC7ED));
-        canvas.drawLine(rect.left+r,rect.bottom-density,rect.right-r,rect.bottom-density,paint);
         paint.setStyle(Paint.Style.FILL);
     }
 

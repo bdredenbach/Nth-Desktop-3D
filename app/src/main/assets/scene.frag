@@ -8,6 +8,7 @@ uniform float fishCount;
 uniform float fishSpeed;
 uniform float rippleEnabled;
 uniform float shadowEnabled;
+uniform float waterLight;
 uniform vec3 touches[4];
 uniform sampler2D pondBed;
 uniform sampler2D koiFish;
@@ -107,6 +108,36 @@ vec4 animal(sampler2D image,vec2 q) {
     return texture2D(image,q);
 }
 
+// Refracted cell edges stretch and converge rather than sliding a flat light overlay.
+float causticNet(vec2 p,float t) {
+    p+=vec2(sin(p.y*1.25+t*.31),cos(p.x*1.12-t*.23))*.42;
+    p+=vec2(t*.055,-t*.038);
+    vec2 cell=floor(p),f=fract(p);float nearest=9.0,next=9.0;
+    for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){
+        vec2 offset=vec2(float(x),float(y)),seed=cell+offset;
+        vec2 phase=vec2(hash(seed),hash(seed+vec2(7.1,3.9)))*6.28318;
+        vec2 point=.5+.30*sin(phase+vec2(t*.23,t*.19));
+        vec2 delta=offset+point-f;float distance=dot(delta,delta);
+        if(distance<nearest){next=nearest;nearest=distance;}else next=min(next,distance);
+    }
+    float ridge=1.0-smoothstep(.025,.14,next-nearest);
+    float focus=.68+.32*sin(p.x*2.1+p.y*1.6+t*.37);
+    return ridge*ridge*focus;
+}
+float stoneCaustics(sampler2D bed,vec2 uv,vec2 aspect,float t) {
+    const vec3 luminance=vec3(.2126,.7152,.0722);
+    // Image-derived relief anchors the light to the same rock contours as the photograph.
+    // Interpolate a coarse relief field: photographic pebble grain must not become light noise.
+    vec2 grid=vec2(14.0,21.0),cell=floor(uv*grid)/grid,f=fract(uv*grid),s=f*f*(3.0-2.0*f);
+    float a=dot(environment(bed,cell),luminance),b=dot(environment(bed,cell+vec2(1.0/grid.x,0.0)),luminance);
+    float c=dot(environment(bed,cell+vec2(0.0,1.0/grid.y)),luminance),d=dot(environment(bed,cell+1.0/grid),luminance);
+    float height=mix(mix(a,b,s.x),mix(c,d,s.x),s.y);
+    float dx=mix(b-a,d-c,s.y)*6.0*f.x*(1.0-f.x);
+    float dy=mix(c-a,d-b,s.x)*6.0*f.y*(1.0-f.y);
+    vec2 q=uv*aspect*18.0+vec2(dx,dy)*.65+height*.20;
+    return causticNet(q,t);
+}
+
 vec3 pond(vec2 uv) {
     vec2 aspect=vec2(resolution.x/resolution.y,1.0),original=uv*aspect;
     vec2 p=original+tilt*.019;
@@ -120,7 +151,10 @@ vec3 pond(vec2 uv) {
         distortion+=normalize(original-touches[i].xy*aspect+vec2(.0001))*wave*.004;
         rippleLight+=wave*.018;
     }
-    vec3 col=environment(pondBed,(p+distortion)/aspect)*.82;
+    vec2 bedUV=(p+distortion)/aspect;
+    vec3 bed=environment(pondBed,bedUV);
+    float light=stoneCaustics(pondBed,bedUV,aspect,t)*waterLight*(1.0-smoothstep(.91,1.0,uv.y));
+    vec3 col=bed*(.82+light*.58)+vec3(.055,.09,.055)*light;
     // The fish follow independent smooth paths. Their forward direction is the path tangent.
     for(int i=0;i<7;i++) {
         float k=float(i);
@@ -149,8 +183,7 @@ vec3 pond(vec2 uv) {
             col=mix(col,scales*vec3(.93,.98,.91)*light,fish.a*.96);
         }
     }
-    float caustic=sin(p.x*34.0+sin(p.y*21.0+t*.35))*cos(p.y*28.0-t*.27);
-    col+=vec3(.025,.040,.030)*(caustic*.24*motion+rippleLight);
+    col+=vec3(.025,.040,.030)*rippleLight;
     return col;
 }
 
@@ -223,7 +256,22 @@ vec3 reef(vec2 uv) {
     vec2 aspect=vec2(resolution.x/resolution.y,1.0),p=uv*aspect+tilt*.017;
     float t=clockTime*motion;
     vec2 flow=vec2(sin(p.y*6.0+t*.12),cos(p.x*9.0+t*.09))*.0008*motion;
-    vec3 col=environment(reefWater,(p+flow)/aspect)*.70;
+    vec2 bedUV=(p+flow)/aspect;vec3 bed=environment(reefWater,bedUV);
+    float rock=1.0-smoothstep(.10,.38,uv.y);
+    rock*=mix(.18,1.0,smoothstep(.18,.53,bed.r/max(.025,bed.g)));
+    float caustic=stoneCaustics(reefWater,bedUV,aspect,t*.82)*rock*waterLight;
+    vec3 col=bed*(.70+caustic*.85)+vec3(.025,.10,.12)*caustic;
+    // Broad shafts breathe and slowly change angle from the moving water surface.
+    float rays=0.0;
+    for(int beam=0;beam<3;beam++){
+        float k=float(beam),source=.04+k*.28+sin(t*.073+k*1.7)*.045;
+        float slope=.29+sin(t*.061+k)*.055;
+        float distance=uv.x-source-(1.0-uv.y)*slope;
+        float width=.033+(1.0-uv.y)*.028;
+        rays+=exp(-pow(distance/width,2.0))*(.62+.38*sin(t*.28+k*2.0))*smoothstep(.03,.85,uv.y);
+    }
+    float surface=smoothstep(.80,.99,uv.y)*(.5+.5*sin(uv.x*29.0+sin(uv.x*11.0+t*.31)*2.0-t*.43));
+    col+=vec3(.025,.09,.12)*(rays*.65+surface*.25)*waterLight;
     // Each animal has its own phase, depth and speed; no tilt is needed for swimming.
     for(int i=0;i<4;i++) {
         float k=float(i),depth=.72+k*.085;
@@ -238,7 +286,8 @@ vec3 reef(vec2 uv) {
         tex.x+=sin(tex.y*14.0-t*(.8+k*.05)+k)*.022*arms*motion;
         vec4 jelly=animal(jellyfish,tex);
         vec3 tint=mix(vec3(.74,.93,1.0),vec3(.89,.81,1.0),k/3.0);
-        col=mix(col,jelly.rgb*tint*depth,jelly.a*(.68+k*.045));
+        float shimmer=1.0+sin(t*.42+k*1.3+tex.y*2.0)*.055*waterLight;
+        col=mix(col,jelly.rgb*tint*depth*shimmer,jelly.a*(.68+k*.045));
     }
     vec2 dust=(p+vec2(0,-t*.0013))*vec2(55,80),cell=floor(dust),f=fract(dust)-.5;
     col+=vec3(.018,.05,.055)*(1.0-smoothstep(.02,.10,length(f)))*step(.97,hash(cell));

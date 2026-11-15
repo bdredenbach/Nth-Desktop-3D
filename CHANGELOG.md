@@ -1,3 +1,12 @@
+# 0.7.8
+
+- Animate caustic light across pond stones and reef rocks, plus drifting jellyfish-scene light shafts and surface glints. Add Aquatic light intensity while retaining motion/pause controls.
+
+- Add a three-step layered scene creator: gallery background, optional crystal/orb/star or transparent image objects, independent parallax depth and preview.
+- Keep drafts separate from applied wallpapers and embed applied scenes/assets in desktop backups.
+- Open Android wallpaper apps through a chooser; list installed live services with explicit component previews and system fallback. Forward desktop offsets and taps to live wallpapers.
+- Replace right/bottom crystal outlines with rounded shaded shoulders across solid cards and translucent icon/material surfaces.
+
 ## 0.7.7 — 2026-11-15
 
 - Replace settings-only export with a self-contained desktop backup containing folders and children, shortcut identities/order/positions, desktop names/Home/page order, settings, notes, a bounded photo wallpaper and widget placement/provider records. Verify saved bytes by reading them back. Validate all records before showing a restore confirmation; keep a one-step Undo and reject malformed/corrupt data before replacing contents.
