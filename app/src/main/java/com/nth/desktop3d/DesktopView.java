@@ -172,7 +172,12 @@ final class DesktopView extends FrameLayout {
         while(cells==null&&rows<120)cells=DesktopGrid.restore(desired,columns,++rows);
         if(cells==null)throw new IllegalStateException("Desktop layout exceeds safe capacity");
         workspace.metrics(columns,ch,top());
-        if(scroller!=null){android.view.ViewGroup.LayoutParams lp=workspace.getLayoutParams();lp.height=Math.max(height,top()+rows*ch+Ui.dp(getContext(),12));workspace.setLayoutParams(lp);}
+        if(scroller!=null){
+            // ScrollView measures its child with an unspecified height; translated cells
+            // do not increase FrameLayout's desired size. Report the complete grid.
+            int contentHeight=Math.max(height,top()+rows*ch+Ui.dp(getContext(),12));workspace.setMinimumHeight(contentHeight);
+            android.view.ViewGroup.LayoutParams lp=workspace.getLayoutParams();if(lp.height!=contentHeight){lp.height=contentHeight;workspace.setLayoutParams(lp);}
+        }
         positionCells(cells,true);
     }
     private void positionCells(java.util.List<DesktopGrid.Cell> plan,boolean save){
@@ -438,12 +443,12 @@ final class DesktopView extends FrameLayout {
     @Override public boolean onInterceptTouchEvent(MotionEvent e){
         if(animating)return true;
         if(e.getActionMasked()==MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();swiping=false;verticalGesture=false;startedOnItem=itemAt(downX,downY);}
-        if(startedOnItem&&dragId==null&&e.getActionMasked()==MotionEvent.ACTION_MOVE&&!gravity()&&!widgetAt(downX,downY)){float dx=e.getX()-downX,dy=e.getY()-downY;if(dy<-gestureSlop&&Math.abs(dy)>Math.abs(dx)*1.4f){startedOnItem=false;verticalGesture=true;removeCallbacks(backgroundHold);return true;}}
+        if(startedOnItem&&dragId==null&&e.getActionMasked()==MotionEvent.ACTION_MOVE&&!gravity()&&!widgetAt(downX,downY)){float dx=e.getX()-downX,dy=e.getY()-downY;if(Math.abs(dy)>ViewConfiguration.get(getContext()).getScaledTouchSlop()&&Math.abs(dy)>Math.abs(dx)*1.4f&&(scroller==null||!scroller.canScrollVertically(dy<0?1:-1))){startedOnItem=false;verticalGesture=true;removeCallbacks(backgroundHold);return true;}}
         if(startedOnItem||dragId!=null||(workspace!=null&&workspace.resizing()))return false;
-        if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&(store.mode!=1||reduced)&&!held){float dx=e.getX()-downX,dy=e.getY()-downY;
+        if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&!gravity()&&!held){float dx=e.getX()-downX,dy=e.getY()-downY;
             int slop=ViewConfiguration.get(getContext()).getScaledTouchSlop();
             if(Math.abs(dy)>Math.abs(dx)&&scroller!=null&&scroller.canScrollVertically(dy<0?1:-1))return false;
-            if(!swiping&&Math.abs(dy)>slop*2&&Math.abs(dy)>Math.abs(dx)*1.4f&&dy<0){return true;}
+            if(!swiping&&Math.abs(dy)>slop&&Math.abs(dy)>Math.abs(dx)*1.4f){verticalGesture=true;removeCallbacks(backgroundHold);return true;}
             if(!swiping&&Math.abs(dy)>slop&&Math.abs(dy)>Math.abs(dx))verticalGesture=true;
             if(!verticalGesture&&Math.abs(dx)>slop*2&&Math.abs(dx)>Math.abs(dy)*1.4f){swiping=true;return true;}}
         return false;

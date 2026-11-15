@@ -1,12 +1,14 @@
 #!/bin/sh
 # Each CI suite uses a fresh emulator. Preserve diagnostics before the next suite.
+# Leave memory for the emulator and its software GPU during rotation.
+nth_gradle() { ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m "$@"; }
 nth_suite=${1:-full}
 case "$nth_suite" in workspace|polish|core|settings|widgets|full) ;; *) exit 2 ;; esac
 nth_output="app/build/native-verification/$nth_suite"
 mkdir -p "$nth_output"
 adb shell wm size 540x1200
 adb shell wm density 210
-./gradlew :widgetfixture:assembleDebug :app:assembleRelease :app:assembleDiscoverTest :app:assembleGoogle :app:assembleDebugAndroidTest -PnthCompatibilitySigning=true || exit $?
+nth_gradle :widgetfixture:assembleDebug :app:assembleRelease :app:assembleDiscoverTest :app:assembleGoogle :app:assembleDebugAndroidTest -PnthCompatibilitySigning=true || exit $?
 adb install -r widgetfixture/build/outputs/apk/debug/widgetfixture-debug.apk || exit $?
 adb install -r app/build/outputs/apk/release/app-release.apk || exit $?
 adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk || exit $?
@@ -33,10 +35,10 @@ if [ "$nth_smoke_status" -eq 0 ]; then
     nth_logcat_pid=$!
     trap 'kill "$nth_logcat_pid" 2>/dev/null || true' EXIT INT TERM
     case "$nth_suite" in
-        workspace) timeout 3m ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=workspace ;;
-        polish) timeout 6m ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=polish ;;
-        core|settings|widgets) timeout 6m ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase="$nth_suite" ;;
-        full) timeout 14m ./gradlew :app:connectedDebugAndroidTest ;;
+        workspace) timeout 3m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=workspace ;;
+        polish) timeout 6m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=polish ;;
+        core|settings|widgets) timeout 6m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase="$nth_suite" ;;
+        full) timeout 14m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest ;;
     esac
     nth_smoke_status=$?
 fi
@@ -48,4 +50,9 @@ timeout 15s adb pull /sdcard/Android/data/com.nth.desktop3d/files/verification "
 timeout 15s adb pull /sdcard/Android/media/com.nth.desktop3d/additional_test_output "$nth_output/screenshots" 2>/dev/null || true
 if [ "$nth_smoke_status" -ne 0 ]; then timeout 10s adb exec-out screencap -p > "$nth_output/screenshots/timeout-or-failure.png" || true; fi
 timeout 15s adb logcat -d > "$nth_output/logcat-tail.txt" || true
+if [ "$nth_smoke_status" -ne 0 ]; then
+    free -m > "$nth_output/host-memory.txt"
+    ps -eo pid,rss,comm --sort=-rss | head -20 > "$nth_output/host-processes.txt"
+    sudo dmesg | tail -80 > "$nth_output/host-kernel.txt" 2>/dev/null || true
+fi
 exit "$nth_smoke_status"

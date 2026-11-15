@@ -72,7 +72,10 @@ jobs:
       - name: ${{ matrix.suite }} regression on a fresh emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          # Pin the API 35-era emulator: newer software-GPU builds exit during rotation.
+          emulator-build: 12414864
+          # Exercise settings/recreation on Android 14; other suites cover Android 15.
+          api-level: ${{ matrix.suite == 'settings' && 34 || 35 }}
           target: default
           arch: x86_64
           profile: pixel_7
@@ -80,7 +83,7 @@ jobs:
           force-avd-creation: true
           ram-size: 2048M
           disable-animations: false
-          emulator-options: -no-window -gpu swiftshader -feature -Vulkan -no-snapshot -noaudio -no-boot-anim -wipe-data
+          emulator-options: -no-window -gpu swiftshader_indirect -feature -Vulkan -no-snapshot -noaudio -no-boot-anim -wipe-data
           script: sh tools/android-smoke.sh ${{ matrix.suite }}
       - uses: actions/upload-artifact@v4
         if: always()
