@@ -36,7 +36,7 @@ final class SettingsModel {
         bool("dock_clock","dock","Dock clock","Show the clock in the dock.",true,false);
         pref("dock_padding","dock","Dock padding","Space inside the dock in dp.",4,14,1,7,false);
         pref("dock_radius","dock","Dock corner radius","Round the dock surface in dp.",0,36,2,24,false);
-        enumeration("folder_animation","folders","Folder opening animation","Independent of menu opening animation. Tap the preview to replay.",PanelAnimations.FOLDERS,5,false);
+        enumeration("folder_animation","look","Folder opening animation","Independent of menu opening animation. Tap the preview to replay.",PanelAnimations.FOLDERS,PanelAnimations.STACK,false);
         pref("folder_columns","folders","Folder columns","Number of icon columns inside folders.",2,6,1,3,false);
         enumeration("folder_shape","folders","Folder icon shape","Shape of folder thumbnails on Home and in the drawer.",new String[]{"Circle","Rounded square","Square"},0,true);
         pref("folder_icon_size","folders","Folder icon size","Icon size inside a folder, as a percentage.",70,130,5,100,false);
@@ -62,7 +62,7 @@ final class SettingsModel {
         add("lighting","look","Lighting","Highlight intensity on Crystal surfaces.",0,2,1,CrystalPreferences.LIGHTING,false,true,c::lighting,c::setLighting);
         add("menu_animation","look","Menu opening animation","How menus rise from the desktop plane.",0,4,1,CrystalPreferences.MENU_ANIMATIONS,false,false,c::menuAnimation,c::setMenuAnimation);
         add("scene","motion","Scene","Choose the desktop environment.",0,LauncherStore.MODES.length-1,1,LauncherStore.MODES,false,true,()->s.mode,v->s.mode=v);
-        add("transition","motion","Desktop transition","Perspective animation when changing desktops.",0,LauncherStore.TRANSITIONS.length-1,1,LauncherStore.TRANSITIONS,false,false,()->s.transition,v->s.transition=v);
+        add("transition","look","Desktop transition","Perspective animation when changing desktops.",0,LauncherStore.TRANSITIONS.length-1,1,LauncherStore.TRANSITIONS,false,false,()->s.transition,v->s.transition=v);
         add("tilt","motion","Tilt parallax","Use device tilt to move the desktop perspective.",0,1,1,null,true,false,()->s.tilt?1:0,v->{s.tilt=v==1;c.setParallax(v==1);});
         add("depth","motion","3D depth","Depth of the scene and layered elements.",0,100,1,null,false,false,c::depth,c::setDepth);
         add("strength","motion","Tilt strength","How strongly device tilt affects the desktop.",0,100,1,null,false,false,()->Math.round(s.strength*100),v->s.strength=v/100f);
@@ -99,6 +99,12 @@ final class SettingsModel {
     void endGesture(){gesture=false;gestureUndo=null;if(pendingRebuild){pendingRebuild=false;changed.apply(true);}}
     boolean canUndo(){return undo!=null;}
     String undo(){if(undo==null)return "There is no setting change to undo.";Runnable previous=undo;undo=null;previous.run();return lastChange="Last setting change undone.";}
+    String useStackAnimations(){
+        int desktop=store.transition,menu=crystal.menuAnimation(),folder=value("folder_animation");
+        store.transition=PageTransitions.STACK;crystal.setMenuAnimation(PanelAnimations.STACK);store.preferences.edit().putInt("folder_animation",PanelAnimations.STACK).apply();store.save();changed.apply(false);
+        undo=()->{store.transition=desktop;crystal.setMenuAnimation(menu);store.preferences.edit().putInt("folder_animation",folder).apply();store.save();changed.apply(false);};
+        lastChange="3D Stack applied to desktops, menus and folders.";return lastChange;
+    }
     JSONObject exportSettings()throws org.json.JSONException {JSONObject values=new JSONObject();for(Spec s:specs.values())if(!s.id.equals("cloud_ai"))values.put(s.id,s.get.getAsInt());JSONObject targets=new JSONObject();for(String[] gesture:GestureAssignments.GESTURES){String target=store.preferences.getString(gesture[0]+"_target","");if(!target.isEmpty())targets.put(gesture[0],target);}return new JSONObject().put("format","nth-desktop-3d-settings").put("version",1).put("values",values).put("gestureTargets",targets);}
     void importSettings(JSONObject input)throws org.json.JSONException {
         if(!"nth-desktop-3d-settings".equals(input.optString("format"))||input.optInt("version")!=1)throw new org.json.JSONException("Not a supported 3D settings backup.");

@@ -69,6 +69,17 @@ vs='attribute vec2 position;void main(){gl_Position=vec4(position,0,1);}'
 p=create_program();attach(p,shader(0x8B31,vs));attach(p,shader(0x8B30,(root/'app/src/main/assets/scene.frag').read_text()));link(p)
 ok=I();get_program(p,0x8B82,C.byref(ok));assert ok.value,'Program link failed'
 use(p)
+gen_textures=gl('glGenTextures',None,I,C.POINTER(U));active_texture=gl('glActiveTexture',None,U)
+bind_texture=gl('glBindTexture',None,U,U);texture_parameter=gl('glTexParameteri',None,U,U,I)
+texture_image=gl('glTexImage2D',None,U,I,I,I,I,I,U,U,P);u1i=gl('glUniform1i',None,I,I)
+textures=(U*4)();gen_textures(4,textures)
+for unit,(name,filename) in enumerate([('pondBed','pond_bed'),('koiFish','koi_fish'),('reefWater','reef_water'),('jellyfish','jellyfish')]):
+    image=Image.open(root/f'app/src/main/res/drawable-nodpi/{filename}.webp').convert('RGBA')
+    active_texture(0x84C0+unit);bind_texture(0x0DE1,textures[unit])
+    for key,value in [(0x2801,0x2601),(0x2800,0x2601),(0x2802,0x812F),(0x2803,0x812F)]:texture_parameter(0x0DE1,key,value)
+    data=(C.c_ubyte*(image.width*image.height*4)).from_buffer_copy(image.tobytes())
+    texture_image(0x0DE1,0,0x1908,image.width,image.height,0,0x1908,0x1401,C.cast(data,P))
+    u1i(uniform(p,name.encode()),unit)
 quad=(F*8)(-1,-1,1,-1,-1,1,1,1);a=attribute(p,b'position');enable(a);vertex(a,2,0x1406,0,0,C.cast(quad,P));viewport(0,0,width,height)
 u2(uniform(p,b'resolution'),width,height)
 u3v(uniform(p,b'touches[0]'),4,(F*12)(0,0,-100,0,0,-100,0,0,-100,0,0,-100))
@@ -81,7 +92,7 @@ for mode in range(7):
     assert len(image.getcolors(width*height) or [])>100,'Scene is blank or uniform'
     image.save(out/f'mode-{mode}.png');results.append({'mode':mode,'center':image.getpixel((width//2,height//2))})
 # New scenes must animate, freeze with ambient motion disabled, and respond to tilt.
-for mode in range(4,7):
+for mode in range(3,7):
     def frame(time, moving, x=0, y=0):
         u1(uniform(p,b'mode'),mode);u1(uniform(p,b'clockTime'),time);u1(uniform(p,b'motion'),moving);u2(uniform(p,b'tilt'),x,y)
         draw(5,0,4);finish();assert error()==0
@@ -91,6 +102,15 @@ for mode in range(4,7):
     assert paused==frame(45,0),'Reduced-motion scene is still animating'
     assert frame(2,1)!=frame(45,1),'Ambient scene is static'
     assert paused!=frame(2,0,.6,-.3),'Parallax scene ignores tilt'
+# Fish controls change the textured animals, rather than only changing their caption.
+u1(uniform(p,b'mode'),3);u1(uniform(p,b'motion'),1);u1(uniform(p,b'clockTime'),20);u2(uniform(p,b'tilt'),0,0)
+def aquatic_frame():
+    draw(5,0,4);finish();assert error()==0
+    data=(C.c_ubyte*(width*height*4))();read(0,0,width,height,0x1908,0x1401,data)
+    return bytes(data)
+u1(uniform(p,b'fishCount'),3);few=aquatic_frame();u1(uniform(p,b'fishCount'),7);assert few!=aquatic_frame(),'Fish count does not affect rendering'
+u1(uniform(p,b'fishCount'),5);u1(uniform(p,b'fishSpeed'),.3);slow=aquatic_frame();u1(uniform(p,b'fishSpeed'),1.2);assert slow!=aquatic_frame(),'Fish speed does not affect rendering'
+u1(uniform(p,b'fishSpeed'),.6)
 # Landscape shader draw without relying on a virtual device rotation.
 u2(uniform(p,b'resolution'),height,width)
 for mode in range(7):

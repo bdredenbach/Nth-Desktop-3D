@@ -21,7 +21,7 @@ import java.util.Locale;
 @android.annotation.SuppressLint("ViewConstructor")
 final class SettingsStudio extends LinearLayout {
     interface Host {default void area(String id){}void setup();void home();void arrange();void recenter();void feed();void reconnectFeed();void feedDetails();String feedStatus();void googleApp();void cards();void widgets();void folder();void overview();void manage();void autoSort();String desktop(boolean add);void apps();void about();void backup(boolean restore);boolean openApp(String query);}
-    static final String[][] PAGES={{"home","Home screen","Grid, icon size, labels and placement"},{"dock","Dock","Visibility, spacing and material"},{"folders","Folders","Live folder layout and appearance"},{"drawer","App drawer","Icon layout and names"},{"search","Search & Nth Nota AI","Folder search, keyboard and cloud questions"},{"cards","Cards","Media, calendar, weather, photos and reading in crystal"},{"look","Look & feel","Fading glass, color and menu animation"},{"motion","Scenes & motion","3D depth, transitions, tilt and Living Pond"},{"gestures","Gestures","Actions on empty desktop space"},{"feed","Feed page","Built-in news, interests and edge swipe"},{"backup","Settings backup & restore","Export or restore settings without replacing desktop items"},{"nota","Nth Nota AI","Find, explain and change launcher settings"},{"about","Launcher","Default Home and app information"}};
+    static final String[][] PAGES={{"home","Home screen","Grid, icon size, labels and placement"},{"dock","Dock","Visibility, spacing and material"},{"folders","Folders","Live folder layout and appearance"},{"drawer","App drawer","Icon layout and names"},{"search","Search & Nth Nota AI","Folder search, keyboard and cloud questions"},{"cards","Cards","Media, calendar, weather, photos and reading in crystal"},{"look","Look & feel","Desktop, menu and folder effects, glass and color"},{"motion","Scenes & motion","Aquatic scenes, 3D depth, tilt and motion"},{"gestures","Gestures","Actions on empty desktop space"},{"feed","Feed page","Built-in news, interests and edge swipe"},{"backup","Settings backup & restore","Export or restore settings without replacing desktop items"},{"nota","Nth Nota AI","Find, explain and change launcher settings"},{"about","Launcher","Default Home and app information"}};
     final SettingsModel model;private final Host host;private final SettingsPreview preview;private final EditText search;private final TextView title;
     private final Button back,ask;private final AppCatalog catalog;private LinearLayout suggestions;private final LinearLayout body;private final ScrollView scroll;private String current="root",parent="root";private boolean advanced,searching;private final NotaSettingsClient cloud=new NotaSettingsClient();private TextView answer;private Button send,undo;private EditText question;
     SettingsStudio(Context c,SettingsModel model,AppCatalog catalog,Host host,String page){
@@ -50,7 +50,8 @@ final class SettingsStudio extends LinearLayout {
         renderControls(id);
     }
     private void renderControls(String id){
-        List<SettingsModel.Spec> settings=new ArrayList<>();for(SettingsModel.Spec s:model.specs.values())if(s.page.equals(id))settings.add(s);
+        if(id.equals("look")){row("Use 3D Stack everywhere","Apply to desktops, menus and folders",()->{model.useStackAnimations();showPage("look");preview.page("transition");});for(String effect:new String[]{"transition","menu_animation","folder_animation"})control(model.specs.get(effect));}
+        List<SettingsModel.Spec> settings=new ArrayList<>();for(SettingsModel.Spec s:model.specs.values())if(s.page.equals(id)&&!(id.equals("look")&&(s.id.equals("transition")||s.id.equals("menu_animation")||s.id.equals("folder_animation"))))settings.add(s);
         int visible=id.equals("home")?6:id.equals("motion")?9:id.equals("look")?7:settings.size();
         for(int i=0;i<Math.min(visible,settings.size());i++)control(settings.get(i));
         if(settings.size()>visible){LinearLayout extra=Ui.column(getContext());Button advancedButton=Ui.quiet(getContext(),"Advanced  ▾",()->{advanced=!advanced;extra.setVisibility(advanced?VISIBLE:GONE);});body.addView(advancedButton,new LayoutParams(-1,Ui.dp(getContext(),48)));body.addView(extra);extra.setVisibility(GONE);for(int i=visible;i<settings.size();i++)control(settings.get(i),extra);}
@@ -58,6 +59,8 @@ final class SettingsStudio extends LinearLayout {
         if(id.equals("home")||id.equals("folders")||id.equals("drawer"))row("Auto pick and sort","Preview category folders and add a sorted desktop",host::autoSort);
         if(id.equals("drawer"))row("Open app drawer","Try the current layout",host::apps);
         if(id.equals("search"))row("Open Nth Nota","Local setting commands and optional cloud explanations",()->showPage("nota"));
+        if(id.equals("folders"))row("Folder opening animation","Choose effects in Look & feel",()->focusSetting("folder_animation"));
+        if(id.equals("motion"))row("Desktop transition","Choose effects in Look & feel",()->focusSetting("transition"));
         if(id.equals("motion"))row("Replay desktop transition","Animate the selected effect in the preview",preview::playTransition);
         if(id.equals("motion"))row("Recenter tilt","Center perspective while holding the phone comfortably",host::recenter);
         if(id.equals("cards"))row("Open crystal cards","Try your enabled cards",host::cards);
@@ -83,7 +86,7 @@ final class SettingsStudio extends LinearLayout {
         }
         TextView help=Ui.text(getContext(),s.help,12,Ui.MUTED);help.setPadding(0,Ui.dp(getContext(),3),0,0);card.addView(help,new LayoutParams(-1,-2));
     }
-    private void choice(SettingsModel.Spec s){host.area(s.page);parent=s.page;current="choice:"+s.id;clear();title.setText(s.title);search.setVisibility(VISIBLE);ask.setText("Ask Nota");ask.setContentDescription("Ask Nota");preview.page(s.id.equals("menu_animation")||s.id.equals("folder_animation")?s.id:s.id.equals("folder_shape")?"folder_shape":s.id.equals("icon_shape")?"drawer":s.page);back.setVisibility(VISIBLE);
+    private void choice(SettingsModel.Spec s){host.area(s.page);parent=s.page;current="choice:"+s.id;clear();title.setText(s.title);search.setVisibility(VISIBLE);ask.setText("Ask Nota");ask.setContentDescription("Ask Nota");preview.page(s.id.equals("transition")?"transition":s.id.equals("menu_animation")||s.id.equals("folder_animation")?s.id:s.id.equals("folder_shape")?"folder_shape":s.id.equals("icon_shape")?"drawer":s.page);back.setVisibility(VISIBLE);
         if(s.id.startsWith("gesture_")){row("Apps","Assign an installed app",()->gestureTargets(s,false));row("Shortcuts","Assign a saved desktop or folder shortcut",()->gestureTargets(s,true));}
         for(int i=0;i<s.options.length;i++){final int index=i;row((s.get.getAsInt()==i?"✓  ":"")+s.options[i],"Apply to the live preview",()->{if(s.id.startsWith("gesture_")&&(index==16||index==17)){gestureTargets(s,index==17);return;}model.set(s.id,index);preview.refresh();choice(s);if(s.id.equals("transition"))preview.playTransition();});}
         row("Done","Return to "+pageTitle(s.page),()->showPage(s.page));

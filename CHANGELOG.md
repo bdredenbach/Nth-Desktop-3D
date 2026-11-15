@@ -1,3 +1,11 @@
+## 0.7.6 — 2026-11-15
+
+- Rebuild Living Pond and Biolume Reef with generated photographic environments and detailed transparent animal textures. Koi follow smooth paths with body/tail strokes and fin motion; jellyfish swim independently with bell pulses and trailing-arm motion. Both retain tilt, ambient pause, power saving and reduced-motion support. Pond count, speed and touch ripples remain functional.
+- Use 3D Stack for desktop, menu and folder effects on fresh initialization. Keep stored effect choices and provide a one-tap Use 3D Stack everywhere preset with one-step Undo.
+- Place desktop, menu and folder effect selectors first in Look & feel, outside Advanced. Keep contextual routes from folders, scenes and desktop settings. The desktop Stack effect now includes perspective tilt, preserving its stored effect ID.
+- Load and recycle bounded texture bitmaps once per GL context; use clamp/linear filtering and straight-alpha animal sampling. Scene thumbnails and settings previews show the same photographic content.
+- Add native checks for fresh defaults, stored preferences, atomic preset/Undo, texture decoding/alpha, directly accessible effect choices and live scene screenshots. Extend GLES checks to pond pause/tilt, fish count and fish speed.
+
 ## 0.7.5 — 2026-11-15
 
 - Replace desktop preview rims, drawer icon plinths, category tabs, Crystal cards and scene choices with an opaque polished crystal material: thick bevels, silver-blue reflections and subtle prism edges.

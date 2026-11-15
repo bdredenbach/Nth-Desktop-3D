@@ -2,7 +2,8 @@ package com.nth.desktop3d;
 
 /** The same transform description drives the real workspace and its bounded preview. */
 final class PageTransitions {
-    static final String[] NAMES={"Cube","Carousel","Fold","Slide","Card stack","Tablet","Revolving door","Flip","Flip vertical","In and out","Accordion","Glass","Wipe","Zoom fade","Throw","None"};
+    static final int STACK=4;
+    static final String[] NAMES={"Cube","Carousel","Fold","Slide","3D Stack","Tablet","Revolving door","Flip","Flip vertical","In and out","Accordion","Glass","Wipe","Zoom fade","Throw","None"};
     static final class Frame {
         float rx,ry,rz,tx,ty,sx=1,sy=1,alpha=1,px=.5f,py=.5f,clip=1;boolean fromRight;
     }
@@ -13,7 +14,7 @@ final class PageTransitions {
             case 1:f.ry=sign*a*45;f.tx=-sign*a*.35f;f.sx=f.sy=1-a*.12f;f.alpha=1-a*.6f;break;
             case 2:f.rx=sign*a*68;f.sx=f.sy=1-a*.12f;f.alpha=1-a*.6f;break;
             case 3:f.tx=-sign*a;break;
-            case 4:f.tx=-sign*a*.18f;f.ty=a*.08f;f.rz=-sign*a*7;f.sx=f.sy=1-a*.24f;f.alpha=1-a*.75f;break;
+            case 4:f.tx=-sign*a*.18f;f.ty=a*.08f;f.rx=-28*a;f.rz=-sign*a*7;f.sx=f.sy=1-a*.24f;f.alpha=1-a*.75f;break;
             case 5:f.tx=-sign*a*.85f;f.ry=sign*a*28;f.px=sign>0?1:0;break;
             case 6:f.px=direction>0?0:1;f.ry=sign*a*90;f.tx=-sign*a*.3f;f.alpha=1-a*.3f;break;
             case 7:f.ry=sign*a*90;f.alpha=1-a*.25f;break;

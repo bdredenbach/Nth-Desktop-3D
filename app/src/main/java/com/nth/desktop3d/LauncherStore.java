@@ -50,7 +50,7 @@ public final class LauncherStore {
         preferences = context.getSharedPreferences("desktop3d", Context.MODE_PRIVATE);
         for (int n = 0; n < Math.max(1,Math.min(MAX_PAGES,preferences.getInt("page_count",PAGE_COUNT))); n++) pages.add(new ArrayList<>());
         mode = Math.max(0, Math.min(MODES.length-1, preferences.getInt("mode", 0)));
-        transition = Math.max(0, Math.min(TRANSITIONS.length-1, preferences.getInt("transition", 0)));
+        transition = Math.max(0, Math.min(TRANSITIONS.length-1, preferences.getInt("transition", PageTransitions.STACK)));
         menuStyle = Math.max(0, Math.min(2, preferences.getInt("menuStyle", 0)));
         page = SceneMath.wrap(preferences.getInt("page", 0), pages.size());
         fishCount = Math.max(3, Math.min(7, preferences.getInt("fishCount", 5)));
