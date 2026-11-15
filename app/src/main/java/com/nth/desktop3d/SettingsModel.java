@@ -23,7 +23,7 @@ final class SettingsModel {
     SettingsModel(LauncherStore s,CrystalPreferences c,Changed changed){store=s;crystal=c;this.changed=changed;
         pref("grid_columns","home","Desktop grid columns","Apps, folders and widgets share this grid.",3,8,1,4,true);
         pref("grid_row_dp","home","Grid row height","Vertical cell spacing in dp. Dense layouts remain scrollable.",88,144,4,112,true);
-        pref("icon_size","home","Desktop icon size","Percentage of the standard icon size, constrained to its cell.",70,130,5,100,true);
+        pref("icon_size","home","Desktop icon size","Scale desktop icons. Dense layouts scroll when larger icons need more room.",70,130,5,100,true);
         enumeration("icon_shape","look","App icon shape","Shape of the Crystal surface around app icons on Home and in the drawer.",new String[]{"Rounded square","Circle","Square"},0,true);
         bool("desktop_labels","home","Desktop labels","Show shortcut and folder names.",true,true);
         pref("label_size","home","Label text size","Text size in sp, with system font scaling.",10,18,1,12,true);
@@ -31,8 +31,8 @@ final class SettingsModel {
         bool("lock_layout","home","Lock desktop layout","Prevent dragging and resizing while keeping taps and menus available.",false,false);
         bool("infinite_scroll","home","Infinite desktop scrolling","Wrap between the first and last desktop.",false,false);
         bool("auto_add_apps","home","Add newly installed apps","Place a shortcut on the current desktop when an app is installed.",false,false);
-        bool("show_dock","dock","Show dock","Reveal the Start, search, controls and clock dock.",false,true);
-        bool("dock_content","dock","Dock spaces","Reserve persistent spaces for apps, folders or Android widgets.",false,true);
+        bool("show_dock","dock","Show Start and clock dock","Show the Start, search, controls, clock and desktop navigation. Independent of dock spaces.",false,true);
+        bool("dock_content","dock","Show dock spaces","Show app, folder or widget spaces. With the Start and clock dock off, these spaces sit at the bottom.",false,true);
         pref("dock_space_count","dock","Dock spaces count","How many content spaces are visible. Hidden spaces keep their contents.",1,5,1,3,true);
         pref("dock_space_height","dock","Dock spaces height","Height available for apps, folders and widgets in dp.",64,180,4,96,true);
         bool("dock_background","dock","Dock background","Use the selected Crystal material behind the dock.",true,false);

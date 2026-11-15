@@ -28,6 +28,11 @@ final class IconTile extends LinearLayout {
         label.setShadowLayer(Ui.dp(c,2),0,Ui.dp(c,1),0xFF000000);LayoutParams p=new LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT);p.topMargin=Ui.dp(c,7);addView(label,p);
         label.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);setContentDescription(name);setFocusable(true);setClickable(true);setLongClickable(true);
     }
+    static int desktopRowHeight(Context c,android.content.SharedPreferences prefs){
+        int percent=Math.max(70,Math.min(130,prefs.getInt("icon_size",100)));android.text.TextPaint font=new android.text.TextPaint();font.setTextSize(Math.max(10,Math.min(18,prefs.getInt("label_size",12)))*c.getResources().getDisplayMetrics().scaledDensity);
+        int label=prefs.getBoolean("desktop_labels",true)?(int)Math.ceil(font.getFontSpacing()):0;
+        return Ui.dp(c,60*percent/100f+25)+label;
+    }
     void appearance(android.content.SharedPreferences prefs,String scope){
         menuLabel=!scope.equals("desktop");if(menuLabel){label.setSingleLine(false);label.setMaxLines(Integer.MAX_VALUE);label.setEllipsize(null);label.setText(fullName);setGravity(Gravity.TOP|Gravity.CENTER_HORIZONTAL);setMinimumHeight(Ui.dp(getContext(),132));}
         int size=Math.max(70,Math.min(130,prefs.getInt(scope.equals("desktop")?"icon_size":scope+"_icon_size",100)));desiredSize=Ui.dp(getContext(),60*size/100f);
