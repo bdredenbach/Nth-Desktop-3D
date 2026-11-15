@@ -31,7 +31,8 @@ public final class SmokeInstrumentation extends Instrumentation {
             getUiAutomation().setServiceInfo(accessibility);
             // Quickstep is not the app under test; keep it from owning Home/recents input.
             shell("cmd package set-home-activity com.nth.desktop3d/.MainActivity");
-            shell("am force-stop com.android.launcher3");
+            // Android 11 can leave a null Home stack after force-stop; keep its launcher alive.
+            if(android.os.Build.VERSION.SDK_INT>=31)shell("am force-stop com.android.launcher3");
             // Restore a populated desktop before the first Activity measure: this crashed in 0.1.0.
             com.nth.desktop3d.LauncherStore restored=new com.nth.desktop3d.LauncherStore(getTargetContext());
             restored.page=0;restored.mode=0;
