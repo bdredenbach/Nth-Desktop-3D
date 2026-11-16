@@ -192,39 +192,100 @@ float roundedBox(vec2 p,vec2 size,float r) {
     return length(max(q,0.0))+min(max(q.x,q.y),0.0)-r;
 }
 
-vec3 atrium(vec2 uv) {
-    float aspect=resolution.x/resolution.y;
-    vec2 p=(uv-.5)*vec2(aspect,1.0)+tilt*.024;
-    float t=clockTime*motion;
-    vec3 col=mix(vec3(.012,.024,.042),vec3(.055,.13,.19),uv.y);
-    col+=vec3(.04,.13,.17)*exp(-length(p-vec2(.20,.19))*4.0);
-    float floorMask=1.0-smoothstep(-.25,-.14,p.y);
-    vec2 floorUV=vec2(p.x/max(.06,.52+p.y),1.0/max(.06,.52+p.y))*1.6;
-    float seams=1.0-smoothstep(.006,.015,min(abs(fract(floorUV.x)-.5),abs(fract(floorUV.y)-.5)));
-    col+=vec3(.035,.075,.09)*seams*floorMask;
-    col+=vec3(.04,.14,.20)*exp(-abs(p.x+.08)*14.0)*floorMask*.35;
-    for(int i=0;i<4;i++) {
-        float k=float(i),scale=.65+k*.13;
-        vec2 center=vec2((k-1.5)*.135,.035+sin(k*1.7)*.045);
-        vec2 q=(p-center-tilt*.007*k)/scale;
-        q=rotate(-.19+k*.06)*q;q.x+=q.y*.16;
-        vec2 size=vec2(.075,.21);
-        float sd=roundedBox(q,size,.028);
-        float shadow=exp(-max(0.0,roundedBox(q+vec2(.015,.018),size,.03))*75.0)*shadowEnabled;
-        col*=1.0-shadow*.42;
-        float mask=1.0-smoothstep(-.0015,.0015,sd);
-        float bevel=1.0-smoothstep(.004,.020,abs(sd));
-        float depth=clamp((-sd)/.06,0.0,1.0);
-        vec3 glass=mix(vec3(.10,.27,.36),vec3(.009,.038,.067),depth);
-        float stripe=exp(-pow((q.x+.28*q.y+.033+sin(t*.12+k)*.008)*110.0,2.0));
-        float broad=exp(-pow((q.x-.36*q.y+.025)*28.0,2.0));
-        glass+=vec3(.40,.54,.61)*broad*.65+vec3(.66,.84,.92)*stripe;
-        glass+=vec3(.17,.26,.29)*smoothstep(.08,.21,q.y);
-        glass+=vec3(.35,.62,.72)*bevel*(.45+.55*step(q.x,0.0));
-        col=mix(col,glass,mask);
-        col+=vec3(.06,.17,.21)*exp(-abs(sd)*190.0)*.45;
+// Rounded 3D optical solids. Rays enter a finite bevel rather than a neon outline.
+vec3 atriumCenter(float k) {return vec3((k-1.5)*.435,-.065+sin(k*1.7)*.035,-.10*k);}
+vec3 atriumLocal(vec3 v,float k) {v.xz=rotate(.30+k*.10)*v.xz;v.xy=rotate(-.08+k*.04)*v.xy;return v;}
+vec3 atriumWorld(vec3 v,float k) {v.xy=rotate(.08-k*.04)*v.xy;v.xz=rotate(-.30-k*.10)*v.xz;return v;}
+vec3 atriumSize(float k) {return vec3(.185,.77+k*.025,.105);}
+float atriumDistance(vec3 p,vec3 b) {vec3 q=abs(p)-b+.047;return length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0)-.047;}
+float atriumHit(vec3 ro,vec3 rd,float k,out vec3 point,out vec3 normal) {
+    vec3 origin=atriumLocal(ro-atriumCenter(k),k),direction=atriumLocal(rd,k),b=atriumSize(k);
+    vec3 inverse=mix(vec3(-1.0),vec3(1.0),step(vec3(0.0),direction))/max(abs(direction),vec3(.00001));
+    vec3 a=(-b-origin)*inverse,c=(b-origin)*inverse;
+    vec3 nearPlane=min(a,c),farPlane=max(a,c);
+    float begin=max(0.0,max(nearPlane.x,max(nearPlane.y,nearPlane.z)));
+    float end=min(farPlane.x,min(farPlane.y,farPlane.z));
+    if(end<begin)return 100.0;
+    float distance=begin;
+    for(int stepIndex=0;stepIndex<28;stepIndex++) {
+        point=origin+direction*distance;float surface=atriumDistance(point,b);
+        if(surface<.00035){vec3 edge=max(abs(point)-b+.047,0.0);normal=normalize(edge*sign(point)+vec3(.000001));return distance;}
+        distance+=max(surface,.00015);if(distance>end)break;
+    }
+    return 100.0;
+}
+vec3 atriumEnvironment(vec3 direction,float t) {
+    vec3 col=mix(vec3(.012,.024,.040),vec3(.10,.17,.23),smoothstep(-.5,.9,direction.y));
+    vec3 key=normalize(vec3(-.85+sin(t*.23)*.22,.10,1.0));
+    float softbox=pow(max(0.0,dot(direction,key)),32.0);
+    float strip=exp(-pow((direction.x+.38*direction.z-sin(t*.19)*.12)*45.0,2.0))*smoothstep(-.65,.1,direction.y);
+    float rim=pow(max(0.0,dot(direction,normalize(vec3(.9,.15,-.65)))),65.0);
+    float panel=exp(-pow((direction.x+.80*direction.z-sin(t*.19)*.10)*46.0,2.0));
+    panel+=.50*exp(-pow((direction.x+1.25*direction.z+sin(t*.17)*.08)*55.0,2.0));
+    panel*=1.0-smoothstep(.58,.88,abs(direction.y));
+    col+=vec3(1.6,2.1,2.6)*softbox+vec3(7.0,8.2,8.8)*panel+vec3(5.0,6.3,7.0)*strip+vec3(.40,1.3,2.1)*rim;
+    return col;
+}
+vec3 atriumBackdrop(vec3 ro,vec3 rd,float t) {
+    vec3 col=atriumEnvironment(rd,t)*.075;
+    if(rd.y<-.0001) {
+        float distance=(-1.02-ro.y)/rd.y;
+        if(distance>0.0) {
+            vec3 hit=ro+rd*distance;vec2 floorPoint=hit.xz;
+            float grain=fbm(floorPoint*3.0);
+            vec3 floorColor=vec3(.004,.008,.013)+vec3(.006,.009,.012)*grain;
+            float seam=min(abs(fract(floorPoint.x*.65+.5)-.5),abs(fract(floorPoint.y*.65+.5)-.5));
+            floorColor*=.78+.22*smoothstep(.003,.012,seam);
+            float light=0.0,contact=0.0;
+            for(int j=0;j<4;j++) {
+                float k=float(j);vec2 offset=floorPoint-atriumCenter(k).xz;
+                contact+=exp(-dot(offset*vec2(3.7,2.2),offset*vec2(3.7,2.2)))*.32;
+                vec2 focused=offset-vec2(.10+sin(t*.23+k)*.08,.14+cos(t*.19+k)*.10);
+                float pool=exp(-dot(focused*vec2(3.0,1.4),focused*vec2(3.0,1.4)));
+                float fold=focused.x*10.0+sin(focused.y*9.0+t*.45+k)*.55+sin(t*.31+k)*.45;
+                light+=pool*(.10+.46*exp(-pow(fold*2.3,2.0))+.14*pow(.5+.5*sin(focused.y*17.0-t*.5+k),9.0));
+            }
+            floorColor*=1.0-min(.70,contact)*shadowEnabled;
+            floorColor+=vec3(.11,.34,.46)*light;
+            float fresnel=.035+.45*pow(1.0-max(0.0,-rd.y),5.0);
+            floorColor+=atriumEnvironment(reflect(rd,vec3(0,1,0)),t)*fresnel*.065;
+            col=mix(col,floorColor,exp(-distance*.028));
+        }
     }
     return col;
+}
+vec3 atrium(vec2 uv) {
+    vec2 p=(uv-.5)*vec2(resolution.x/resolution.y,1.0);
+    float t=clockTime*motion;
+    vec3 ro=vec3(tilt.x*.13,.22+tilt.y*.09,4.5);
+    vec3 rd=normalize(vec3(p*3.9-tilt*.055+vec2(0,-.30),-4.5));
+    vec3 col=atriumBackdrop(ro,rd,t),point=vec3(0),normal=vec3(0);
+    float nearest=100.0,chosen=0.0;vec3 localPoint=vec3(0),localNormal=vec3(0);
+    for(int i=0;i<4;i++) {
+        float k=float(i);float distance=atriumHit(ro,rd,k,point,normal);
+        if(distance<nearest){nearest=distance;chosen=k;localPoint=point;localNormal=normal;}
+    }
+    if(nearest<99.0) {
+        vec3 hit=ro+rd*nearest,n=atriumWorld(localNormal,chosen);
+        float facing=max(.001,dot(-rd,n));
+        float fresnel=.042+.958*pow(1.0-facing,5.0);
+        vec3 inside=refract(rd,n,1.0/1.52);
+        float thickness=clamp(.21/max(.18,abs(inside.z)),.20,.85);
+        vec3 exitPoint=hit+inside*thickness;
+        // Separate color paths give a restrained dispersion at the curved bevel.
+        vec3 bend=n*(.018+.035*(1.0-facing));
+        vec3 transmission;
+        transmission.r=atriumBackdrop(exitPoint+bend*1.035,rd,t).r;
+        transmission.g=atriumBackdrop(exitPoint+bend,rd,t).g;
+        transmission.b=atriumBackdrop(exitPoint+bend*.965,rd,t).b;
+        transmission*=exp(-vec3(.23,.075,.045)*thickness);
+        vec3 reflected=atriumEnvironment(reflect(rd,n),t);
+        float backGlint=pow(max(0.0,dot(reflect(inside,-n),normalize(vec3(-.7,.8,1.0)))),55.0);
+        col=transmission*(1.0-fresnel)+reflected*fresnel+vec3(.35,.65,.80)*backGlint*.14;
+        // A clear front face carries a broad reflected studio light, not a fill tint.
+        col+=reflected*.018*(1.0-fresnel);
+    }
+    return pow(vec3(1.0)-exp(-max(col,0.0)*1.25),vec3(.4545));
 }
 
 vec3 aurora(vec2 uv) {

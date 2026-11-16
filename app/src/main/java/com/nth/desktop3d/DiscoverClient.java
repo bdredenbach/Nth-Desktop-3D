@@ -20,7 +20,7 @@ final class DiscoverClient {
     private ILauncherOverlay overlay;private ServiceConnection connection;private ILauncherOverlayCallback activeCallback;
     private boolean bound,ready,usable,requested,resumed,started,destroyed,showing,opening,allowScroll,attached,failed,reporting;
     private int generation,attempt,attachment,apiVersion=1,serviceStatus=-1,recoveryStep;private String status="Not connected",result="NOT_TRIED",targetOverride,componentOverride,serviceName="Not resolved",servicePermission="None",googleVersion="Not checked";
-    private long began;private Runnable deadline,recovery;private boolean legacyAttach,cleanNextBind,rebound;private String windowContract="Not submitted";
+    private long began;private Runnable deadline,recovery;private boolean legacyAttach,cleanNextBind,rebound;private String windowContract="Not submitted",binderInterface="Not received";
     DiscoverClient(Activity activity,View desktop,Runnable unavailable,Runnable attention){this.activity=activity;this.desktop=desktop;this.unavailable=unavailable;this.attention=attention;}
     private long versionCode(PackageInfo info){return Build.VERSION.SDK_INT>=28?info.getLongVersionCode():info.versionCode;}
     void onDesktopReturn(Runnable restore){desktopReturn=restore;}
@@ -37,7 +37,7 @@ final class DiscoverClient {
     String report(){
         String version="unknown";try{PackageInfo info=activity.getPackageManager().getPackageInfo(activity.getPackageName(),0);version=info.versionName+" ("+versionCode(info)+")";}catch(PackageManager.NameNotFoundException ignored){}
         boolean debug=(activity.getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0;
-        String text="Nth Desktop 3D · Google Discover connection\nLauncher: "+version+"\nBuild: "+(debug?"Google-enabled (app debugging enabled)":"Standard release")+"\nAndroid: "+Build.VERSION.RELEASE+" (API "+Build.VERSION.SDK_INT+")\nDevice: "+Build.MANUFACTURER+" "+Build.MODEL+"\nGoogle app: "+googleVersion+"\nProvider: "+target()+"\nService: "+serviceName+"\nService permission: "+servicePermission+"\nOverlay API: "+apiVersion+"; client v7/cv9\nOutcome: "+result+"\nStatus: "+status+"\nReady bits: "+serviceStatus+"\nStarted: "+started+", resumed: "+resumed+", attach sent: "+attached+", visible: "+showing+"\nWindow: "+windowContract+"\nStartup allowance: 15 seconds; display allowance: 8 seconds\n\nConnection events\n"+String.join("\n",events);
+        String text="Nth Desktop 3D · Google Discover connection\nLauncher: "+version+"\nBuild: "+(debug?"Google-enabled (app debugging enabled)":"Standard release")+"\nAndroid: "+Build.VERSION.RELEASE+" (API "+Build.VERSION.SDK_INT+")\nDevice: "+Build.MANUFACTURER+" "+Build.MODEL+"\nGoogle app: "+googleVersion+"\nProvider: "+target()+"\nService: "+serviceName+"\nService permission: "+servicePermission+"\nBinder interface: "+binderInterface+"\nOverlay API: "+apiVersion+"; client v7/cv9\nOutcome: "+result+"\nStatus: "+status+"\nReady bits: "+serviceStatus+"\nStarted: "+started+", resumed: "+resumed+", attach sent: "+attached+", visible: "+showing+"\nWindow: "+windowContract+"\nStartup allowance: 15 seconds; display allowance: 8 seconds\n\nConnection events\n"+String.join("\n",events);
         if(events.isEmpty()){String last=activity.getSharedPreferences("discover_connection",0).getString("last_report","");if(!last.isEmpty())text+="\n\nPrevious attempt\n"+last;}
         return text;
     }
@@ -59,21 +59,39 @@ final class DiscoverClient {
         status="Connecting to Google Discover Allowing up to 15 seconds for startup.";schedule(STARTUP_MS,false);scheduleRecovery();
     }
     private boolean connect(){
-        final int token=++generation;apiVersion=1;serviceStatus=-1;attached=false;ready=usable=false;serviceName="Not resolved";servicePermission="None";windowContract="Not submitted";
+        final int token=++generation;apiVersion=1;serviceStatus=-1;attached=false;ready=usable=false;serviceName="Not resolved";servicePermission="None";windowContract="Not submitted";binderInterface="Not received";
         android.content.SharedPreferences history=activity.getSharedPreferences("discover_connection",0);
         try{PackageInfo launcher=activity.getPackageManager().getPackageInfo(activity.getPackageName(),0);long last=history.getLong("launcher_update",-1);cleanNextBind|=history.getBoolean("clean_attach",false)||(last>=0&&last!=launcher.lastUpdateTime)||(last<0&&launcher.lastUpdateTime>launcher.firstInstallTime);}catch(PackageManager.NameNotFoundException ignored){}
         PackageManager pm=activity.getPackageManager();
         try{PackageInfo info=pm.getPackageInfo(target(),0);googleVersion=info.versionName+" ("+versionCode(info)+")";long previous=history.getLong("provider_update_"+target(),-1);cleanNextBind|=previous>=0&&previous!=info.lastUpdateTime;if(!info.applicationInfo.enabled){fail("APP_DISABLED","The Google app is disabled. Enable it in App info, then retry.");return false;}}
         catch(PackageManager.NameNotFoundException absent){googleVersion="Not installed";fail("APP_MISSING","The Google app is not installed or is unavailable in this Android profile.");return false;}
+        final Intent bindIntent=intent();
         try{
-            ResolveInfo match=pm.resolveService(intent(),PackageManager.GET_META_DATA);
+            ResolveInfo match=pm.resolveService(bindIntent,PackageManager.GET_META_DATA);
             if(match==null||match.serviceInfo==null){fail("SERVICE_UNAVAILABLE","This Google app version exposes no compatible overlay service to Nth Desktop.");return false;}
             ServiceInfo service=match.serviceInfo;serviceName=service.packageName+"/"+service.name;servicePermission=service.permission==null?"None":service.permission;apiVersion=Math.max(1,service.metaData==null?1:service.metaData.getInt("service.api.version",1));event("Resolved overlay API "+apiVersion+" · "+serviceName);
             if(!service.enabled||!service.exported){fail("SERVICE_DISABLED","Google's overlay service is disabled or is not exported to other apps.");return false;}
             if(service.permission!=null&&pm.checkPermission(service.permission,activity.getPackageName())!=PackageManager.PERMISSION_GRANTED){event("Required permission denied: "+service.permission);fail("PERMISSION_DENIED","Android requires a Google overlay permission this installation does not have. The connection report identifies it.");return false;}
+            bindIntent.setComponent(new ComponentName(service.packageName,service.name));
         }catch(SecurityException denied){event(denied.getClass().getSimpleName()+": "+safe(denied));fail("PERMISSION_DENIED","Android denied access while checking Google's overlay service.");return false;}
         connection=new ServiceConnection(){
-            @Override public void onServiceConnected(ComponentName name,IBinder binder){if(destroyed||token!=generation)return;try{String descriptor=binder.getInterfaceDescriptor();event("Service connected · "+descriptor);if(!"com.google.android.libraries.launcherclient.ILauncherOverlay".equals(descriptor)){fail("PROTOCOL_MISMATCH","The service returned an unsupported overlay interface.");return;}overlay=ILauncherOverlay.Stub.asInterface(binder);desktop.post(()->attach(token));}catch(RemoteException|RuntimeException error){remoteFailure("Service connection",error);}}
+            @Override public void onServiceConnected(ComponentName name,IBinder binder){
+                if(destroyed||token!=generation)return;
+                try{
+                    if(!name.equals(bindIntent.getComponent())){fail("UNEXPECTED_SERVICE","Android returned a different overlay service than the one resolved for Google Discover.");return;}
+                    String descriptor=binder.getInterfaceDescriptor();
+                    boolean unadvertised=descriptor==null||descriptor.isEmpty();
+                    binderInterface=unadvertised?"Not advertised (empty)":descriptor;
+                    event("Service connected · interface "+binderInterface);
+                    if(!unadvertised&&!"com.google.android.libraries.launcherclient.ILauncherOverlay".equals(descriptor)){fail("PROTOCOL_MISMATCH","The service returned an unsupported overlay interface: "+descriptor);return;}
+                    // Some Google builds forward Binder transactions without advertising
+                    // a descriptor. An empty descriptor is not an incompatible protocol.
+                    // Submit the known contract and require the usual remote callbacks;
+                    // neither binding nor a successful oneway call marks the feed ready.
+                    if(unadvertised)event("Interface name unavailable; checking the overlay through window and readiness callbacks");
+                    overlay=ILauncherOverlay.Stub.asInterface(binder);desktop.post(()->attach(token));
+                }catch(RemoteException|RuntimeException error){remoteFailure("Service connection",error);}
+            }
             @Override public void onServiceDisconnected(ComponentName name){lost(token,"SERVICE_DISCONNECTED","Google's overlay service disconnected.");}
             @Override public void onNullBinding(ComponentName name){lost(token,"NULL_BINDING","Google returned no overlay connection. Its access rules may reject this launcher build.");}
             @Override public void onBindingDied(ComponentName name){
@@ -83,7 +101,7 @@ final class DiscoverClient {
                 }else lost(token,"BINDING_DIED","The Google connection expired. Retry to reconnect.");
             }
         };
-        try{bound=activity.bindService(intent(),connection,Context.BIND_AUTO_CREATE|Context.BIND_IMPORTANT|Context.BIND_ADJUST_WITH_ACTIVITY);event("bindService returned "+bound);if(!bound){fail("BIND_REJECTED","Android could not bind Google's overlay service.");return false;}return true;}
+        try{bound=activity.bindService(bindIntent,connection,Context.BIND_AUTO_CREATE|Context.BIND_IMPORTANT|Context.BIND_ADJUST_WITH_ACTIVITY);event("bindService returned "+bound);if(!bound){fail("BIND_REJECTED","Android could not bind Google's overlay service.");return false;}return true;}
         catch(SecurityException denied){bound=false;event(denied.getClass().getSimpleName()+": "+safe(denied));fail("PERMISSION_DENIED","Google or Android rejected this launcher’s access to the overlay service.");return false;}
         catch(RuntimeException error){bound=false;remoteFailure("Bind",error);return false;}
     }
