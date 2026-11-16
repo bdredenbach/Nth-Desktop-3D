@@ -31,7 +31,7 @@ final class SwipeDismissGrid extends GridView {
     int sourcePosition(int position){return horizontal?page*capacity+position:position;}
     @Override public void setNumColumns(int value){columns=Math.max(1,value);super.setNumColumns(value);resizePages();}
     @Override public void setAdapter(ListAdapter adapter){
-        if(source!=null)source.unregisterDataSetObserver(observer);source=adapter;page=0;
+        if(source!=null&&pages!=null)source.unregisterDataSetObserver(observer);source=adapter;pages=null;page=0;
         if(!horizontal||adapter==null){super.setAdapter(adapter);return;}
         pages=new BaseAdapter(){
             public int getCount(){return DrawerPaging.size(source.getCount(),page,capacity);}
@@ -43,6 +43,7 @@ final class SwipeDismissGrid extends GridView {
             @Override public boolean isEnabled(int n){return source.isEnabled(sourcePosition(n));}
             public View getView(int n,View old,ViewGroup parent){
                 View view=source.getView(sourcePosition(n),old,parent);
+                if(view instanceof IconTile)((IconTile)view).fitCell(Math.max(Ui.dp(getContext(),30),(getWidth()-getPaddingLeft()-getPaddingRight()-getHorizontalSpacing()*(columns-1))/columns),rowHeight);
                 view.setLayoutParams(new AbsListView.LayoutParams(-1,rowHeight));return view;
             }
         };

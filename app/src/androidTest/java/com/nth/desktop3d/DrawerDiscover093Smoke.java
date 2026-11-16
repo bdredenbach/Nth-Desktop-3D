@@ -38,6 +38,16 @@ public final class DrawerDiscover093Smoke extends Trial093Support {
             await(()->grid.getAdapter().getCount()==0&&grid.pageCount()==1&&grid.page()==0,"Search left a stale or unreachable drawer page");
             main(()->((EditText)field(activity,"appSearch")).setText(""));
             await(()->grid.getAdapter().getCount()>0,"Clearing search did not restore apps");
+            main(()->check(grid.performAccessibilityAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD,null),"Second drawer page unavailable for drag"));
+            SystemClock.sleep(200);
+            Object expected=grid.getAdapter().getItem(0);String expectedKey=expected instanceof AppCatalog.Entry?((AppCatalog.Entry)expected).key:((LauncherStore.Item)expected).key;
+            Rect icon=rect(grid.getChildAt(0));long held=SystemClock.uptimeMillis();float ix=icon.centerX(),iy=icon.centerY();
+            pointer(held,MotionEvent.ACTION_DOWN,ix,iy);SystemClock.sleep(ViewConfiguration.getLongPressTimeout()+200);
+            pointer(held,MotionEvent.ACTION_MOVE,ix+Ui.dp(activity,20),iy);
+            DrawerDragController drag=(DrawerDragController)field(activity,"drawerDrags");
+            await(drag::active,"Holding an icon on a horizontal page did not start a drag");
+            main(()->{check(expectedKey.equals(((LauncherStore.Item)field(drag,"source")).key),"Horizontal page dragged the wrong catalog item");drag.cancel();});
+            pointer(held,MotionEvent.ACTION_UP,ix+Ui.dp(activity,20),iy);await(()->!drag.active(),"Horizontal drawer drag did not cancel");
             main(()->{
                 try{check(model.exportSettings().getJSONObject("values").getInt("drawer_scroll")==1,"Drawer mode absent from settings backup");}catch(Exception e){throw new AssertionError(e);}
                 call(activity,"closePanel");store.preferences.edit().putInt("drawer_scroll",0).apply();call(activity,"showStart");

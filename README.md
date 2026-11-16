@@ -1,5 +1,7 @@
 ## 0.9.3 card placement and scene editor trial
 
+Settings → App drawer → App drawer scrolling adds Vertical or Horizontal pages, with search, held drags and accessible page navigation. Vertical remains the default. Discover repair also refreshes a silent binding with a fresh connection session within the existing 15-second startup limit; real Google recovery still needs phone confirmation.
+
 Hold and drag cards from the drawer or desktop. Dwell at a screen edge to change desktops; crowded screens overflow new card placement onto a new desktop. Cancel restores the source and removes unused drag-created screens. App icon shape adds None, and app hold menus add Resize for launchable app tiles with a normal-shortcut reset.
 
 Scene creator objects gain Still, Float, Orbit and Drift, independent speed/amount, and adjustable light color/strength/direction. Import/export `.nth3dscene` packs separately from desktop backups. Imports open as drafts and require Apply to replace the active scene. See [placement and scene packs](docs/placement-scene-packs-093.md). Trial 6 remains queued for phone review.

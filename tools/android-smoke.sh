@@ -51,6 +51,10 @@ timeout 15s adb pull /sdcard/Android/media/com.nth.desktop3d/additional_test_out
 if [ "$nth_smoke_status" -ne 0 ]; then timeout 10s adb exec-out screencap -p > "$nth_output/screenshots/timeout-or-failure.png" || true; fi
 timeout 15s adb logcat -d > "$nth_output/logcat-tail.txt" || true
 if [ "$nth_smoke_status" -ne 0 ]; then
+    for nth_report in app/build/outputs/androidTest-results/connected/debug/*.xml app/build/outputs/androidTest-results/connected/debug/*/*.xml; do
+        if [ -f "$nth_report" ]; then cat "$nth_report"; fi
+    done
+    tail -n 160 "$nth_output/logcat-tail.txt"
     free -m > "$nth_output/host-memory.txt"
     ps -eo pid,rss,comm --sort=-rss | head -20 > "$nth_output/host-processes.txt"
     sudo dmesg | tail -80 > "$nth_output/host-kernel.txt" 2>/dev/null || true
