@@ -1,0 +1,94 @@
+{
+  "generator": "OpenAI imagegen",
+  "paths": {
+    "optical_frame": "/workspace/scratch/649367eb586f/generated_images/exec-02d378f8-3620-4bf1-854e-5abc0af23e51.png",
+    "alpine_foreground": "/workspace/scratch/649367eb586f/generated_images/exec-2e272439-0df7-433c-9d78-65c6ed611c50.png",
+    "planet_surface": "/workspace/scratch/649367eb586f/generated_images/exec-6ad10f09-4b36-4eed-a67d-8af6acb3e112.png",
+    "star_environment": "/workspace/scratch/649367eb586f/generated_images/exec-dcd35aff-712d-4f50-89ec-4e92c2d85bbd.png",
+    "asteroid_regolith": "/workspace/scratch/649367eb586f/generated_images/exec-b409809d-89f4-4245-840a-e1ac44df41df.png",
+    "aurora_light": "/workspace/scratch/649367eb586f/generated_images/exec-2349104e-0dab-481d-a5e8-d45e2329bb64.png"
+  },
+  "prompts": [
+    [
+      "optical_frame",
+      true,
+      "Use case: product-mockup. Asset: photoreal foreground cutout for live optical wallpaper. Square transparent RGBA canvas. A pair of elegant realistic unbranded black acetate eyeglass frames photographed straight through at eye level, a tiny natural three-quarter angle showing real rim thickness and metallic hinges, both lens openings fully visible and unobstructed. Slim believable proportions, polished bevels, tiny hinge screws, real soft studio highlights, temple arms receding behind and slightly outward. Product occupies the middle horizontal band and about 90% of canvas width. Empty open lens holes must be genuinely transparent alpha, just like the background; NO lens glass, no objects visible through openings, no grey fill. The app renders its own live lenses inside the two holes. Extremely lifelike high-end product photograph, not an illustration, toy or thick cartoon frame. No text, logos, watermark, checkerboard or shadow rectangle. Transparent background and transparent lens openings."
+    ],
+    [
+      "alpine_foreground",
+      true,
+      "Use case: photorealistic-natural. Asset: transparent foreground landscape layer for a live aurora scene. Square canvas. Extremely realistic rugged snow-covered alpine mountain range under faint cold moonlight, sharply resolved granite, windblown snow and dark forested foothills. Mountain peaks form a beautiful uneven skyline around the vertical midpoint; main foreground peaks at center-left and right. Mountains and foothills fill the lower half of the canvas, solid landscape to the bottom edge and both side edges. Upper half is entirely transparent alpha with NO sky; the app places stars and animated northern lights behind the realistic silhouette. Natural subdued blue-grey nighttime exposure, detailed shadows, no exaggerated fantasy colors. Photographic, not painted or stylized. No buildings, people, text, logos, watermark or checkerboard. Genuine transparent sky above the ridge."
+    ],
+    [
+      "planet_surface",
+      false,
+      "Use case: photorealistic-natural. Asset: equirectangular 2:1 albedo map for a realistic fictional Earth-like planet rendered as a 3D sphere. Edge-to-edge flat surface map with detailed deep blue oceans, varied green/brown continents, coastlines, desert ranges, a little polar ice, fine white cloud systems. Natural orbital photographic texture detail. No baked spherical shading, no circle, no black background, no directional shadow; illumination is computed in the app. Seamless east/west edges as closely as possible, north pole at top, south pole at bottom. Entire canvas is map texture. Realistic restrained colors. No labels, borders, text, logos, watermark or UI."
+    ],
+    [
+      "star_environment",
+      false,
+      "Use case: photorealistic-natural. Asset: wide 2:1 photographic deep-space background. A rich natural astrophotography star field on near-black navy space, hundreds of finely resolved varied tiny stars, a few brighter soft white points, a very faint dusty Milky Way band diagonally in the distance. Mostly dark open space with restrained density, believable scale and contrast. No planets, asteroids, aurora, enormous colored nebula, sun, flares, text, logos, watermark or UI. Crisp tiny stars and subtle natural dust, not a cartoon star pattern."
+    ],
+    [
+      "asteroid_regolith",
+      false,
+      "Use case: photorealistic-natural. Asset: square high-resolution asteroid rock albedo/detail material. Direct close view of dark charcoal-grey carbonaceous asteroid regolith, rough porous weathered stone, overlapping impact pits and small craters, jagged granular facets, grey-brown mineral specks and realistic dust. Edge-to-edge material with no horizon or object silhouette. Soft neutral diffuse illumination so the app can shade it as an irregular three-dimensional asteroid. Very high photographic surface detail, no lava or orange glow, no planet, no text, logos, watermark, checkerboard or UI."
+    ],
+    [
+      "aurora_light",
+      false,
+      "Use case: photorealistic-natural. Asset: wide 2:1 northern-lights sky layer for a live wallpaper. Extremely realistic long-exposure photograph of graceful luminous aurora borealis curtains across a pure near-black sky: detailed folded green ribbons with soft turquoise lower edges and restrained violet upper tips, fine vertical ray structure, bright flowing arcs and broad dark negative spaces. Aurora spans the middle and upper image, sparse softer glows lower down. Pure sky only: no stars, mountains, horizon, trees, ground, people or structures; the app supplies separate stars and mountains and animates this light layer. Natural believable intensity, not neon graphic art. No text, logo, watermark or UI."
+    ]
+  ],
+  "source_metadata": {
+    "optical_frame": {
+      "sha256": "260e91ab609843a71365e6b74198ac42ad7ebb8ab02c3e20b9b53330a12c00a4",
+      "size": [
+        2172,
+        724
+      ]
+    },
+    "alpine_foreground": {
+      "sha256": "53c5dac96d3c9461e52e688bb1718c638ae9b72fe3aa2f597c11eed19169594a",
+      "size": [
+        1254,
+        1254
+      ]
+    },
+    "planet_surface": {
+      "sha256": "5684b754f415bc385b24ae6714b57ef18c69fcfea5ec9644edd6918f81ff23d1",
+      "size": [
+        1774,
+        887
+      ]
+    },
+    "star_environment": {
+      "sha256": "591b12e921b9e7a18b3b49485ff48e2ef1ef2cbd6518a88f5ee6f6716b6f8443",
+      "size": [
+        1774,
+        887
+      ]
+    },
+    "asteroid_regolith": {
+      "sha256": "d95e01b8c37aff636d145c0f9b5b27006083d870c4db87302d34309974d54899",
+      "size": [
+        1254,
+        1254
+      ]
+    },
+    "aurora_light": {
+      "sha256": "f4c531172008939fd26b98c0d537cfc93ac841d33974baf3d6e49778a23a1882",
+      "size": [
+        1774,
+        887
+      ]
+    }
+  },
+  "packing": {
+    "alpine_foreground": "RGBA terrain; transparent sky",
+    "celestial_material": "2048 square: planet 2048x1024 top; duplicated rock 1024x1024 bottom",
+    "celestial_sky": "2048 square: stars 2048x1024 top; aurora 2048x1024 bottom",
+    "optical_frame": "2048x1024: square RGBA frame left; R=lens mask, G=normalized interior edge distance right",
+    "focus_city": "Registered sharp left / Gaussian blur radius 4.5 right; same original city photograph"
+  }
+}
