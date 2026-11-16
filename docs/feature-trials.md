@@ -7,8 +7,8 @@ The owner approved trying all eight ideas one at a time. Each feature gets its o
 | 1 | Scene-matched lighting | Accepted by owner; 0.9.0 fresh defaults use strength 100 and rounded squares |
 | 2 | Physical folder opening/closing | Accepted by owner; default for fresh initialization in 0.9.1 |
 | 3 | Complete saved desktop presets | 0.9.1 implementation; awaiting owner phone review |
-| 4 | Placeable 3D versions of Crystal Cards | 0.9.2 implementation with requested scene randomizer; awaiting phone review |
-| 5 | Scene creator motion/lighting and individual scene packs | Queued |
+| 4 | Placeable 3D versions of Crystal Cards | Phone video reviewed; placement revisions and app tiles in 0.9.3 |
+| 5 | Scene creator motion/lighting and individual scene packs | 0.9.3 implementation; awaiting phone review |
 | 6 | Unified app/folder/settings/note/Nota search | Queued |
 | 7 | Adjustable physical haptic feedback | Queued |
 | 8 | Automatic graphics quality | Queued |
@@ -41,3 +41,8 @@ The owner requested the next queued item with a scene randomizer. Trial 4 is imp
 ## Trial 4: compare before advancing
 
 See [desktop cards and scene shuffle](cards-shuffle-092.md). Place Notes or Media on a desktop, edit/use its normal actions, hold and drag, resize from its edge grips, move to another desktop and remove it. Save a preset with cards and restore it. Try manual shuffle, restrict the selected scenes and enable an interval if desired. Automatic rotation begins off and waits for idle Home. Review phone appearance, touch behavior and performance before starting Trial 5.
+
+
+## Trial 5: compare before advancing
+
+The owner requested card edge transfers, dragging cards from the drawer, crowded-screen overflow, None app icon shape, resizable app icons and the next trial. Version 0.9.3 includes these revisions plus per-object Still/Float/Orbit/Drift, speed/amount, scene light controls and individual `.nth3dscene` export/import. Imported scenes stay drafts until Apply. See [placement and scene editor](placement-scene-packs-093.md). Trial 6 remains queued until phone feedback. Existing Gravity mechanics, saved defaults and personal card content remain intact.

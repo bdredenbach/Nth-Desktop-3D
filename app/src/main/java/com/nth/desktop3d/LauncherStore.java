@@ -26,21 +26,29 @@ public final class LauncherStore {
         public String shortcutPackage,shortcutId;
         public long shortcutUser=-1;
         public float x = -1, y = -1;
-        public int cellX=-1,cellY=-1,cardWidth=2,cardHeight=2;
-        public boolean fixed;
+        public int cellX=-1,cellY=-1,cardWidth=2,cardHeight=2,appWidth=1,appHeight=1;
+        public boolean fixed,resizable;
         public final List<Item> children = new ArrayList<>();
         public Item(String key, String label) { this.key = key; this.label = label; }
-        public Item copy(){Item item=new Item(key,label);item.cardWidth=cardWidth;item.cardHeight=cardHeight;item.shortcutPackage=shortcutPackage;item.shortcutId=shortcutId;item.shortcutUser=shortcutUser;return item;}
+        public Item copy(){Item item=new Item(key,label);item.cardWidth=cardWidth;item.cardHeight=cardHeight;item.resizable=resizable;item.appWidth=appWidth;item.appHeight=appHeight;item.shortcutPackage=shortcutPackage;item.shortcutId=shortcutId;item.shortcutUser=shortcutUser;return item;}
         public boolean card(){return CardLayout.type(key)!=null;}
+        public boolean appTile(){return resizable&&!card()&&!folder();}
+        public boolean sized(){return card()||appTile();}
+        public int spanX(){return card()?cardWidth:appTile()?appWidth:1;}
+        public int spanY(){return card()?cardHeight:appTile()?appHeight:1;}
+        public void spans(int w,int h){if(card()){cardWidth=w;cardHeight=h;}else{appWidth=w;appHeight=h;}}
+        public void normalShortcut(){resizable=false;appWidth=appHeight=1;}
         public boolean folder() { return "folder".equals(key); }
         JSONObject json() throws JSONException {
             JSONObject j = new JSONObject().put("id", id).put("key", key).put("label", label).put("x", x).put("y", y).put("cellX",cellX).put("cellY",cellY).put("fixed", fixed);
             if(shortcutPackage!=null&&shortcutId!=null)j.put("shortcutPackage",shortcutPackage).put("shortcutId",shortcutId).put("shortcutUser",shortcutUser);
+            if(appTile())j.put("resizable",true).put("appWidth",appWidth).put("appHeight",appHeight);
             if(card())j.put("cardWidth",cardWidth).put("cardHeight",cardHeight);
             JSONArray a = new JSONArray(); for (Item c : children) a.put(c.json()); return j.put("children", a);
         }
         static Item read(JSONObject j, int depth) throws JSONException {
             Item i = new Item(j.getString("key"), j.optString("label", "Shortcut"));
+            i.resizable=j.optBoolean("resizable",false)&&depth==0&&!i.folder()&&!i.card();i.appWidth=Math.max(1,Math.min(12,j.optInt("appWidth",1)));i.appHeight=Math.max(1,Math.min(12,j.optInt("appHeight",1)));
             i.id = j.optString("id", i.id); i.x = (float) j.optDouble("x", -1); i.y = (float) j.optDouble("y", -1); i.fixed = j.optBoolean("fixed");
             i.cellX=j.optInt("cellX",-1);i.cellY=j.optInt("cellY",-1);i.cardWidth=Math.max(2,Math.min(12,j.optInt("cardWidth",2)));i.cardHeight=Math.max(2,Math.min(12,j.optInt("cardHeight",CardLayout.height(CardLayout.type(i.key)==null?"notes":CardLayout.type(i.key)))));
             if(j.has("shortcutPackage")&&j.has("shortcutId")){i.shortcutPackage=j.getString("shortcutPackage");i.shortcutId=j.getString("shortcutId");i.shortcutUser=j.optLong("shortcutUser",-1);}
@@ -121,7 +129,7 @@ public final class LauncherStore {
         if(owner==null||owner==destination.children)return false;
         boolean duplicate=false;for(Item child:destination.children)if(child.key.equals(source.key)){duplicate=true;break;}
         if(!duplicate&&destination.children.size()>=1000)return false;
-        owner.remove(source);if(!duplicate){source.x=source.y=-1;source.cellX=source.cellY=-1;destination.children.add(source);}save();return true;
+        owner.remove(source);if(!duplicate){source.normalShortcut();source.x=source.y=-1;source.cellX=source.cellY=-1;destination.children.add(source);}save();return true;
     }
     public void save() {
         dock.save();

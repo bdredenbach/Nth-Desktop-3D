@@ -1,3 +1,11 @@
+# 0.9.3 — 2026-11-16
+
+- Continue card drags from the app drawer or desktop through Android's system drag, with edge paging, cancellation cleanup and new-desktop overflow for a crowded visible grid.
+- Add None app icon shape and native resizable app tiles with persistent spans, normal-shortcut reset and tap-to-launch behavior. Preserve folder shells, fresh defaults and ordinary Gravity mechanics.
+- Trial 5: per-object Still/Float/Orbit/Drift, motion amount/speed and scene light color/strength/direction. Keep old scenes still by default and honor reduced motion, ambient-off, pause and battery saving.
+- Export/import a single self-contained `.nth3dscene` separately from desktop backups. Validate imported assets before review; load as a draft and apply explicitly. Persist and verify immutable document exports.
+- Write desktop backup version 4 while accepting versions 2/3, and scene schema 2 while accepting schema 1. Add dedicated native Placement/Packs suites and deterministic motion tests.
+
 # 0.9.2 — 2026-11-16
 
 - Trial 4: place native Crystal Cards on desktop pages with real data/actions, hold-to-move, full-edge resize, page moves and removal. Keep card geometry in presets and version 3 backups while accepting version 2 backups and retaining shared content.

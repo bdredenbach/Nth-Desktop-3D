@@ -1,3 +1,9 @@
+## 0.9.3 card placement and scene editor trial
+
+Hold and drag cards from the drawer or desktop. Dwell at a screen edge to change desktops; crowded screens overflow new card placement onto a new desktop. Cancel restores the source and removes unused drag-created screens. App icon shape adds None, and app hold menus add Resize for launchable app tiles with a normal-shortcut reset.
+
+Scene creator objects gain Still, Float, Orbit and Drift, independent speed/amount, and adjustable light color/strength/direction. Import/export `.nth3dscene` packs separately from desktop backups. Imports open as drafts and require Apply to replace the active scene. See [placement and scene packs](docs/placement-scene-packs-093.md). Trial 6 remains queued for phone review.
+
 ## 0.9.2 desktop card and scene shuffle trial
 
 Place movable, resizable Crystal Cards through Settings → Cards → Place card on desktop or Widgets → Add Crystal Card. Cards retain their real Notes, media, weather, calendar, photos, reading and app actions, and their geometry is saved in desktop presets/backups. Hold to move or open the resize/removal menu.
@@ -27,7 +33,7 @@ Open Settings → Launcher → Setup & permissions to revisit optional access. R
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and eleven original GPU scenes. Current test release: **0.9.2**.
+animated Start menus and eleven original GPU scenes. Current test release: **0.9.3**.
 
 Install the supplied signed release APK for continued updates. Version 0.3.2
 uses the owner's replacement **R2** signing certificate. Moving from the lost

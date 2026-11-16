@@ -21,7 +21,7 @@ final class IconTile extends LinearLayout {
         super(c);fullName=IconLabel.menu(name);folder="folder".equals(key);desiredSize=Ui.dp(c,60);setOrientation(VERTICAL);setGravity(Gravity.CENTER);setClipChildren(false);setClipToPadding(false);
         setPadding(Ui.dp(c,3),Ui.dp(c,8),Ui.dp(c,3),Ui.dp(c,6));
         setBackground(Ui.touch(c,null,18));setCameraDistance(Ui.dp(c,1800));
-        FrameLayout plinth=new Plinth(c);plinth.setBackground(Ui.iconSurface(c,folder));plinth.setElevation(Ui.dp(c,9));
+        FrameLayout plinth=new Plinth(c);plinth.setBackground(Ui.iconSurface(c,folder));plinth.setElevation(Ui.iconShell(c,folder)?Ui.dp(c,9):0);
         ImageView image=new ImageView(c);image.setImageDrawable(drawable==null?new BuiltinIcon(key):drawable);image.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
         image.setScaleType(ImageView.ScaleType.FIT_CENTER);FrameLayout.LayoutParams ip=new FrameLayout.LayoutParams(Ui.dp(c,45),Ui.dp(c,45),Gravity.CENTER);plinth.addView(image,ip);addView(plinth,new LayoutParams(Ui.dp(c,60),Ui.dp(c,60)));
         label=Ui.text(c,IconLabel.display(name),12,Ui.TEXT);label.setGravity(Gravity.CENTER);label.setSingleLine(true);label.setLines(1);label.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -37,15 +37,15 @@ final class IconTile extends LinearLayout {
         menuLabel=!scope.equals("desktop");if(menuLabel){label.setSingleLine(false);label.setMaxLines(Integer.MAX_VALUE);label.setEllipsize(null);label.setText(fullName);setGravity(Gravity.TOP|Gravity.CENTER_HORIZONTAL);setMinimumHeight(Ui.dp(getContext(),132));}
         int size=Math.max(70,Math.min(130,prefs.getInt(scope.equals("desktop")?"icon_size":scope+"_icon_size",100)));desiredSize=Ui.dp(getContext(),60*size/100f);
         label.setVisibility(prefs.getBoolean(scope+"_labels",true)?VISIBLE:GONE);label.setTextSize(Math.max(10,Math.min(18,prefs.getInt("label_size",12))));int color=Math.max(0,Math.min(3,prefs.getInt("label_color",0)));label.setTextColor(SettingsModel.TEXT_COLORS[color]);
-        FrameLayout plinth=(FrameLayout)getChildAt(0);plinth.setBackground(Ui.iconSurface(getContext(),folder));plinth.setElevation(new CrystalPreferences(getContext()).shadows()?Ui.dp(getContext(),9):0);plinth.setLayoutParams(new LayoutParams(desiredSize,desiredSize));int icon=desiredSize*3/4;plinth.getChildAt(0).setLayoutParams(new FrameLayout.LayoutParams(icon,icon,Gravity.CENTER));
+        FrameLayout plinth=(FrameLayout)getChildAt(0);plinth.setBackground(Ui.iconSurface(getContext(),folder));plinth.setElevation(new CrystalPreferences(getContext()).shadows()&&Ui.iconShell(getContext(),folder)?Ui.dp(getContext(),9):0);plinth.setLayoutParams(new LayoutParams(desiredSize,desiredSize));int icon=Ui.iconShell(getContext(),folder)?desiredSize*3/4:desiredSize;plinth.getChildAt(0).setLayoutParams(new FrameLayout.LayoutParams(icon,icon,Gravity.CENTER));
     }
     void light(float x,float y){Drawable shell=getChildAt(0).getBackground();if(shell instanceof IconShellDrawable)((IconShellDrawable)shell).light(x,y);}
     void physicsStyle(){
         setPadding(Ui.dp(getContext(),3),Ui.dp(getContext(),4),Ui.dp(getContext(),3),Ui.dp(getContext(),4));
         int size=Math.round(desiredSize*.8f);FrameLayout plinth=(FrameLayout)getChildAt(0);plinth.setLayoutParams(new LayoutParams(size,size));
-        plinth.getChildAt(0).setLayoutParams(new FrameLayout.LayoutParams(size*3/4,size*3/4,Gravity.CENTER));
+        plinth.getChildAt(0).setLayoutParams(new FrameLayout.LayoutParams((Ui.iconShell(getContext(),folder)?size*3/4:size),(Ui.iconShell(getContext(),folder)?size*3/4:size),Gravity.CENTER));
         ((LayoutParams)label.getLayoutParams()).topMargin=Ui.dp(getContext(),4);
-        setBackground(Ui.touch(getContext(),Ui.satin(getContext(),0xEF2B3752,0xEE172137,18),18));setElevation(new CrystalPreferences(getContext()).shadows()?Ui.dp(getContext(),6):0);}
+        setBackground(Ui.touch(getContext(),Ui.iconShell(getContext(),folder)?Ui.satin(getContext(),0xEF2B3752,0xEE172137,18):null,18));setElevation(new CrystalPreferences(getContext()).shadows()&&Ui.iconShell(getContext(),folder)?Ui.dp(getContext(),6):0);}
     void fitCell(int width,int height){
         setClipChildren(true);setClipToPadding(false);
         int lines=1;if(!menuLabel&&label.getMaxLines()!=lines)label.setMaxLines(lines);
@@ -53,9 +53,10 @@ final class IconTile extends LinearLayout {
         int size=Math.max(Ui.dp(getContext(),22),Math.min(desiredSize,menuLabel?width-Ui.dp(getContext(),6):Math.min(width-Ui.dp(getContext(),6),height-labelHeight-Ui.dp(getContext(),21))));
         FrameLayout plinth=(FrameLayout)getChildAt(0);LayoutParams p=(LayoutParams)plinth.getLayoutParams();
         if(p.width!=size||p.height!=size){p.width=size;p.height=size;plinth.setLayoutParams(p);}
-        int icon=Math.max(1,size*3/4);android.view.View image=plinth.getChildAt(0);FrameLayout.LayoutParams imageParams=(FrameLayout.LayoutParams)image.getLayoutParams();
+        int icon=Math.max(1,Ui.iconShell(getContext(),folder)?size*3/4:size);android.view.View image=plinth.getChildAt(0);FrameLayout.LayoutParams imageParams=(FrameLayout.LayoutParams)image.getLayoutParams();
         if(imageParams.width!=icon){imageParams.width=icon;imageParams.height=icon;image.setLayoutParams(imageParams);}
     }
+    void fitAppTile(int width,int height){int labelHeight=label.getVisibility()==GONE?0:(int)Math.ceil(label.getPaint().getFontSpacing());int original=desiredSize;desiredSize=Math.max(Ui.dp(getContext(),22),Math.min(width-Ui.dp(getContext(),12),height-labelHeight-Ui.dp(getContext(),25)));fitCell(width,height);desiredSize=original;}
     @Override public CharSequence getAccessibilityClassName(){return android.widget.Button.class.getName();}
     @Override public boolean performClick(){return super.performClick();}
     @android.annotation.SuppressLint("ViewConstructor")
