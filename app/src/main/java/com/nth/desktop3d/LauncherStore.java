@@ -84,7 +84,7 @@ public final class LauncherStore {
     public void setHomePage(int index){if(index>=0&&index<pages.size())preferences.edit().putInt("home_page",index).apply();}
     public String pageName(int index){String name=preferences.getString("desktop_name_"+index,"");return name.isEmpty()?"Desktop "+(index+1):name;}
     public boolean emptyPage(int index){try{JSONArray queue=new JSONArray(preferences.getString("restore_widgets","[]"));for(int i=0;i<queue.length();i++)if(!queue.getJSONObject(i).optString("location").equals("dock")&&queue.getJSONObject(i).optInt("page",-1)==index)return false;}catch(JSONException ignored){}return index>=0&&index<pages.size()&&pages.get(index).isEmpty()&&preferences.getString("widget_ids_page_"+index,"").isEmpty();}
-    public int appendPage(){if(pages.size()>=MAX_PAGES)return -1;int index=pages.size();preferences.edit().remove("desktop_name_"+index).remove("widget_ids_page_"+index).remove("folder_pattern_page_"+index).apply();pages.add(new ArrayList<>());save();return pages.size()-1;}
+    public int appendPage(){if(pages.size()>=MAX_PAGES)return -1;int index=pages.size();SharedPreferences.Editor grid=preferences.edit();AutoGrid.clear(grid,index);grid.apply();preferences.edit().remove("desktop_name_"+index).remove("widget_ids_page_"+index).remove("folder_pattern_page_"+index).apply();pages.add(new ArrayList<>());save();return pages.size()-1;}
     public boolean movePage(int from,int to){
         if(from<0||to<0||from>=pages.size()||to>=pages.size()||from==to)return false;
         List<Integer> order=new ArrayList<>();for(int n=0;n<pages.size();n++)order.add(n);Integer moved=order.remove(from);order.add(to,moved);applyPageOrder(order);return true;
@@ -95,10 +95,11 @@ public final class LauncherStore {
     }
     private void applyPageOrder(List<Integer> order){
         List<List<Item>> previous=new ArrayList<>(pages),next=new ArrayList<>();int home=homePage(),sorted=preferences.getInt("sort_undo_page",-1),oldPage=page;
-        SharedPreferences.Editor edit=preferences.edit();for(int n=0;n<previous.size();n++)edit.remove("widget_ids_page_"+n).remove("folder_pattern_page_"+n).remove("desktop_name_"+n);
-        for(int n=0;n<order.size();n++){int old=order.get(n);next.add(previous.get(old));edit.putString("widget_ids_page_"+n,preferences.getString("widget_ids_page_"+old,"")).putBoolean("folder_pattern_page_"+n,preferences.getBoolean("folder_pattern_page_"+old,false)).putString("desktop_name_"+n,preferences.getString("desktop_name_"+old,""));}
+        SharedPreferences.Editor edit=preferences.edit();for(int n=0;n<previous.size();n++){edit.remove("widget_ids_page_"+n).remove("folder_pattern_page_"+n).remove("desktop_name_"+n);AutoGrid.clear(edit,n);}
+        for(int n=0;n<order.size();n++){int old=order.get(n);next.add(previous.get(old));AutoGrid.copy(edit,preferences,old,n);edit.putString("widget_ids_page_"+n,preferences.getString("widget_ids_page_"+old,"")).putBoolean("folder_pattern_page_"+n,preferences.getBoolean("folder_pattern_page_"+old,false)).putString("desktop_name_"+n,preferences.getString("desktop_name_"+old,""));}
         page=order.indexOf(oldPage);if(page<0)page=Math.min(oldPage,order.size()-1);int newHome=order.indexOf(home);edit.putInt("home_page",newHome<0?Math.min(home,order.size()-1):newHome);
         int newSorted=order.indexOf(sorted);if(newSorted<0)edit.remove("sort_undo_page");else edit.putInt("sort_undo_page",newSorted);
+        java.util.List<String> undoPages=new ArrayList<>();for(String raw:preferences.getString("sort_undo_pages","").split(","))try{int mapped=order.indexOf(Integer.parseInt(raw));if(mapped>=0)undoPages.add(Integer.toString(mapped));}catch(NumberFormatException ignored){}edit.putString("sort_undo_pages",android.text.TextUtils.join(",",undoPages));
         try{JSONArray queue=new JSONArray(preferences.getString("restore_widgets","[]"));for(int i=0;i<queue.length();i++){JSONObject record=queue.getJSONObject(i);if(!record.optString("location").equals("dock"))record.put("page",Math.max(0,order.indexOf(record.optInt("page",0))));}edit.putString("restore_widgets",queue.toString());}catch(JSONException ignored){}
         edit.apply();pages.clear();pages.addAll(next);save();
     }

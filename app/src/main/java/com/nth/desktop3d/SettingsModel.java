@@ -21,8 +21,8 @@ final class SettingsModel {
     final LauncherStore store;final CrystalPreferences crystal;final Map<String,Spec> specs=new LinkedHashMap<>();
     private final Changed changed;private Runnable undo,gestureUndo;private boolean gesture,pendingRebuild;String lastChange="";
     SettingsModel(LauncherStore s,CrystalPreferences c,Changed changed){store=s;crystal=c;this.changed=changed;
-        pref("grid_columns","home","Desktop grid columns","Apps, folders and widgets share this grid.",3,8,1,4,true);
-        pref("grid_row_dp","home","Grid row height","Vertical cell spacing in dp. Dense layouts remain scrollable.",88,144,4,112,true);
+        pref("grid_columns","home","Desktop grid columns","Apps, folders and widgets share this grid. Auto-sort fits its own page until you change this setting.",3,12,1,4,true);
+        pref("grid_row_dp","home","Grid row height","Vertical cell spacing in dp. Dense layouts remain scrollable. Changing this setting makes the sorted page manual.",88,240,4,112,true);
         pref("icon_size","home","Desktop icon size","Resize icons in place. Grid row height controls their spacing; dense layouts remain scrollable.",70,130,5,100,true);
         enumeration("icon_shape","look","App icon shape","Shape of the Crystal surface around app icons on Home and in the drawer.",new String[]{"Rounded square","Circle","Square"},0,true);
         bool("desktop_labels","home","Desktop labels","Show shortcut and folder names.",true,true);
@@ -90,7 +90,7 @@ final class SettingsModel {
         add("feed_animation","feed","Animate feed opening","Animate Google overlay opening when supported.",0,1,1,null,true,false,()->c.feed3dTransition()?1:0,v->c.setFeed3dTransition(v==1));
     }
     private void add(String id,String page,String title,String help,int min,int max,int step,String[] options,boolean toggle,boolean rebuild,IntSupplier get,IntConsumer put){specs.put(id,new Spec(id,page,title,help,min,max,step,options,toggle,rebuild,get,put));}
-    private void pref(String id,String page,String title,String help,int min,int max,int step,int fallback,boolean rebuild){add(id,page,title,help,min,max,step,null,false,rebuild,()->Math.max(min,Math.min(max,store.preferences.getInt(id,fallback))),v->store.preferences.edit().putInt(id,v).apply());}
+    private void pref(String id,String page,String title,String help,int min,int max,int step,int fallback,boolean rebuild){add(id,page,title,help,min,max,step,null,false,rebuild,()->Math.max(min,Math.min(max,id.equals("grid_columns")||id.equals("grid_row_dp")?AutoGrid.value(store,id,fallback):store.preferences.getInt(id,fallback))),v->{if(id.equals("grid_columns")||id.equals("grid_row_dp"))AutoGrid.manual(store,id,v);else store.preferences.edit().putInt(id,v).apply();});}
     private void bool(String id,String page,String title,String help,boolean fallback,boolean rebuild){add(id,page,title,help,0,1,1,null,true,rebuild,()->store.preferences.getBoolean(id,fallback)?1:0,v->store.preferences.edit().putBoolean(id,v==1).apply());}
     private void enumeration(String id,String page,String title,String help,String[] options,int fallback,boolean rebuild){add(id,page,title,help,0,options.length-1,1,options,false,rebuild,()->Math.max(0,Math.min(options.length-1,store.preferences.getInt(id,fallback))),v->store.preferences.edit().putInt(id,v).apply());}
     private Runnable layoutUndo(){

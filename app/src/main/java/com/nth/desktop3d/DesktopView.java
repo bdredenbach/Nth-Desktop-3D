@@ -37,7 +37,7 @@ final class DesktopView extends FrameLayout {
     private java.util.List<DesktopGrid.Cell> obstaclePlan;
     private float[][] widgetObstacles=new float[0][];
 
-    private boolean gravity(){return store.mode==1&&!reduced&&!folderPattern();}
+    private boolean gravity(){return store.mode==1&&!reduced&&!folderPattern()&&!AutoGrid.active(store,store.page);}
     private String widgetKey(int id){return "widget:"+id;}
     private int top(){return Ui.dp(getContext(),24);}
 
@@ -122,11 +122,12 @@ final class DesktopView extends FrameLayout {
         return result;
     }
     private boolean folderPattern(){return store.preferences.getBoolean("folder_pattern_page_"+store.page,false);}
-    private int gridColumns(){if(folderPattern())return 5;return Math.max(3,Math.min(8,store.preferences.getInt("grid_columns",4)));}
+    private int gridColumns(){if(folderPattern())return 5;return Math.max(3,Math.min(12,AutoGrid.value(store,"grid_columns",4)));}
     private int cellHeight(){
+        if(AutoGrid.active(store,store.page))return Ui.dp(getContext(),AutoGrid.value(store,"grid_row_dp",112));
         // Icon size changes its drawing, never the grid's row pitch or saved coordinates.
         if(folderPattern())return Math.max(Ui.dp(getContext(),100),(Math.max(height,getHeight())-top()-Ui.dp(getContext(),12))/10);
-        return Ui.dp(getContext(),store.preferences.getInt("grid_row_dp",112)+Math.max(0,getResources().getConfiguration().fontScale-1)*30);
+        return Ui.dp(getContext(),AutoGrid.value(store,"grid_row_dp",112));
     }
     private int gridTop(){return top()-originRow*ch;}
     private android.graphics.RectF rectangle(DesktopGrid.Cell cell){
@@ -140,7 +141,13 @@ final class DesktopView extends FrameLayout {
         if(android.os.Build.VERSION.SDK_INT>=31){if(info.targetCellWidth>0)w=info.targetCellWidth;if(info.targetCellHeight>0)h=info.targetCellHeight;}
         return new int[]{Math.max(1,Math.min(gridColumns(),w)),Math.max(1,Math.min(12,h))};
     }
+    FittedGrid sortedLayout(int count){return AutoGrid.fit(getContext(),store.preferences,Math.max(1,getWidth()),Math.max(1,getHeight()),count);}
+    private void freezeAutoGrid(){if(!AutoGrid.active(store,store.page))return;AutoGrid.manual(store,"grid_columns",Math.max(3,AutoGrid.value(store,"grid_columns",4)));}
     private void restoreCells(){
+        if(AutoGrid.legacy(store)&&widgetIds().isEmpty())AutoGrid.enable(store,store.page,sortedLayout(bodies.size()),getContext());
+        if(AutoGrid.active(store,store.page)&&!widgetIds().isEmpty())freezeAutoGrid();
+        boolean automatic=AutoGrid.active(store,store.page);
+        if(automatic){FittedGrid fit=sortedLayout(bodies.size());AutoGrid.metrics(store,fit.columns,Math.round(fit.pitch/getResources().getDisplayMetrics().density));}
         columns=gridColumns();cw=Math.max(1,width/columns);ch=cellHeight();visibleRows=Math.max(1,(height-top()-Ui.dp(getContext(),12))/ch);
         java.util.List<DesktopGrid.Cell> desired=new ArrayList<>();int area=0,maxWidgetHeight=1,maxSavedRow=visibleRows,index=0;
         java.util.Set<String> unplaced=new java.util.HashSet<>();
@@ -161,8 +168,8 @@ final class DesktopView extends FrameLayout {
         }
         for(Body body:bodies){
             LauncherStore.Item item=body.item;
-            int x=item.cellX>=0?item.cellX:item.x<0?index%columns:Math.round(item.x*Math.max(0,width-Ui.dp(getContext(),84))/cw);
-            int y=item.cellY>=0?item.cellY:item.y<0?index/columns:Math.round((item.y*Math.max(0,height-Ui.dp(getContext(),112))-top())/ch);
+            int x=automatic?index%columns:item.cellX>=0?item.cellX:item.x<0?index%columns:Math.round(item.x*Math.max(0,width-Ui.dp(getContext(),84))/cw);
+            int y=automatic?index/columns:item.cellY>=0?item.cellY:item.y<0?index/columns:Math.round((item.y*Math.max(0,height-Ui.dp(getContext(),112))-top())/ch);
             x=Math.max(0,Math.min(columns-1,x));y=Math.max(0,Math.min(60,y));
             desired.add(new DesktopGrid.Cell(item.id,false,x,y,1,1));area++;maxSavedRow=Math.max(maxSavedRow,y+1);index++;
         }
@@ -179,14 +186,15 @@ final class DesktopView extends FrameLayout {
         if(cells==null)throw new IllegalStateException("Desktop layout exceeds safe capacity");
         // The decorative empty rows of the initial pattern need not consume a short landscape screen.
         originRow=0;if(folderPattern()&&getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE&&!cells.isEmpty()){originRow=60;for(DesktopGrid.Cell cell:cells)originRow=Math.min(originRow,cell.y);}
+        if(automatic)AutoGrid.metrics(store,columns,Math.round(ch/getResources().getDisplayMetrics().density));
         workspace.metrics(columns,ch,gridTop());
         if(scroller!=null){
             // ScrollView measures its child with an unspecified height; translated cells
             // do not increase FrameLayout's desired size. Report the complete grid.
-            int contentHeight=Math.max(height,gridTop()+rows*ch+Ui.dp(getContext(),12)+Math.max(0,(IconTile.desktopRowHeight(getContext(),store.preferences)-ch+1)/2));workspace.setMinimumHeight(contentHeight);
+            int contentHeight=Math.max(height,gridTop()+rows*ch+Ui.dp(getContext(),12)+(automatic?0:Math.max(0,(IconTile.desktopRowHeight(getContext(),store.preferences)-ch+1)/2)));workspace.setMinimumHeight(contentHeight);
             android.view.ViewGroup.LayoutParams lp=workspace.getLayoutParams();if(lp.height!=contentHeight){lp.height=contentHeight;workspace.setLayoutParams(lp);}
         }
-        positionCells(cells,true);
+        positionCells(cells,!automatic);
     }
     private void positionCells(java.util.List<DesktopGrid.Cell> plan,boolean save){
         android.content.SharedPreferences.Editor editor=save?store.preferences.edit():null;
@@ -214,7 +222,7 @@ final class DesktopView extends FrameLayout {
     }
     private void startDrag(String id){
         if(cells.isEmpty()||store.preferences.getBoolean("lock_layout",false))return;
-        workspace.select(null,null);dragId=id;dragStart=DesktopGrid.find(cells,id);originalPlan=new ArrayList<>(cells);previewPlan=new ArrayList<>(cells);
+        freezeAutoGrid();workspace.select(null,null);dragId=id;dragStart=DesktopGrid.find(cells,id);originalPlan=new ArrayList<>(cells);previewPlan=new ArrayList<>(cells);
         View view=cellViews.get(id);if(view!=null){view.setElevation(Ui.dp(getContext(),24));view.setAlpha(.86f);}
         workspace.preview(dragStart==null?null:rectangle(dragStart),true);workspace.requestDisallowInterceptTouchEvent(true);
     }
@@ -251,7 +259,7 @@ final class DesktopView extends FrameLayout {
     void clearExternal(){if(workspace!=null)workspace.preview(null,true);}
     boolean dropExternal(LauncherStore.Item item,float x,float y){
         if(store.preferences.getBoolean("lock_layout",false))return false;
-        DesktopGrid.Cell target=externalTarget(item,x,y);if(target==null)return false;
+        freezeAutoGrid();DesktopGrid.Cell target=externalTarget(item,x,y);if(target==null)return false;
         if(!item.folder()){
             float scroll=scroller==null?0:scroller.getScrollY();int cx=(int)(x/cw),cy=(int)((y+scroll-gridTop())/ch);
             for(LauncherStore.Item folder:store.pages.get(store.page))if(folder.folder()&&folder.cellX==cx&&folder.cellY==cy){for(LauncherStore.Item child:folder.children)if(child.key.equals(item.key))return false;if(folder.children.size()>=1000)return false;folder.children.add(item.copy());for(java.util.List<LauncherStore.Item> page:store.pages)page.remove(item);store.save();rebuild();return true;}
@@ -336,7 +344,7 @@ final class DesktopView extends FrameLayout {
                         float dx=e.getRawX()-sx,dy=e.getRawY()-sy;
                         if(!held&&!gravity()&&Math.hypot(dx,dy)>ViewConfiguration.get(getContext()).getScaledTouchSlop()){cancelledTap=true;v.removeCallbacks(hold);return true;}
                         if(!store.preferences.getBoolean("lock_layout",false)&&(held||gravity())&&Math.hypot(dx,dy)>Ui.dp(getContext(),8)){
-                            if(!moved){if(!gravity()){moved=host.startItemDrag(v,body.item);if(moved)return true;}else moved=true;}
+                            if(!moved){if(!gravity()){freezeAutoGrid();moved=host.startItemDrag(v,body.item);if(moved)return true;}else moved=true;}
                             if(!gravity())previewDrag(dx,dy);
                             else{body.x=SceneMath.clamp(bx+dx,0,Math.max(0,width-v.getWidth()));body.y=SceneMath.clamp(by+dy,0,Math.max(0,height-v.getHeight()));long dt=Math.max(1,e.getEventTime()-last);body.vx=(e.getRawX()-lastX)*1000/dt;body.vy=(e.getRawY()-lastY)*1000/dt;v.setTranslationX(body.x);v.setTranslationY(body.y);last=e.getEventTime();lastX=e.getRawX();lastY=e.getRawY();}
                         }return true;
@@ -407,7 +415,7 @@ final class DesktopView extends FrameLayout {
             b.item.y=b.y/Math.max(1,height-b.tile.getHeight());
         }
     }
-    void arrange(){for(LauncherStore.Item i:store.pages.get(store.page)){i.x=i.y=-1;i.cellX=i.cellY=-1;}rebuild();store.save();}
+    void arrange(){freezeAutoGrid();for(LauncherStore.Item i:store.pages.get(store.page)){i.x=i.y=-1;i.cellX=i.cellY=-1;}rebuild();store.save();}
     void changePage(int direction){
         if(animating||modal)return;if(!store.preferences.getBoolean("infinite_scroll",false)&&(store.page+direction<0||store.page+direction>=store.pageCount()))return;savePositions();
         if(reduced||store.transition==15){store.page=SceneMath.wrap(store.page+direction,store.pageCount());rebuild();store.save();host.pageChanged();return;}
