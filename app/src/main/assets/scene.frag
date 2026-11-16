@@ -18,6 +18,12 @@ uniform sampler2D glassSky;
 uniform sampler2D focusCity;
 uniform sampler2D iceMaterial;
 uniform sampler2D lavaMaterial;
+// Celestial bank aliases: slots 3/4/6/7 are replaced together by SceneSurface.
+#define opticalFrame jellyfish
+#define alpineForeground glassSky
+#define celestialMaterial iceMaterial
+#define celestialSky lavaMaterial
+vec2 photoCover(vec2 uv,float sourceAspect,float overscan);
 
 float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 float noise(vec2 p) {
@@ -66,26 +72,69 @@ vec3 night(vec2 uv) {
     return col;
 }
 
-vec3 hologram(vec2 uv) {
-    vec2 p=uv+tilt*.025;
-    vec3 col=vec3(.035,.028,.10);
-    float n=fbm(p*4.0+vec2(clockTime*motion*.006,0));
-    float band=exp(-pow((p.x-.52+sin(p.y*5.0)*.12)*3.0,2.0));
-    col+=mix(vec3(.04,.11,.22),vec3(.25,.075,.31),n)*band*(.35+n);
-    for(int layer=0;layer<3;layer++) {
-        float d=float(layer)+1.0;
-        vec2 s=p*vec2(35.0,55.0)/d+tilt*.12*d;
-        vec2 cell=floor(s); vec2 pos=fract(s)-vec2(hash(cell),hash(cell+2.0));
-        float star=(1.0-smoothstep(0.0,.045,length(pos)))*step(.94,hash(cell+5.0));
-        col+=vec3(.55,.75,1.0)*star*(.35+.2*d);
+vec3 starEnvironment(vec2 uv) {
+    float t=clockTime*motion;
+    vec2 q=photoCover(uv,2.0,.86)+tilt*.009+vec2(sin(t*.012)*.012,0);
+    vec3 col=texture2D(celestialSky,vec2(clamp(q.x,.002,.998),clamp(1.0-q.y,.004,.996)*.5)).rgb;
+    // A sparse nearer layer moves separately from the photographed distant sky.
+    vec2 p=(uv-.5)*resolution/min(resolution.x,resolution.y);
+    for(int layer=0;layer<2;layer++) {
+        float k=float(layer)+1.0;vec2 s=(p+tilt*.012*k)*48.0/k;
+        vec2 cell=floor(s),f=fract(s)-.5;
+        float star=(1.0-smoothstep(.012,.070,length(f)))*step(.992,hash(cell+k*13.0));
+        col+=vec3(.68,.78,.92)*star*(.55+.10*sin(t*.35+hash(cell)*6.28));
     }
-    vec2 pp=(uv-vec2(.78,.69)-tilt*.045)*vec2(resolution.x/resolution.y,1.0);
-    float r=.092;
-    float edge=1.0-smoothstep(r-.001,r+.002,length(pp));
-    vec3 normal=normalize(vec3(pp/r,sqrt(max(0.0,1.0-dot(pp/r,pp/r)))));
-    float lighting=max(.08,dot(normal,normalize(vec3(-.7,.7,.8))));
-    col=mix(col,vec3(.18,.43,.68)*lighting,edge);
-    col+=vec3(.09,.18,.36)*exp(-abs(length(pp)-r)*130.0)*.5;
+    return col;
+}
+vec3 hologram(vec2 uv) {
+    float t=clockTime*motion;vec3 col=starEnvironment(uv);
+    vec2 aspect=resolution/min(resolution.x,resolution.y);
+    vec2 p=(uv-vec2(.56,.60))*aspect-tilt*.055;
+    float radius=.31,r=length(p)/radius,edge=1.0-smoothstep(.995,1.006,r);
+    if(r<1.006) {
+        vec3 n=normalize(vec3(p/radius,sqrt(max(.00001,1.0-r*r))));
+        vec2 map=vec2(fract(atan(n.z,n.x)/6.283185+.5+t*.0022),acos(clamp(n.y,-1.0,1.0))/3.141593);
+        vec3 albedo=texture2D(celestialMaterial,vec2(map.x,.002+map.y*.496)).rgb;
+        vec3 light=normalize(vec3(-.85,.65,.75));float diffuse=max(0.0,dot(n,light));
+        float ocean=smoothstep(.04,.15,albedo.b-max(albedo.r,albedo.g));
+        float specular=pow(max(0.0,dot(n,normalize(light+vec3(0,0,1)))),65.0)*ocean;
+        float rim=pow(1.0-n.z,3.0)*(.25+.75*diffuse);
+        vec3 surface=albedo*(.035+.965*diffuse)+vec3(.6,.76,.9)*specular*.38+vec3(.07,.25,.47)*rim;
+        col=mix(col,surface,edge);
+    }
+    float atmosphere=exp(-max(0.0,r-1.0)*85.0)*smoothstep(.97,1.008,r);
+    col+=vec3(.035,.12,.24)*atmosphere*(.35+.65*smoothstep(-.3,.3,p.y-p.x));
+    return col;
+}
+vec3 asteroidField(vec2 uv) {
+    float t=clockTime*motion;vec3 col=starEnvironment(uv);
+    vec2 aspect=resolution/min(resolution.x,resolution.y),p=(uv-.5)*aspect;
+    for(int i=0;i<5;i++) {
+        float k=float(i);vec2 center;float size;
+        if(i==0){center=vec2(.24,.82);size=.080;}
+        else if(i==1){center=vec2(.76,.67);size=.14;}
+        else if(i==2){center=vec2(.27,.39);size=.19;}
+        else if(i==3){center=vec2(.78,.20);size=.10;}
+        else {center=vec2(.49,.57);size=.045;}
+        vec2 drift=vec2(sin(t*(.025+k*.004)+k),cos(t*(.021+k*.003)+k))*vec2(.012,.018);
+        vec2 q=rotate(k*1.9+t*(.012+k*.002))*(p-(center-.5)*aspect-tilt*(.018+size*.32)-drift)/size;
+        q/=vec2(1.0,.84+k*.025);
+        float angle=atan(q.y,q.x),shape=1.0+.075*sin(angle*3.0+k*2.0)+.035*sin(angle*7.0-k);
+        float r=length(q)/shape;
+        if(r<1.018) {
+            vec3 n=normalize(vec3(q/shape,sqrt(max(.0001,1.0-r*r))));
+            vec3 mapped=n;mapped.xz=rotate(t*(.018+k*.003)+k)*mapped.xz;
+            vec2 map=vec2(fract(atan(mapped.z,mapped.x)/6.283185+.5),acos(clamp(mapped.y,-1.0,1.0))/3.141593);
+            vec2 tex=vec2(.002+map.x*.496,.502+map.y*.496);
+            vec3 rock=texture2D(celestialMaterial,tex).rgb;
+            float dx=dot(texture2D(celestialMaterial,tex+vec2(.0015,0)).rgb-texture2D(celestialMaterial,tex-vec2(.0015,0)).rgb,vec3(.333));
+            float dy=dot(texture2D(celestialMaterial,tex+vec2(0,.0015)).rgb-texture2D(celestialMaterial,tex-vec2(0,.0015)).rgb,vec3(.333));
+            vec3 normal=normalize(n+vec3(-dx*1.3,dy*1.3,0));
+            float diffuse=max(0.0,dot(normal,normalize(vec3(-.65,.8,1.0))));
+            vec3 surface=rock*vec3(.96,.94,.91)*(.035+diffuse*1.18);
+            col=mix(col,surface,1.0-smoothstep(.995,1.012,r));
+        }
+    }
     return col;
 }
 
@@ -242,26 +291,20 @@ float segmentDistance(vec2 p,vec2 a,vec2 b){vec2 v=b-a;return length(p-a-v*clamp
 vec3 focusScene(vec2 uv) {
     float t=clockTime*motion,aspect=resolution.x/resolution.y;
     vec2 cityUV=photoCover(uv,2.0/3.0,.82)+tilt*.023;
-    vec3 col=cityPhoto(cityUV,1.0)*.86;
-    vec2 p=(uv-.5)*vec2(aspect,1.0);float scale=min(aspect/.60,1.55);
-    vec2 movement=tilt*vec2(.095,.075)+vec2(sin(t*.17)*.007,cos(t*.13)*.004);
-    vec2 g=rotate(tilt.x*.07)*(p-movement-vec2(0,-.025))/scale;
-    float arms=min(segmentDistance(g,vec2(-.264,.025),vec2(-.320,.115)),segmentDistance(g,vec2(.264,.025),vec2(.320,.115)));
-    float arm=1.0-smoothstep(.010,.016,arms);col=mix(col,vec3(.022,.025,.029),arm);
-    float bridge=(1.0-smoothstep(.005,.011,abs(g.y-(.034+.012*cos(g.x*45.0)))))*(1.0-smoothstep(.026,.040,abs(g.x)));
-    col=mix(col,vec3(.030,.027,.026),bridge);
-    for(int i=0;i<2;i++) {
-        float side=float(i)*2.0-1.0;vec2 q=g-vec2(side*.145,0);q.y+=q.x*side*.045;q.x*=1.0+q.y*.42;
-        float sd=roundedBox(q,vec2(.122,.095),.041),lens=1.0-smoothstep(-.003,.001,sd);
-        vec2 lensUV=cityUV+q*vec2(.014,.016)+tilt*.002;
-        vec3 clear=cityPhoto(lensUV,0.0)*vec3(.98,1.0,1.025);float edge=1.0-smoothstep(0.0,.020,-sd);
-        vec3 reflected=skyPhoto(clamp(.5+q*1.5+tilt*.12,.02,.98));clear=mix(clear,reflected,.018+edge*.085);
-        float streak=exp(-pow((q.x+.65*q.y+.06+sin(t*.15)*.014)*140.0,2.0));clear+=vec3(.11,.16,.20)*streak*.32;
-        col=mix(col,clear,lens);
-        float rim=(1.0-smoothstep(.014,.018,abs(sd-.004)))*smoothstep(-.004,.002,sd),bevel=exp(-pow((sd-.013)*250.0,2.0));
-        vec3 acetate=vec3(.018,.015,.014)+vec3(.08,.066,.051)*(.5+.5*side*q.x*5.0);
-        acetate+=vec3(.22,.26,.29)*bevel*(.12+.88*smoothstep(-.06,.06,q.y));col=mix(col,acetate,rim);
-        float hinge=1.0-smoothstep(.002,.005,length(q-vec2(side*.116,.034)));col=mix(col,vec3(.64,.65,.61),hinge);
+    vec3 col=cityPhoto(cityUV,1.0)*.94;
+    vec2 p=(uv-.5)*vec2(aspect,1.0);float scale=min(aspect*.96,.95);
+    vec2 movement=tilt*vec2(.075,.065)+vec2(sin(t*.17)*.006,cos(t*.13)*.003);
+    vec2 q=rotate(tilt.x*.055)*(p-movement)/scale+vec2(.5);
+    if(q.x>.002&&q.x<.998&&q.y>.002&&q.y<.998) {
+        vec2 tex=vec2(q.x*.5,1.0-q.y);
+        vec4 frame=texture2D(opticalFrame,tex);
+        vec2 mask=texture2D(opticalFrame,tex+vec2(.5,0)).rg;
+        float edge=1.0-mask.g;
+        vec3 clear=cityPhoto(cityUV+(q-.5)*(.0015+edge*.003)+tilt*.001,0.0)*vec3(.98,1.0,1.015);
+        float reflection=exp(-pow((q.x+q.y*.55-.67+tilt.x*.035+sin(t*.15)*.012)*70.0,2.0));
+        clear+=vec3(.10,.14,.18)*(reflection*.35+edge*.08);
+        col=mix(col,clear,mask.r);
+        col=mix(col,frame.rgb,frame.a);
     }
     return col;
 }
@@ -322,28 +365,18 @@ vec3 lavaScene(vec2 uv) {
 }
 
 vec3 aurora(vec2 uv) {
-    vec2 p=uv+tilt*.024;
-    float t=clockTime*motion*.075,horizon=.27;
-    vec2 sky=vec2(p.x,horizon+abs(p.y-horizon));
-    vec3 col=mix(vec3(.018,.055,.105),vec3(.008,.017,.05),smoothstep(horizon,1.0,sky.y));
-    for(int i=0;i<3;i++) {
-        float k=float(i);
-        float curtain=.47+k*.105+sin(sky.x*5.0+t+k*1.8)*.07+sin(sky.x*13.0-t*.5+k)*.025;
-        float delta=sky.y-curtain;
-        float ribbon=exp(-max(0.0,delta)*12.0)*smoothstep(-.018,.012,delta);
-        ribbon*=.45+.55*noise(vec2(sky.x*38.0+t,sky.y*.8+k));
-        col+=mix(vec3(.025,.48,.38),vec3(.25,.10,.47),k*.4)*ribbon*.72;
-    }
-    vec2 stars=(sky+tilt*.012)*vec2(75,120),cell=floor(stars),f=fract(stars)-.5;
-    col+=vec3(.4,.55,.7)*(1.0-smoothstep(.015,.085,length(f)))*step(.979,hash(cell));
-    float mountain=horizon+.035+sin(p.x*16.0)*.022+sin(p.x*31.0+1.0)*.013;
-    float ridge=1.0-smoothstep(mountain-.002,mountain+.002,sky.y);
-    col=mix(col,vec3(.012,.028,.047),ridge);
-    if(p.y<horizon){
-        float shimmer=sin(p.y*185.0+t*2.0+sin(p.x*17.0)*1.5)*.5+.5;
-        col*=.40+.13*shimmer;col+=vec3(.018,.06,.075)*exp(-abs(p.y-horizon)*8.0);
-    }
-    return col;
+    float t=clockTime*motion;vec3 col=starEnvironment(uv)*.65+vec3(.003,.009,.017);
+    vec2 light=photoCover(uv,1.25,.80)+tilt*.020;
+    light.x+=sin(light.y*5.0+t*.16)*.035+sin(t*.07)*.025;
+    light.y+=sin(light.x*8.0-t*.12)*.025+sin(light.x*21.0+t*.20)*.007;
+    vec3 curtain=texture2D(celestialSky,vec2(clamp(light.x,.003,.997),.502+clamp(1.0-light.y,.003,.997)*.496)).rgb;
+    float breathing=.82+.10*sin(t*.21)+.08*sin(light.x*9.0-t*.28);
+    col+=curtain*breathing*.88;
+    // Portrait keeps the whole ridge; wide screens show additional terrain width.
+    float aspect=resolution.x/resolution.y;
+    vec2 terrain=vec2(.5+(uv.x-.5)*min(1.0,aspect)*.92,1.0-uv.y*.88)+vec2(tilt.x*.035,-tilt.y*.025);
+    vec4 mountain=texture2D(alpineForeground,clamp(terrain,vec2(.003),vec2(.997)));
+    return mix(col,mountain.rgb*.76,min(1.0,mountain.a*1.025));
 }
 
 vec3 reef(vec2 uv) {
@@ -403,7 +436,8 @@ void main() {
     else if(mode<6.5) col=reef(uv);
     else if(mode<7.5) col=focusScene(uv);
     else if(mode<8.5) col=iceScene(uv);
-    else col=lavaScene(uv);
+    else if(mode<9.5) col=lavaScene(uv);
+    else col=asteroidField(uv);
     // A gentle vignette keeps labels legible without flattening the scene.
     float vignette=1.0-.24*pow(length((uv-.5)*vec2(.8,1.0)),1.4);
     col*=vignette;

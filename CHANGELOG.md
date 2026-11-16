@@ -1,3 +1,12 @@
+# 0.8.7 — 2026-11-16
+
+- Replace City in Focus's procedural frame with photographic glasses and matching transparent lens masks; reduce city-background blur while keeping the same sharp city registered inside the moving lenses.
+- Rebuild Aurora Veil with photographic alpine mountains and independently moving northern lights over stars. Keep the opaque terrain stationary during ambient sky motion.
+- Render Holographic Depth as a rotating textured planet with directional sunlight, an ocean highlight and a thin atmosphere against a photographic starfield.
+- Append Asteroid Field with five irregular, crater-textured rocks, independent drift/rotation and depth-sensitive parallax. Preserve all existing scene IDs and backup selections.
+- Share four material slots between scene families within GLES2's eight-sampler budget. Restore the original aquatic/glass/ice/lava textures when returning to those scenes, including after context recreation.
+- Refresh gallery thumbnails from the shipped shader. Extend native realism checks to all changed scenes and aquatic transitions; extend local GLES checks to actual landscape pixels, exact texture-bank round trips and independently animated aurora.
+
 # 0.7.8
 
 - Animate caustic light across pond stones and reef rocks, plus drifting jellyfish-scene light shafts and surface glints. Add Aquatic light intensity while retaining motion/pause controls.

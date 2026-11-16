@@ -30,7 +30,7 @@ assert initialize(d, C.byref(major), C.byref(minor)), 'EGL initialization failed
 config, count = P(), I()
 assert choose(d, (I*13)(0x3024,8,0x3023,8,0x3022,8,0x3033,1,0x3040,4,0x3038,0,0), C.byref(config), 1, C.byref(count)) and count.value
 width, height = 540, 1000
-surface = create_surface(d, config, (I*5)(0x3057,width,0x3056,height,0x3038))
+surface = create_surface(d, config, (I*5)(0x3057,max(width,height),0x3056,max(width,height),0x3038))
 context = create_context(d, config, None, (I*3)(0x3098,2,0x3038))
 assert context and surface and make_current(d,surface,surface,context), 'GLES context failed'
 
@@ -73,28 +73,39 @@ gen_textures=gl('glGenTextures',None,I,C.POINTER(U));active_texture=gl('glActive
 bind_texture=gl('glBindTexture',None,U,U);texture_parameter=gl('glTexParameteri',None,U,U,I)
 texture_image=gl('glTexImage2D',None,U,I,I,I,I,I,U,U,P);u1i=gl('glUniform1i',None,I,I)
 textures=(U*8)();gen_textures(8,textures)
-for unit,(name,filename) in enumerate([('pondBed','pond_bed'),('koiFish','koi_fish'),('reefWater','reef_water'),('jellyfish','jellyfish'),('glassSky','glass_sky'),('focusCity','focus_city'),('iceMaterial','ice_material'),('lavaMaterial','lava_material')]):
+def upload_texture(unit,filename):
     image=Image.open(root/f'app/src/main/res/drawable-nodpi/{filename}.webp').convert('RGBA')
     active_texture(0x84C0+unit);bind_texture(0x0DE1,textures[unit])
     for key,value in [(0x2801,0x2601),(0x2800,0x2601),(0x2802,0x812F),(0x2803,0x812F)]:texture_parameter(0x0DE1,key,value)
     data=(C.c_ubyte*(image.width*image.height*4)).from_buffer_copy(image.tobytes())
     texture_image(0x0DE1,0,0x1908,image.width,image.height,0,0x1908,0x1401,C.cast(data,P))
+for unit,(name,filename) in enumerate([('pondBed','pond_bed'),('koiFish','koi_fish'),('reefWater','reef_water'),('jellyfish','jellyfish'),('glassSky','glass_sky'),('focusCity','focus_city'),('iceMaterial','ice_material'),('lavaMaterial','lava_material')]):
+    if unit not in (3,4,6,7):upload_texture(unit,filename)
     u1i(uniform(p,name.encode()),unit)
+shared_bank=-1
+def set_mode(chosen):
+    global shared_bank
+    bank=int(chosen in (2,5,7,10))
+    if bank!=shared_bank:
+        names=('optical_frame','alpine_foreground','celestial_material','celestial_sky') if bank else ('jellyfish','glass_sky','ice_material','lava_material')
+        for unit,name in zip((3,4,6,7),names):upload_texture(unit,name)
+        shared_bank=bank
+    u1(uniform(p,b'mode'),chosen)
 quad=(F*8)(-1,-1,1,-1,-1,1,1,1);a=attribute(p,b'position');enable(a);vertex(a,2,0x1406,0,0,C.cast(quad,P));viewport(0,0,width,height)
 u2(uniform(p,b'resolution'),width,height)
 u3v(uniform(p,b'touches[0]'),4,(F*12)(0,0,-100,0,0,-100,0,0,-100,0,0,-100))
 for name,value in [('clockTime',20),('motion',1),('fishCount',5),('fishSpeed',.6),('rippleEnabled',1),('shadowEnabled',1),('waterLight',.75)]:u1(uniform(p,name.encode()),value)
 results=[]
-for mode in range(10):
-    u1(uniform(p,b'mode'),mode);u2(uniform(p,b'tilt'),0,0);draw(5,0,4);finish();assert error()==0
+for mode in range(11):
+    set_mode(mode);u2(uniform(p,b'tilt'),0,0);draw(5,0,4);finish();assert error()==0
     pixels=(C.c_ubyte*(width*height*4))();read(0,0,width,height,0x1908,0x1401,pixels)
     image=Image.frombytes('RGBA',(width,height),bytes(pixels)).transpose(Image.Transpose.FLIP_TOP_BOTTOM).convert('RGB')
     assert len(image.getcolors(width*height) or [])>100,'Scene is blank or uniform'
     image.save(out/f'mode-{mode}.png');results.append({'mode':mode,'center':image.getpixel((width//2,height//2))})
 # New scenes must animate, freeze with ambient motion disabled, and respond to tilt.
-for mode in range(3,10):
+for mode in range(2,11):
     def frame(time, moving, x=0, y=0):
-        u1(uniform(p,b'mode'),mode);u1(uniform(p,b'clockTime'),time);u1(uniform(p,b'motion'),moving);u2(uniform(p,b'tilt'),x,y)
+        set_mode(mode);u1(uniform(p,b'clockTime'),time);u1(uniform(p,b'motion'),moving);u2(uniform(p,b'tilt'),x,y)
         draw(5,0,4);finish();assert error()==0
         pixels=(C.c_ubyte*(width*height*4))();read(0,0,width,height,0x1908,0x1401,pixels)
         return bytes(pixels)
@@ -103,7 +114,7 @@ for mode in range(3,10):
     assert frame(2,1)!=frame(45,1),'Ambient scene is static'
     assert paused!=frame(2,0,.6,-.3),'Parallax scene ignores tilt'
 # Fish controls change the textured animals, rather than only changing their caption.
-u1(uniform(p,b'mode'),3);u1(uniform(p,b'motion'),1);u1(uniform(p,b'clockTime'),20);u2(uniform(p,b'tilt'),0,0)
+set_mode(3);u1(uniform(p,b'motion'),1);u1(uniform(p,b'clockTime'),20);u2(uniform(p,b'tilt'),0,0)
 def aquatic_frame():
     draw(5,0,4);finish();assert error()==0
     data=(C.c_ubyte*(width*height*4))();read(0,0,width,height,0x1908,0x1401,data)
@@ -114,7 +125,7 @@ u1(uniform(p,b'fishSpeed'),.6)
 # Isolate new light from animal movement: compare lit/unlit differences at equal times.
 import numpy as np
 for checked in (3,6):
-    u1(uniform(p,b'mode'),checked);u1(uniform(p,b'fishCount'),0);u2(uniform(p,b'tilt'),0,0)
+    set_mode(checked);u1(uniform(p,b'fishCount'),0);u2(uniform(p,b'tilt'),0,0)
     def light_frame(time,moving,strength):
         u1(uniform(p,b'clockTime'),time);u1(uniform(p,b'motion'),moving);u1(uniform(p,b'waterLight'),strength)
         return np.frombuffer(aquatic_frame(),dtype=np.uint8).reshape(height,width,4)[::-1].astype(np.int16)
@@ -132,7 +143,7 @@ for checked in (3,6):
         assert np.mean(np.abs(a[upper]-b[upper]))>.1,'Jellyfish light shafts do not move'
 # Maximum supported camera tilt must retain real texture detail across the top edge.
 for checked in (3,6):
-    u1(uniform(p,b'mode'),checked);u1(uniform(p,b'motion'),0)
+    set_mode(checked);u1(uniform(p,b'motion'),0)
     for tx,ty in ((1.5,1.5),(-1.5,-1.5)):
         u2(uniform(p,b'tilt'),tx,ty)
         pixels=np.frombuffer(aquatic_frame(),dtype=np.uint8).reshape(height,width,4)[::-1].astype(np.int16)
@@ -141,13 +152,36 @@ for checked in (3,6):
         Image.fromarray(pixels[:,:,:3].clip(0,255).astype(np.uint8)).save(out/f'edge-{checked}-{tx}.png')
 u1(uniform(p,b'waterLight'),.75);u1(uniform(p,b'fishCount'),5)
 
-# Landscape shader draw without relying on a virtual device rotation.
+# A bank change must restore exactly the same animals/materials at a frozen time.
+u1(uniform(p,b'motion'),0);u1(uniform(p,b'clockTime'),20);u2(uniform(p,b'tilt'),0,0)
+baselines={}
+for checked in (3,6,4,8,9):
+    set_mode(checked);baselines[checked]=aquatic_frame()
+for checked in (2,3,5,6,7,4,10,8,2,9,7,6,10,3):
+    set_mode(checked)
+    result=aquatic_frame()
+    if checked in baselines:assert result==baselines[checked],f'Scene {checked} changed after a texture-bank round trip'
+
+# Animate the aurora while keeping the photographic mountain foreground still.
+set_mode(5);u1(uniform(p,b'motion'),1)
+u1(uniform(p,b'clockTime'),2);a=np.frombuffer(aquatic_frame(),dtype=np.uint8).reshape(height,width,4)[::-1].astype(np.int16)
+u1(uniform(p,b'clockTime'),18);b=np.frombuffer(aquatic_frame(),dtype=np.uint8).reshape(height,width,4)[::-1].astype(np.int16)
+assert np.mean(np.abs(a[:height//3,:,:3]-b[:height//3,:,:3]))>.1,'Aurora sky is static'
+assert np.array_equal(a[height*4//5:,:,:3],b[height*4//5:,:,:3]),'Aurora animation moves the mountain foreground'
+
+# Render real landscape pixels without relying on virtual device rotation.
+viewport(0,0,height,width)
 u2(uniform(p,b'resolution'),height,width)
-for mode in range(10):
-    u1(uniform(p,b'mode'),mode);draw(5,0,4);finish();assert error()==0
+for mode in range(11):
+    set_mode(mode);draw(5,0,4);finish();assert error()==0
+    pixels=(C.c_ubyte*(width*height*4))();read(0,0,height,width,0x1908,0x1401,pixels)
+    image=Image.frombytes('RGBA',(height,width),bytes(pixels)).transpose(Image.Transpose.FLIP_TOP_BOTTOM).convert('RGB')
+    assert len(image.getcolors(width*height) or [])>100,'Landscape scene is blank or uniform'
+    image.save(out/f'mode-{mode}-landscape.png')
+viewport(0,0,width,height)
 u2(uniform(p,b'resolution'),width,height);u1(uniform(p,b'motion'),1);u1(uniform(p,b'clockTime'),20)
 # Exercise tilted pond and an active touch ripple.
-u1(uniform(p,b'mode'),3);u2(uniform(p,b'tilt'),.7,-.3);u3v(uniform(p,b'touches[0]'),4,(F*12)(.5,.5,19.7,0,0,-100,0,0,-100,0,0,-100));draw(5,0,4);finish();assert error()==0
+set_mode(3);u2(uniform(p,b'tilt'),.7,-.3);u3v(uniform(p,b'touches[0]'),4,(F*12)(.5,.5,19.7,0,0,-100,0,0,-100,0,0,-100));draw(5,0,4);finish();assert error()==0
 pixels=(C.c_ubyte*(width*height*4))();read(0,0,width,height,0x1908,0x1401,pixels)
 Image.frombytes('RGBA',(width,height),bytes(pixels)).transpose(Image.Transpose.FLIP_TOP_BOTTOM).save(out/'pond-tilt-ripple.png')
 # Compile the exact shipped lit-mesh shaders, too.

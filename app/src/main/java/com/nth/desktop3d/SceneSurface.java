@@ -33,6 +33,14 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
     private int mPosition, mNormal, mMatrix, mNormalMatrix;
     private final int[] sceneTextures=new int[8];
     private final int[] sceneUniforms=new int[8];
+    // GLES2 guarantees eight fragment samplers. Swap four unused materials on the GL
+    // thread instead of requiring twelve samplers or retaining all decoded bitmaps.
+    private int textureBank=-1;
+    private static final int[] BANK_SLOTS={3,4,6,7};
+    private static final int[][] BANK_IMAGES={
+        {R.drawable.jellyfish,R.drawable.glass_sky,R.drawable.ice_material,R.drawable.lava_material},
+        {R.drawable.optical_frame,R.drawable.alpine_foreground,R.drawable.celestial_material,R.drawable.celestial_sky}
+    };
     public SceneSurface(Context context) {
         super(context);
         String source;
@@ -91,8 +99,9 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
         uSpeed=GLES20.glGetUniformLocation(program,"fishSpeed");uRipple=GLES20.glGetUniformLocation(program,"rippleEnabled");uShadow=GLES20.glGetUniformLocation(program,"shadowEnabled");uTouches=GLES20.glGetUniformLocation(program,"touches");
         uWaterLight=GLES20.glGetUniformLocation(program,"waterLight");
         String[] names={"pondBed","koiFish","reefWater","jellyfish","glassSky","focusCity","iceMaterial","lavaMaterial"};
-        int[] images={R.drawable.pond_bed,R.drawable.koi_fish,R.drawable.reef_water,R.drawable.jellyfish,R.drawable.glass_sky,R.drawable.focus_city,R.drawable.ice_material,R.drawable.lava_material};
+        int[] images={R.drawable.pond_bed,R.drawable.koi_fish,R.drawable.reef_water,0,0,R.drawable.focus_city,0,0};
         GLES20.glGenTextures(8,sceneTextures,0);
+        textureBank=-1;
         for(int i=0;i<8;i++){
             sceneUniforms[i]=GLES20.glGetUniformLocation(program,names[i]);
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0+i);GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,sceneTextures[i]);
@@ -100,29 +109,41 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_MAG_FILTER,GLES20.GL_LINEAR);
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_WRAP_S,GLES20.GL_CLAMP_TO_EDGE);
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_WRAP_T,GLES20.GL_CLAMP_TO_EDGE);
-            BitmapFactory.Options options=new BitmapFactory.Options();options.inScaled=false;options.inPremultiplied=false;options.inPreferredConfig=Bitmap.Config.ARGB_8888;
-            Bitmap image=BitmapFactory.decodeResource(getResources(),images[i],options);
-            if(image==null)throw new IllegalStateException("Missing scene texture");
-            try{GLUtils.texImage2D(GLES20.GL_TEXTURE_2D,0,image,0);}finally{image.recycle();}
+            if(images[i]!=0)uploadTexture(i,images[i]);
         }
         meshProgram=link("attribute vec3 position;attribute vec3 normal;uniform mat4 matrix;uniform mat4 normalMatrix;varying vec3 n;void main(){n=mat3(normalMatrix)*normal;gl_Position=matrix*vec4(position,1.0);}",
             "precision mediump float;varying vec3 n;void main(){vec3 N=normalize(n);float d=.27+.73*max(0.0,dot(N,normalize(vec3(-.4,.8,1.0))));float rim=pow(1.0-abs(N.z),3.0);gl_FragColor=vec4(vec3(.40,.64,.94)*d+vec3(.12,.18,.25)*rim,1.0);}");
         mPosition=GLES20.glGetAttribLocation(meshProgram,"position");mNormal=GLES20.glGetAttribLocation(meshProgram,"normal");mMatrix=GLES20.glGetUniformLocation(meshProgram,"matrix");mNormalMatrix=GLES20.glGetUniformLocation(meshProgram,"normalMatrix");
     }
+    private void uploadTexture(int unit,int resource) {
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0+unit);GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,sceneTextures[unit]);
+        BitmapFactory.Options options=new BitmapFactory.Options();options.inScaled=false;options.inPremultiplied=false;options.inPreferredConfig=Bitmap.Config.ARGB_8888;
+        Bitmap image=BitmapFactory.decodeResource(getResources(),resource,options);
+        if(image==null)throw new IllegalStateException("Missing scene texture");
+        try{GLUtils.texImage2D(GLES20.GL_TEXTURE_2D,0,image,0);}finally{image.recycle();}
+    }
+    private void selectTextureBank(int mode) {
+        int bank=mode==2||mode==5||mode==7||mode==10?1:0;
+        if(textureBank==bank)return;
+        for(int i=0;i<BANK_SLOTS.length;i++)uploadTexture(BANK_SLOTS[i],BANK_IMAGES[bank][i]);
+        textureBank=bank;
+    }
     @Override public void onSurfaceChanged(GL10 gl,int w,int h) { width=w;height=h;GLES20.glViewport(0,0,w,h);Matrix.perspectiveM(projection,0,42,(float)w/h,.1f,100); }
     @Override public void onDrawFrame(GL10 gl) {
         if(width==0 || height==0)return;
+        int selectedMode=sceneMode;
+        selectTextureBank(selectedMode);
         float t=(SystemClock.uptimeMillis()-start)/1000f;
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glDisable(GLES20.GL_DEPTH_TEST);
         GLES20.glUseProgram(program);quad.position(0);GLES20.glEnableVertexAttribArray(aPosition);GLES20.glVertexAttribPointer(aPosition,2,GLES20.GL_FLOAT,false,0,quad);
         for(int i=0;i<8;i++){GLES20.glActiveTexture(GLES20.GL_TEXTURE0+i);GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,sceneTextures[i]);GLES20.glUniform1i(sceneUniforms[i],i);}
         GLES20.glUniform2f(uResolution,width,height);float cameraX=SceneMath.clamp(tiltX,-1,1),cameraY=SceneMath.clamp(tiltY,-1,1);GLES20.glUniform2f(uTilt,reduced||!crystalParallax?0:SceneMath.clamp(cameraX*strength*crystalDepth*2f*crystalMotion/0.35f,-1.5f,1.5f),reduced||!crystalParallax?0:SceneMath.clamp(cameraY*strength*crystalDepth*2f*crystalMotion/0.35f,-1.5f,1.5f));
-        GLES20.glUniform1f(uTime,t);GLES20.glUniform1f(uMotion,ambient?1:0);GLES20.glUniform1f(uMode,sceneMode);GLES20.glUniform1f(uCount,count);
+        GLES20.glUniform1f(uTime,t);GLES20.glUniform1f(uMotion,ambient?1:0);GLES20.glUniform1f(uMode,selectedMode);GLES20.glUniform1f(uCount,count);
         GLES20.glUniform1f(uSpeed,speed);GLES20.glUniform1f(uRipple,ripple?1:0);GLES20.glUniform1f(uShadow,shadows&&crystalShadows?1:0);
         GLES20.glUniform1f(uWaterLight,waterLight);
         synchronized(touchData){GLES20.glUniform3fv(uTouches,4,touchData,0);}
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP,0,4);GLES20.glDisableVertexAttribArray(aPosition);
-        if(sceneMode<2) {
+        if(selectedMode<2) {
             GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glUseProgram(meshProgram);
             Matrix.setLookAtM(view,0,(crystalParallax?tiltX:0)*strength*crystalDepth*.28f,(crystalParallax?tiltY:0)*strength*crystalDepth*.28f,5,0,0,0,0,1,0);
             Matrix.setIdentityM(model,0);Matrix.translateM(model,0,.48f,-.35f,0);
