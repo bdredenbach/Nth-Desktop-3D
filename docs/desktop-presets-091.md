@@ -22,7 +22,7 @@ Open Settings → Desktop presets, or the shortcut at the top of Look & feel. Sa
 
 - Included: all desktop pages/names, Home/current page, app/folder identities/order/coordinates, Gravity pin/position state, fitted grid information, dock slots, gesture targets, visual and launcher settings, app-owned photo bytes, applied layered scene and widget provider/profile/geometry/padding records.
 - Shared: notes, card content, Android permissions/consent and installed app/profile availability. Switching presets does not restore old copies of personal content. Android wallpaper mode uses the current system wallpaper; another app's wallpaper state is not captured.
-- Widget bindings and Android shortcut pins referenced by any saved preset or the Undo snapshot are retained, including when an active placement is removed. Available bindings are reused on apply. Removed providers/profiles require reconnection through Restore widgets. Retired, inactive widget bindings are cleaned up only after their final saved/Undo/active reference is gone.
+- Widget bindings and Android shortcut pins referenced by any saved preset or the Undo snapshot are retained, including when an active placement is removed. Available bindings are reused on apply. Removed providers/profiles require reconnection through Backup & restore → Restore widgets; then Update from current desktop retains the new connection in that preset. Retired, inactive widget bindings are cleaned up only after their final saved/Undo/active reference is gone.
 
 ## Storage and failure handling
 
@@ -34,6 +34,12 @@ Deleting/replacing entries schedules only known retired widget IDs for cleanup. 
 
 ## Verification
 
-The local checks cover Google/release builds and lint, JVM tests, and Android-test compilation. Native `presets` smoke covers fresh defaults, complete asset/layout/settings round trips, shared-content preservation, real widget binding retention/cleanup, pinned-shortcut references, restart/Undo, corrupted-file rejection, name/capacity limits, native Save/Cancel/Apply/Undo, settings ordering, removed Stack option and the five palette captures. The `folders` suite separately exercises physical opening/closing. Results and remaining phone limitations are recorded with the delivered APK; a clean full regression result is not implied by these focused checks. Previous broad gesture/setup/rotation and emulator failures remain outside this trial unless reproduced and fixed explicitly.
+Google/release builds and lint passed locally (zero errors, 83 warnings per variant), all 98 JVM tests passed, and the Android-test APK compiled. The same source passed the GitHub build job.
+
+Native `presets` smoke passed on Android 11 for commit 9db2aec787dcde8cfa8ea9b382913b78bb1a2106, run 43930526589, job 133521388031: one complete suite, zero failures/errors/skips. It covers fresh defaults, complete asset/layout/settings round trips, shared-content preservation, real widget binding retention/cleanup, pinned-shortcut references, restart/Undo, corrupted/missing-file rejection, name/capacity limits, native Save/Cancel/Apply/Undo, settings ordering and the removed Stack option. Folder, Interaction and Realism suites also passed in that run.
+
+The retained captures show orange preset surfaces and the revised icon-shell colors. Several scene captures sampled the software renderer while a panel or background was still settling; they do not establish final phone motion/appearance. Physical phone review is pending.
+
+The broad regression remains mixed: setup return after choosing Home, settings rotation and widget gesture/window assertions failed, and Workspace did not complete its test. These are recorded limits, not a clean full regression pass. No fixes to those broader behaviors are claimed in this trial.
 
 Trial 4 stays queued for owner review of Trial 3.
