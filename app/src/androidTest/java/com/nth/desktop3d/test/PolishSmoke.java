@@ -20,10 +20,11 @@ final class PolishSmoke {
     void run()throws Exception{
         main(()->{fadePixels();iconAlignment();});
         invoke("showSettings",new Class[]{String.class},"look");
+        main(()->findText("Advanced  ▾").performClick());
         check(findText("Opacity over content  ·  90")!=null&&findText("Fade width  ·  80")!=null,"Fresh install glass defaults are not 90/80");
         SharedPreferences prefs=test.getTargetContext().getSharedPreferences("desktop3d",0);
         main(()->prefs.edit().putBoolean("card_photos",true).apply());
-        main(()->prefs.edit().putInt("glass_strength",70).putInt("glass_feather",40).putBoolean("adaptive_glass",false).apply());invoke("showSettings",new Class[]{String.class},"look");
+        main(()->prefs.edit().putInt("glass_strength",70).putInt("glass_feather",40).putBoolean("adaptive_glass",false).apply());invoke("showSettings",new Class[]{String.class},"look");main(()->findText("Advanced  ▾").performClick());
         check(findText("Opacity over content  ·  70")!=null&&findText("Fade width  ·  40")!=null,"User glass preferences were overwritten");
         main(()->prefs.edit().putInt("glass_strength",90).putInt("glass_feather",80).putBoolean("adaptive_glass",true).apply());invoke("showSettings",new Class[]{String.class},"root");
         View list=find(activity.getWindow().getDecorView(),v->v.getClass().getSimpleName().equals("FadingSettingsScrollView"));main(()->((ScrollView)list).scrollTo(0,280));idle(300);capture("settings-fade-boundary");
