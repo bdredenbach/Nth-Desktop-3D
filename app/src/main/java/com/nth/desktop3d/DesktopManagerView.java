@@ -53,7 +53,7 @@ final class DesktopManagerView extends LinearLayout {
     void dispose(){disposed=true;cancelDragAndDrop();main.removeCallbacksAndMessages(null);}
     private final class Miniature extends View {
         private final int page;private final Paint paint=new Paint(3);private final Drawable background;private final Path clip=new Path();
-        Miniature(Context c,int page){super(c);this.page=page;setClickable(true);setLongClickable(true);background=c.getDrawable(SceneCatalog.PREVIEWS[store.mode]);setBackground(Ui.crystal(c,24,store.page==page));}
+        Miniature(Context c,int page){super(c);SceneLighting.from(c).watch(this);this.page=page;setClickable(true);setLongClickable(true);background=c.getDrawable(SceneCatalog.PREVIEWS[store.mode]);setBackground(Ui.crystal(c,24,store.page==page));}
         @Override protected void onDraw(Canvas canvas){
             super.onDraw(canvas);float w=getWidth(),h=getHeight(),d=getResources().getDisplayMetrics().density;if(w<=0||h<=0||page>=store.pageCount())return;
             clip.reset();float glassInset=Ui.dp(getContext(),6);clip.addRoundRect(new RectF(glassInset,glassInset,w-glassInset,h-glassInset),Ui.dp(getContext(),18),Ui.dp(getContext(),18),Path.Direction.CW);int saved=canvas.save();canvas.clipPath(clip);SceneCatalog.drawPreview(background,canvas,glassInset,glassInset,w-glassInset*2,h-glassInset*2);paint.setColor(0x43081425);canvas.drawRect(0,0,w,h,paint);

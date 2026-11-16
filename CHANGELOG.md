@@ -1,3 +1,12 @@
+# 0.8.9 — 2026-11-16
+
+- Trial 1 of 8: match built-in scene light across icon/folder glass, cards, dock and menu surfaces. Use the current scene photograph/material as the optical reflection map and coordinate restrained colored light sweeps with the scene clock.
+- Add Match scene lighting and Scene lighting strength in Look & feel, including local Nota commands. Off/zero restores neutral glass for comparison; settings participate in existing export/import and Undo.
+- Use warm sunset/city/lava light, green/violet aurora light, aquatic tones and cool space/ice light. Preserve fading-menu opacity, text, native input and the existing material/shape/transparency controls.
+- Freeze ambient light with ambient motion off, subtle lighting, reduced motion or battery saving; tilt follows existing motion controls. Keep photo/custom/Android wallpapers neutral in this first built-in-scene trial.
+- Retain bounded shared reflection maps, 24 cached icon rasters and cached gradient transforms. Only foreground frames drive the light clock; detached surfaces are weakly observed.
+- Add pure light-model/command tests and a native material, comparison, opacity and settings-round-trip check. Folder animations, presets, 3D widgets, scene-editor expansion, unified search, haptics and automatic quality remain queued for separate user-reviewed builds.
+
 # 0.8.8 — 2026-11-16
 
 - Rework Spatial Desktop as a photographic dusk mountain lake with independent near-shore parallax, subtle reflected water movement and a live refractive glass orb. Remove its original grid, procedural ridgelines and low-polygon crystal; keep the original Gravity background/mesh.

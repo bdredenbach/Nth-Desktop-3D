@@ -25,9 +25,10 @@ final class CrystalGlassDrawable extends Drawable {
     private final CrystalPreferences crystal;
     private final int material,lighting;
     private int alpha = 255;
+    private final SceneLighting.Cover sceneLight;
 
     CrystalGlassDrawable(Context context, int top, int bottom, int radiusDp) {
-        density = context.getResources().getDisplayMetrics().density;
+        density = context.getResources().getDisplayMetrics().density;sceneLight=new SceneLighting.Cover(context,this);
         radius = radiusDp * density;
         this.top = top;
         this.bottom = bottom;
@@ -107,7 +108,7 @@ final class CrystalGlassDrawable extends Drawable {
         paint.setStyle(Paint.Style.FILL);float roll=Math.min(density*10,Math.min(w,h)*.22f);
         paint.setShader(new LinearGradient(rect.right-roll,0,rect.right,0,new int[]{0,modulate(0x53010B1A),modulate(0x468DD7EA)},new float[]{0,.78f,1},Shader.TileMode.CLAMP));canvas.drawRect(rect,paint);
         paint.setShader(new LinearGradient(0,rect.bottom-roll,0,rect.bottom,new int[]{0,modulate(0x73020B17),modulate(0x428BD5E6)},new float[]{0,.82f,1},Shader.TileMode.CLAMP));canvas.drawRect(rect,paint);paint.setShader(null);
-        canvas.restoreToCount(save);
+        sceneLight.draw(canvas,rect,alpha,1);canvas.restoreToCount(save);
 
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(Math.max(1f,density));
