@@ -11,7 +11,7 @@ import java.util.UUID;
 
 /** One canonical layout; visual mode changes never rewrite shortcut identities. */
 public final class LauncherStore {
-    public static final String[] MODES = {"Spatial Desktop", "Gravity Playground", "Holographic Depth", "Living Pond", "Crystal Atrium", "Aurora Veil", "Biolume Reef", "City in Focus", "Parallax Ice", "Parallax Lava"};
+    public static final String[] MODES = {"Spatial Desktop", "Gravity Playground", "Holographic Depth", "Living Pond", "Crystal Atrium", "Aurora Veil", "Biolume Reef", "City in Focus", "Parallax Ice", "Parallax Lava", "Asteroid Field"};
     public static final String[] TRANSITIONS = PageTransitions.NAMES;
     public static final String[] MENUS = {"Lift", "Orbit", "Unfold"};
     public static final int PAGE_COUNT = 3, MAX_PAGES = 24;
