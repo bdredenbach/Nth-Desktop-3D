@@ -16,7 +16,7 @@ final class SettingsModel {
     static final class Spec {
         final String id,page,title,help;final int min,max,step;final String[] options;final boolean toggle,rebuild;final IntSupplier get;final IntConsumer put;
         Spec(String id,String page,String title,String help,int min,int max,int step,String[] options,boolean toggle,boolean rebuild,IntSupplier get,IntConsumer put){this.id=id;this.page=page;this.title=title;this.help=help;this.min=min;this.max=max;this.step=step;this.options=options;this.toggle=toggle;this.rebuild=rebuild;this.get=get;this.put=put;}
-        String value(){int v=get.getAsInt();return toggle?(v==1?"On":"Off"):options!=null?options[Math.max(0,Math.min(options.length-1,v))]:String.valueOf(v);}
+        String value(){int v=get.getAsInt();if(id.equals("shuffle_scenes"))return Integer.bitCount(v)+" scenes";return toggle?(v==1?"On":"Off"):options!=null?options[Math.max(0,Math.min(options.length-1,v))]:String.valueOf(v);}
     }
     final LauncherStore store;final CrystalPreferences crystal;final Map<String,Spec> specs=new LinkedHashMap<>();
     private final Changed changed;private Runnable undo,gestureUndo;private boolean gesture,pendingRebuild;String lastChange="";
@@ -55,7 +55,7 @@ final class SettingsModel {
         bool("search_keyboard","search","Open search keyboard","Focus the app search field when the drawer opens.",false,false);
         bool("cloud_ai","search","Cloud questions for Nth Nota AI","Send your question and current setting values to Nth Nota's cloud service. Local setting commands always work offline.",false,false);
         bool("cards_in_search","cards","Cards in app search","Show the Cards action beside filtered app results.",true,false);
-        for(String[] type:CrystalCards.TYPES)bool("card_"+type[0],"cards",type[1],"Show this crystal card.",true,false);
+        for(String[] type:CrystalCards.TYPES)bool("card_"+type[0],"cards",type[1],"Show this card in the Cards panel. Placed desktop cards stay until removed.",true,false);
         enumeration("wallpaper_source","wallpaper","Wallpaper source","Use a 3D scene, your own photo, Android wallpaper, or your layered scene.",new String[]{"3D scene","Photo","Android wallpaper","My layered scene"},0,true);
         enumeration("wallpaper_fit","wallpaper","Photo fit","Fill the screen or show the complete photo.",new String[]{"Fill screen","Fit image"},0,false);
         pref("wallpaper_dim","wallpaper","Wallpaper dimming","Darken photo and Android wallpapers for readable icons.",0,70,5,20,false);
@@ -70,6 +70,9 @@ final class SettingsModel {
         add("material","look","Crystal material","Surface material for icons and the dock.",0,3,1,CrystalPreferences.MATERIALS,false,true,c::material,c::setMaterial);
         add("lighting","look","Lighting","Highlight intensity on Crystal surfaces.",0,2,1,CrystalPreferences.LIGHTING,false,true,c::lighting,c::setLighting);
         add("menu_animation","look","Menu opening animation","How menus rise from the desktop plane.",0,4,1,CrystalPreferences.MENU_ANIMATIONS,false,false,c::menuAnimation,c::setMenuAnimation);
+        bool("shuffle_enabled","shuffle","Automatic scene shuffle","Cycle selected built-in scenes while Home is idle. Photo, custom and Android wallpapers pause automatic shuffle.",false,false);
+        enumeration("shuffle_interval","shuffle","Shuffle interval","An overdue change waits until Home is visible and idle; battery saving pauses changes.",SceneRandomizer.INTERVALS,2,false);
+        pref("shuffle_scenes","shuffle","Selected scenes","Choose the built-in scenes included in the shuffle cycle.",1,SceneRandomizer.ALL,1,SceneRandomizer.ALL,false);
         add("scene","motion","Scene","Choose the desktop environment.",0,LauncherStore.MODES.length-1,1,LauncherStore.MODES,false,true,()->s.mode,v->{s.mode=v;s.preferences.edit().putInt("wallpaper_source",0).apply();});
         add("transition","look","Desktop transition","Perspective animation when changing desktops.",0,LauncherStore.TRANSITIONS.length-1,1,LauncherStore.TRANSITIONS,false,false,()->s.transition,v->s.transition=v);
         add("tilt","motion","Tilt parallax","Use device tilt to move the desktop perspective.",0,1,1,null,true,false,()->s.tilt?1:0,v->{s.tilt=v==1;c.setParallax(v==1);});
@@ -96,7 +99,7 @@ final class SettingsModel {
     private void bool(String id,String page,String title,String help,boolean fallback,boolean rebuild){add(id,page,title,help,0,1,1,null,true,rebuild,()->store.preferences.getBoolean(id,fallback)?1:0,v->store.preferences.edit().putBoolean(id,v==1).apply());}
     private void enumeration(String id,String page,String title,String help,String[] options,int fallback,boolean rebuild){add(id,page,title,help,0,options.length-1,1,options,false,rebuild,()->Math.max(0,Math.min(options.length-1,store.preferences.getInt(id,fallback))),v->store.preferences.edit().putInt(id,v).apply());}
     private Runnable layoutUndo(){
-        int wallpaperSource=store.preferences.getInt("wallpaper_source",0);List<Runnable> restore=new ArrayList<>();for(List<LauncherStore.Item> page:store.pages)for(LauncherStore.Item item:page){int x=item.cellX,y=item.cellY;float px=item.x,py=item.y;restore.add(()->{item.cellX=x;item.cellY=y;item.x=px;item.y=py;});}
+        int wallpaperSource=store.preferences.getInt("wallpaper_source",0);List<Runnable> restore=new ArrayList<>();for(List<LauncherStore.Item> page:store.pages)for(LauncherStore.Item item:page){int x=item.cellX,y=item.cellY,w=item.cardWidth,h=item.cardHeight;float px=item.x,py=item.y;restore.add(()->{item.cellX=x;item.cellY=y;item.cardWidth=w;item.cardHeight=h;item.x=px;item.y=py;});}
         Map<String,Object> widget=new LinkedHashMap<>();for(Map.Entry<String,?> entry:store.preferences.getAll().entrySet())if(widgetPosition(entry.getKey()))widget.put(entry.getKey(),entry.getValue());
         return ()->{store.preferences.edit().putInt("wallpaper_source",wallpaperSource).apply();for(Runnable task:restore)task.run();SharedPreferences.Editor edit=store.preferences.edit();for(String key:store.preferences.getAll().keySet())if(widgetPosition(key))edit.remove(key);for(Map.Entry<String,Object> e:widget.entrySet())if(e.getValue() instanceof Integer)edit.putInt(e.getKey(),(Integer)e.getValue());edit.apply();};
     }
@@ -122,9 +125,9 @@ final class SettingsModel {
         DesktopBackup.Prepared before=new DesktopBackup.Prepared(DesktopBackup.capture(context,this),this);
         next.apply(context,this);changed.apply(true);
         undo=()->{try{before.apply(context,this);changed.apply(true);}catch(Exception error){throw new IllegalStateException("Could not restore the previous desktop",error);}};
-        lastChange="Desktop backup restored. Undo is available.";
+        SceneRandomizer.reset(store);lastChange="Desktop backup restored. Undo is available.";
     }
-    void applyDesktopPreset(android.content.Context context,DesktopBackup.Prepared next)throws Exception {next.apply(context,this,true,true);undo=null;gestureUndo=null;lastChange="Desktop preset applied. Previous desktop is available in Desktop presets.";changed.apply(true);}
+    void applyDesktopPreset(android.content.Context context,DesktopBackup.Prepared next)throws Exception {next.apply(context,this,true,true);SceneRandomizer.reset(store);undo=null;gestureUndo=null;lastChange="Desktop preset applied. Previous desktop is available in Desktop presets.";changed.apply(true);}
     int value(String id){return specs.get(id).get.getAsInt();}
     int labelColor(){return TEXT_COLORS[value("label_color")];}
     String context(){StringBuilder b=new StringBuilder();for(Spec s:specs.values())b.append(s.title).append(": ").append(s.value()).append(". ").append(s.help).append('\n');return b.toString();}

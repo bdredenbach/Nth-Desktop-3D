@@ -42,4 +42,4 @@ The retained captures show orange preset surfaces and the revised icon-shell col
 
 The broad regression remains mixed: setup return after choosing Home, settings rotation and widget gesture/window assertions failed, and Workspace did not complete its test. These are recorded limits, not a clean full regression pass. No fixes to those broader behaviors are claimed in this trial.
 
-Trial 4 stays queued for owner review of Trial 3.
+The owner subsequently requested Trial 4 with a scene randomizer; see [version 0.9.2](cards-shuffle-092.md). Version 0.9.2 presets also retain desktop-card geometry, while personal card data remains shared.

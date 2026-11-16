@@ -26,21 +26,23 @@ public final class LauncherStore {
         public String shortcutPackage,shortcutId;
         public long shortcutUser=-1;
         public float x = -1, y = -1;
-        public int cellX=-1,cellY=-1;
+        public int cellX=-1,cellY=-1,cardWidth=2,cardHeight=2;
         public boolean fixed;
         public final List<Item> children = new ArrayList<>();
         public Item(String key, String label) { this.key = key; this.label = label; }
-        public Item copy(){Item item=new Item(key,label);item.shortcutPackage=shortcutPackage;item.shortcutId=shortcutId;item.shortcutUser=shortcutUser;return item;}
+        public Item copy(){Item item=new Item(key,label);item.cardWidth=cardWidth;item.cardHeight=cardHeight;item.shortcutPackage=shortcutPackage;item.shortcutId=shortcutId;item.shortcutUser=shortcutUser;return item;}
+        public boolean card(){return CardLayout.type(key)!=null;}
         public boolean folder() { return "folder".equals(key); }
         JSONObject json() throws JSONException {
             JSONObject j = new JSONObject().put("id", id).put("key", key).put("label", label).put("x", x).put("y", y).put("cellX",cellX).put("cellY",cellY).put("fixed", fixed);
             if(shortcutPackage!=null&&shortcutId!=null)j.put("shortcutPackage",shortcutPackage).put("shortcutId",shortcutId).put("shortcutUser",shortcutUser);
+            if(card())j.put("cardWidth",cardWidth).put("cardHeight",cardHeight);
             JSONArray a = new JSONArray(); for (Item c : children) a.put(c.json()); return j.put("children", a);
         }
         static Item read(JSONObject j, int depth) throws JSONException {
             Item i = new Item(j.getString("key"), j.optString("label", "Shortcut"));
             i.id = j.optString("id", i.id); i.x = (float) j.optDouble("x", -1); i.y = (float) j.optDouble("y", -1); i.fixed = j.optBoolean("fixed");
-            i.cellX=j.optInt("cellX",-1);i.cellY=j.optInt("cellY",-1);
+            i.cellX=j.optInt("cellX",-1);i.cellY=j.optInt("cellY",-1);i.cardWidth=Math.max(2,Math.min(12,j.optInt("cardWidth",2)));i.cardHeight=Math.max(2,Math.min(12,j.optInt("cardHeight",CardLayout.height(CardLayout.type(i.key)==null?"notes":CardLayout.type(i.key)))));
             if(j.has("shortcutPackage")&&j.has("shortcutId")){i.shortcutPackage=j.getString("shortcutPackage");i.shortcutId=j.getString("shortcutId");i.shortcutUser=j.optLong("shortcutUser",-1);}
             JSONArray a = j.optJSONArray("children");
             if (a != null && depth < 2) for (int n = 0; n < Math.min(a.length(), 1000); n++) i.children.add(read(a.getJSONObject(n), depth + 1));
@@ -113,7 +115,7 @@ public final class LauncherStore {
     public List<Item> folders() { List<Item> out = new ArrayList<>(); for (List<Item> p : pages) for (Item i : p) if (i.folder()) out.add(i); for(Item i:dock.items())if(i.folder())out.add(i); return out; }
     public Item folderContaining(Item source){for(Item folder:folders())if(folder.children.contains(source))return folder;return null;}
     public boolean moveToFolder(Item source,Item destination){
-        if(source==null||source.folder()||destination==null||!destination.folder()||!folders().contains(destination))return false;
+        if(source==null||source.folder()||source.card()||destination==null||!destination.folder()||!folders().contains(destination))return false;
         List<Item> owner=null;for(List<Item> p:pages){if(p.contains(source))owner=p;for(Item folder:p)if(folder.folder()&&folder.children.contains(source))owner=folder.children;}
         for(Item folder:dock.items())if(folder.folder()&&folder.children.contains(source))owner=folder.children;
         if(owner==null||owner==destination.children)return false;

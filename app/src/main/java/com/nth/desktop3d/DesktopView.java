@@ -16,7 +16,7 @@ import java.util.List;
 /** Accessible shortcut planes, with bounded physics and native inverse-transform input. */
 @android.annotation.SuppressLint("ViewConstructor") // Requires the canonical layout and launcher action host.
 final class DesktopView extends FrameLayout {
-    interface Host { void open(LauncherStore.Item item);void menu(LauncherStore.Item item);void backgroundMenu();void pageChanged();void ripple(float x,float y);void startMenu();boolean feed();void configureWidget(int id);void gesture(int action);void assignedGesture(String id);boolean startItemDrag(View tile,LauncherStore.Item item); }
+    interface Host { void open(LauncherStore.Item item);void menu(LauncherStore.Item item);void backgroundMenu();void pageChanged();void ripple(float x,float y);void startMenu();boolean feed();void configureWidget(int id);void gesture(int action);void assignedGesture(String id);boolean startItemDrag(View tile,LauncherStore.Item item);default CrystalCards.Host cardHost(){return null;}default void moveCard(LauncherStore.Item item){} }
     private final LauncherStore store;
     private final AppCatalog catalog;
     private final LauncherWidgetHost widgetHost;
@@ -24,6 +24,13 @@ final class DesktopView extends FrameLayout {
     private final Host host;
     private final FrameLayout stage;
     private final List<Body> bodies=new ArrayList<>();
+    private final java.util.Map<String,DesktopCardView> liveCards=new java.util.LinkedHashMap<>();private boolean foreground;private long lastInteraction;
+    private String cardKey(String id){return "card:"+id;}
+    private boolean hasCards(){for(LauncherStore.Item item:store.pages.get(store.page))if(item.card())return true;return false;}
+    void foreground(boolean value){foreground=value;for(DesktopCardView card:liveCards.values())card.active(value&&!modal);}
+    void refreshCards(){for(DesktopCardView card:liveCards.values())card.refresh();}
+    void disposeCards(){for(DesktopCardView card:liveCards.values())card.dispose();liveCards.clear();}
+    boolean idleForShuffle(){return !touching&&!animating&&dragId==null&&(workspace==null||!workspace.resizing())&&android.os.SystemClock.uptimeMillis()-lastInteraction>5000;}
     private ScrollView scroller;
     private WorkspaceFrame workspace;
     private final java.util.Map<String,View> cellViews=new java.util.LinkedHashMap<>();
@@ -65,14 +72,14 @@ final class DesktopView extends FrameLayout {
         for(View view:cellViews.values()){if(view.getVisibility()!=View.VISIBLE||view.getAlpha()<.1f)continue;android.graphics.Rect rect=new android.graphics.Rect();if(view.getGlobalVisibleRect(rect)&&rect.intersect(visible))boxes.add(new android.graphics.RectF((rect.left-origin[0])/sx,(rect.top-origin[1])/sy,(rect.right-origin[0])/sx,(rect.bottom-origin[1])/sy));}
         return boxes;
     }
-    void configure(boolean reduced,boolean powerSave){this.reduced=reduced;this.powerSave=powerSave;if(reduced||powerSave)for(Body b:bodies)b.tile.light(0,0);}
-    void tilt(float x,float y){tiltX=x;tiltY=y;for(Body b:bodies)b.tile.light(reduced||powerSave?0:x,reduced||powerSave?0:y);}
-    void setModal(boolean v){modal=v;if(v){clearSelection();touching=false;removeCallbacks(backgroundHold);}}
+    void configure(boolean reduced,boolean powerSave){this.reduced=reduced;this.powerSave=powerSave;for(DesktopCardView card:liveCards.values())card.tilt(tiltX,tiltY,reduced||powerSave);if(reduced||powerSave)for(Body b:bodies)b.tile.light(0,0);}
+    void tilt(float x,float y){tiltX=x;tiltY=y;for(DesktopCardView card:liveCards.values())card.tilt(x,y,reduced||powerSave);for(Body b:bodies)b.tile.light(reduced||powerSave?0:x,reduced||powerSave?0:y);}
+    void setModal(boolean v){modal=v;foreground(foreground);if(v){clearSelection();touching=false;removeCallbacks(backgroundHold);}}
     void rebuild(){
         if(renderedPage!=store.page)pendingRevealItem=null;
         int previousScroll=renderedPage==store.page&&scroller!=null?scroller.getScrollY():0;renderedPage=store.page;
         clearSelection();if(animator!=null)animator.cancel();animating=false;stage.animate().cancel();resetTransform();
-        stage.removeAllViews();bodies.clear();cellViews.clear();providers.clear();cells=new ArrayList<>();
+        disposeCards();stage.removeAllViews();bodies.clear();cellViews.clear();providers.clear();cells=new ArrayList<>();
         widgetHost.releaseViews();
         workspace=new WorkspaceFrame(getContext());
         workspace.addOnLayoutChangeListener((v,l,t,r,b,oldL,oldT,oldR,oldB)->{if(pendingRevealId>=0||pendingRevealItem!=null)post(this::revealPendingWidget);});
@@ -82,6 +89,7 @@ final class DesktopView extends FrameLayout {
         }else{scroller=null;stage.addView(workspace,new LayoutParams(-1,-1));}
         int visible=0;
         for(LauncherStore.Item item:store.pages.get(store.page)){
+            if(item.card())continue;
             if(gravity()&&visible++>=18)break;
             AppCatalog.Entry entry=catalog.find(item.key);
             IconTile tile=new IconTile(getContext(),item.label,catalog.icon(item),item.key);tile.setTag("shortcut:"+item.id);tile.appearance(store.preferences,"desktop");
@@ -111,6 +119,9 @@ final class DesktopView extends FrameLayout {
                 placeholder.setOnLongClickListener(v->{showWidgetMenu(placeholder,id,null);return true;});view=placeholder;
             }
             view.setTag(widgetKey(id));cellViews.put(widgetKey(id),view);workspace.addView(view,new LayoutParams(1,1));
+        }
+        for(LauncherStore.Item item:store.pages.get(store.page))if(item.card()){
+            String key=cardKey(item.id);DesktopCardView card=new DesktopCardView((android.app.Activity)getContext(),store,item,host.cardHost(),new LauncherWidgetView.Gestures(){public void start(){startDrag(key);}public void move(float dx,float dy){previewDrag(dx,dy);}public void end(boolean cancel){finishDrag(cancel);}public void menu(){showCardMenu(item);}});liveCards.put(key,card);cellViews.put(key,card);workspace.addView(card,new LayoutParams(1,1));card.active(foreground&&!modal);
         }
         updateLayout();post(()->{updateLayout();if(scroller!=null&&pendingRevealId<0&&pendingRevealItem==null)scroller.scrollTo(0,previousScroll);revealPendingWidget();});
     }
@@ -144,8 +155,8 @@ final class DesktopView extends FrameLayout {
     FittedGrid sortedLayout(int count){return AutoGrid.fit(getContext(),store.preferences,Math.max(1,getWidth()),Math.max(1,getHeight()),count);}
     private void freezeAutoGrid(){if(!AutoGrid.active(store,store.page))return;AutoGrid.manual(store,"grid_columns",Math.max(3,AutoGrid.value(store,"grid_columns",4)));}
     private void restoreCells(){
-        if(AutoGrid.legacy(store)&&widgetIds().isEmpty())AutoGrid.enable(store,store.page,sortedLayout(bodies.size()),getContext());
-        if(AutoGrid.active(store,store.page)&&!widgetIds().isEmpty())freezeAutoGrid();
+        if(AutoGrid.legacy(store)&&widgetIds().isEmpty()&&!hasCards())AutoGrid.enable(store,store.page,sortedLayout(bodies.size()),getContext());
+        if(AutoGrid.active(store,store.page)&&(!widgetIds().isEmpty()||hasCards()))freezeAutoGrid();
         boolean automatic=AutoGrid.active(store,store.page);
         if(automatic){FittedGrid fit=sortedLayout(bodies.size());AutoGrid.metrics(store,fit.columns,Math.round(fit.pitch/getResources().getDisplayMetrics().density));}
         columns=gridColumns();cw=Math.max(1,width/columns);ch=cellHeight();visibleRows=Math.max(1,(height-top()-Ui.dp(getContext(),12))/ch);
@@ -165,6 +176,9 @@ final class DesktopView extends FrameLayout {
             x=Math.max(0,Math.min(columns-w,x));y=Math.max(0,Math.min(60,y));
             desired.add(new DesktopGrid.Cell(widgetKey(id),true,x,y,w,h));area+=w*h;maxWidgetHeight=Math.max(maxWidgetHeight,h);maxSavedRow=Math.max(maxSavedRow,y+h);
             if(!store.preferences.contains("widget_cell_x_"+id)&&!store.preferences.contains("widget_left_"+id))unplaced.add(widgetKey(id));
+        }
+        for(LauncherStore.Item item:store.pages.get(store.page))if(item.card()){
+            int w=Math.max(2,Math.min(columns,item.cardWidth)),h=Math.max(2,Math.min(12,item.cardHeight)),x=Math.max(0,Math.min(columns-w,item.cellX)),y=Math.max(0,Math.min(120-h,item.cellY));String key=cardKey(item.id);desired.add(new DesktopGrid.Cell(key,true,x,y,w,h));area+=w*h;maxWidgetHeight=Math.max(maxWidgetHeight,h);maxSavedRow=Math.max(maxSavedRow,y+h);if(item.cellX<0)unplaced.add(key);
         }
         for(Body body:bodies){
             LauncherStore.Item item=body.item;
@@ -205,7 +219,8 @@ final class DesktopView extends FrameLayout {
                 LayoutParams lp=(LayoutParams)view.getLayoutParams();int w=Math.round(bounds.width()),h=Math.round(bounds.height());
                 if(lp.width!=w||lp.height!=h){lp.width=w;lp.height=h;view.setLayoutParams(lp);}
                 view.setTranslationX(bounds.left);view.setTranslationY(bounds.top);
-                if(save){int id=Integer.parseInt(cell.id.substring(7));editor.putInt("widget_cell_x_"+id,cell.x).putInt("widget_cell_y_"+id,cell.y).putInt("widget_span_x_"+id,cell.w).putInt("widget_span_y_"+id,cell.h).putInt("widget_left_"+id,Math.round(bounds.left)).putInt("widget_top_"+id,Math.round(bounds.top)).putInt("widget_width_"+id,w).putInt("widget_height_"+id,h);}
+                if(save&&liveCards.containsKey(cell.id)){LauncherStore.Item item=liveCards.get(cell.id).item;item.cellX=cell.x;item.cellY=cell.y;item.cardWidth=cell.w;item.cardHeight=cell.h;}
+                else if(save){int id=Integer.parseInt(cell.id.substring(7));editor.putInt("widget_cell_x_"+id,cell.x).putInt("widget_cell_y_"+id,cell.y).putInt("widget_span_x_"+id,cell.w).putInt("widget_span_y_"+id,cell.h).putInt("widget_left_"+id,Math.round(bounds.left)).putInt("widget_top_"+id,Math.round(bounds.top)).putInt("widget_width_"+id,w).putInt("widget_height_"+id,h);}
             }else{
                 if(!gravity()){
                     LayoutParams lp=(LayoutParams)view.getLayoutParams();int w=Math.min(Ui.dp(getContext(),84),Math.round(bounds.width())),h=Math.max(ch,IconTile.desktopRowHeight(getContext(),store.preferences));
@@ -244,7 +259,7 @@ final class DesktopView extends FrameLayout {
         if(originalPlan==null)return;
         boolean valid=!cancel&&previewPlan!=null;
         cells=valid?previewPlan:originalPlan;positionCells(cells,valid);
-        View view=cellViews.get(dragId);if(view!=null){view.setAlpha(1);view.setElevation(0);}
+        View view=cellViews.get(dragId);if(view!=null){view.setAlpha(1);view.setElevation(view instanceof DesktopCardView?Ui.dp(getContext(),9):0);}
         workspace.preview(null,true);if(!cancel&&!valid)android.widget.Toast.makeText(getContext(),"That space is occupied",android.widget.Toast.LENGTH_SHORT).show();
         originalPlan=previewPlan=null;dragStart=null;dragId=null;workspace.requestDisallowInterceptTouchEvent(false);
     }
@@ -258,6 +273,7 @@ final class DesktopView extends FrameLayout {
     void previewExternal(LauncherStore.Item item,float x,float y){if(workspace==null)return;DesktopGrid.Cell target=externalTarget(item,x,y);workspace.preview(target==null?null:rectangle(target),target!=null);}
     void clearExternal(){if(workspace!=null)workspace.preview(null,true);}
     boolean dropExternal(LauncherStore.Item item,float x,float y){
+        if(item.card())return false;
         if(store.preferences.getBoolean("lock_layout",false))return false;
         freezeAutoGrid();DesktopGrid.Cell target=externalTarget(item,x,y);if(target==null)return false;
         if(!item.folder()){
@@ -416,6 +432,21 @@ final class DesktopView extends FrameLayout {
         }
     }
     void arrange(){freezeAutoGrid();for(LauncherStore.Item i:store.pages.get(store.page)){i.x=i.y=-1;i.cellX=i.cellY=-1;}rebuild();store.save();}
+    LauncherStore.Item addCard(String type){
+        if(store.preferences.getBoolean("lock_layout",false))return null;String key=CardLayout.key(type);for(LauncherStore.Item item:store.pages.get(store.page))if(item.key.equals(key)){revealItem(cardKey(item.id));return item;}
+        if(store.pages.get(store.page).size()>=60||columns<2||visibleRows<2)return null;freezeAutoGrid();String label=type;for(String[] card:CrystalCards.TYPES)if(card[0].equals(type))label=card[1];LauncherStore.Item item=new LauncherStore.Item(key,label);int h=gravity()?Math.min(CardLayout.height(type),visibleRows):CardLayout.height(type);DesktopGrid.Cell slot=DesktopGrid.nearest(new DesktopGrid.Cell(cardKey(item.id),true,0,0,2,h),cells,columns,gravity()?visibleRows:120);if(slot==null)return null;item.cellX=slot.x;item.cellY=slot.y;item.cardWidth=slot.w;item.cardHeight=slot.h;store.pages.get(store.page).add(item);store.save();rebuild();revealItem(cardKey(item.id));return item;
+    }
+    void showCardMenu(LauncherStore.Item item){
+        boolean locked=store.preferences.getBoolean("lock_layout",false);String[] choices=locked?new String[]{"Open card","Refresh","Move to another desktop","Remove card"}:new String[]{"Open card","Refresh","Resize","Move to another desktop","Remove card"};android.app.AlertDialog dialog=new android.app.AlertDialog.Builder(getContext()).setTitle(item.label).setItems(choices,(d,which)->{String action=choices[which];switch(action){case "Open card":host.open(item);break;case "Refresh":DesktopCardView card=liveCards.get(cardKey(item.id));if(card!=null)card.refresh();break;case "Resize":beginCardResize(item);break;case "Move to another desktop":host.moveCard(item);break;default:new android.app.AlertDialog.Builder(getContext()).setTitle("Remove desktop card?").setMessage("The card's notes, links and other shared content will be kept.").setNegativeButton("Cancel",null).setPositiveButton("Remove",(a,b)->{store.remove(item);rebuild();host.pageChanged();}).show();}}).create();Ui.themeDialog(dialog);
+    }
+    private void beginCardResize(LauncherStore.Item item){
+        if(store.preferences.getBoolean("lock_layout",false))return;String key=cardKey(item.id);workspace.axes(3);DesktopGrid.Cell selected=DesktopGrid.find(cells,key);if(selected==null)return;
+        workspace.select(rectangle(selected),new WorkspaceFrame.Resize(){int edge;DesktopGrid.Cell initial;java.util.List<DesktopGrid.Cell> before,plan;
+            public void start(int edge){this.edge=edge;initial=DesktopGrid.find(cells,key);before=new ArrayList<>(cells);plan=before;}
+            public void move(float dx,float dy){int dw=Math.round(dx/cw),dh=Math.round(dy/ch),x=initial.x,y=initial.y,w=initial.w,h=initial.h,maxH=Math.min(12,Math.max(2,visibleRows));if((edge&1)!=0){w=Math.max(2,Math.min(columns,initial.w-dw));x=initial.x+initial.w-w;}if((edge&2)!=0)w=Math.max(2,Math.min(columns,initial.w+dw));if((edge&4)!=0){h=Math.max(2,Math.min(maxH,initial.h-dh));y=initial.y+initial.h-h;}if((edge&8)!=0)h=Math.max(2,Math.min(maxH,initial.h+dh));DesktopGrid.Cell target=new DesktopGrid.Cell(key,true,x,y,w,h);java.util.List<DesktopGrid.Cell> candidate=DesktopGrid.move(before,target,columns,rows);if(candidate!=null){plan=candidate;positionCells(plan,false);workspace.select(rectangle(target),this);}workspace.preview(rectangle(target),candidate!=null);}
+            public void end(boolean cancel){cells=cancel?before:plan;positionCells(cells,!cancel);workspace.preview(null,true);workspace.select(rectangle(DesktopGrid.find(cells,key)),this);}
+        });
+    }
     void changePage(int direction){
         if(animating||modal)return;if(!store.preferences.getBoolean("infinite_scroll",false)&&(store.page+direction<0||store.page+direction>=store.pageCount()))return;savePositions();
         if(reduced||store.transition==15){store.page=SceneMath.wrap(store.page+direction,store.pageCount());rebuild();store.save();host.pageChanged();return;}
@@ -430,7 +461,7 @@ final class DesktopView extends FrameLayout {
     private void resetTransform(){stage.setRotationX(0);stage.setRotationY(0);stage.setTranslationX(0);stage.setTranslationY(0);stage.setRotation(0);stage.setClipBounds(null);stage.setScaleX(1);stage.setScaleY(1);stage.setAlpha(1);}
     @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){super.onSizeChanged(w,h,oldw,oldh);post(this::updateLayout);}
     @Override public boolean dispatchTouchEvent(MotionEvent e){
-        if(e.getActionMasked()==MotionEvent.ACTION_DOWN){if(swipeVelocity!=null)swipeVelocity.recycle();swipeVelocity=android.view.VelocityTracker.obtain();}
+        if(e.getActionMasked()==MotionEvent.ACTION_DOWN){lastInteraction=android.os.SystemClock.uptimeMillis();if(swipeVelocity!=null)swipeVelocity.recycle();swipeVelocity=android.view.VelocityTracker.obtain();}
         if(swipeVelocity!=null)swipeVelocity.addMovement(e);
         try{return dispatchTrackedTouchEvent(e);}finally{if((e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL)&&swipeVelocity!=null){swipeVelocity.recycle();swipeVelocity=null;}}
     }
@@ -449,7 +480,7 @@ final class DesktopView extends FrameLayout {
         }
         if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&Math.hypot(e.getX()-downX,e.getY()-downY)>ViewConfiguration.get(getContext()).getScaledTouchSlop())removeCallbacks(backgroundHold);
         boolean result=super.dispatchTouchEvent(e);
-        if(e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL){touching=false;removeCallbacks(backgroundHold);}
+        if(e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL){touching=false;lastInteraction=android.os.SystemClock.uptimeMillis();removeCallbacks(backgroundHold);}
         return result;
     }
     private boolean itemAt(float x,float y){
@@ -461,7 +492,7 @@ final class DesktopView extends FrameLayout {
             if(x>=left&&x<left+child.getWidth()&&y>=top&&y<top+child.getHeight())return true;
         }return false;
     }
-    private boolean widgetAt(float x,float y){float scroll=scroller==null?0:scroller.getScrollY();for(java.util.Map.Entry<String,View> entry:cellViews.entrySet())if(entry.getKey().startsWith("widget:")){View v=entry.getValue();if(x>=v.getTranslationX()&&x<v.getTranslationX()+v.getWidth()&&y>=v.getTranslationY()-scroll&&y<v.getTranslationY()-scroll+v.getHeight())return true;}return false;}
+    private boolean widgetAt(float x,float y){float scroll=scroller==null?0:scroller.getScrollY();for(java.util.Map.Entry<String,View> entry:cellViews.entrySet())if(entry.getKey().startsWith("widget:")||entry.getKey().startsWith("card:")){View v=entry.getValue();if(x>=v.getTranslationX()&&x<v.getTranslationX()+v.getWidth()&&y>=v.getTranslationY()-scroll&&y<v.getTranslationY()-scroll+v.getHeight())return true;}return false;}
     @Override public boolean onInterceptTouchEvent(MotionEvent e){
         if(animating)return true;
         if(e.getActionMasked()==MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();swiping=false;verticalGesture=false;startedOnItem=itemAt(downX,downY);}

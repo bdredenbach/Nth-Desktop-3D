@@ -1,3 +1,9 @@
+## 0.9.2 desktop card and scene shuffle trial
+
+Place movable, resizable Crystal Cards through Settings → Cards → Place card on desktop or Widgets → Add Crystal Card. Cards retain their real Notes, media, weather, calendar, photos, reading and app actions, and their geometry is saved in desktop presets/backups. Hold to move or open the resize/removal menu.
+
+Settings → Scene randomizer adds selected-scene shuffle and optional timed rotation. Automatic shuffle starts off; enabling it rotates on idle Home and pauses for menus, apps, other wallpaper sources and battery saving. Shuffle now is also in Scene studio. See [cards and scene shuffle](docs/cards-shuffle-092.md) for behavior and validation. Trial 5 remains queued for phone feedback.
+
 ## 0.9.1 desktop preset trial
 
 Save and restore named desktop setups through Settings → Desktop presets or the shortcut in Look & feel. Presets include scenes, appearance, layouts, folders, dock, gestures, wallpaper and widget placements, with persistent Undo. Notes/card content stay shared, and saved widget/shortcut references are preserved. See [desktop preset trial](docs/desktop-presets-091.md) for scope, limits and validation.
@@ -21,7 +27,7 @@ Open Settings → Launcher → Setup & permissions to revisit optional access. R
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and eleven original GPU scenes. Current test release: **0.9.1**.
+animated Start menus and eleven original GPU scenes. Current test release: **0.9.2**.
 
 Install the supplied signed release APK for continued updates. Version 0.3.2
 uses the owner's replacement **R2** signing certificate. Moving from the lost
