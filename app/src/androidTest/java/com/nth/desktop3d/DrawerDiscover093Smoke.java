@@ -17,18 +17,27 @@ public final class DrawerDiscover093Smoke extends Trial093Support {
         CrystalPreferences prefs=new CrystalPreferences(activity);boolean feed=prefs.feedEnabled();int provider=prefs.feedProvider();
         try{
             main(()->{
-                client.disable();store.preferences.edit().putInt("drawer_scroll",1).putBoolean("search_keyboard",false).apply();
+                client.disable();
+                try{LayeredScene.write(activity,new LayeredScene.Document(),false);}catch(Exception e){throw new AssertionError(e);}
+                store.ambient=false;store.preferences.edit().putInt("wallpaper_source",3).apply();call(activity,"applySettings",true);
+                store.preferences.edit().putInt("drawer_scroll",1).putBoolean("search_keyboard",false).apply();
                 check(model.specs.get("drawer_scroll").options[1].equals("Horizontal"),"Drawer preference not registered");
                 call(activity,"showStart");
             });
             await(()->grid()!=null&&grid().getChildCount()>0&&grid().pageCount()>1,"Horizontal drawer has no pages");
+            await(()->activity.getWindow().getDecorView().hasWindowFocus()&&!(Boolean)field(activity,"loading"),"Drawer window or app catalog not ready for input");
+            SystemClock.sleep(750);test.waitForIdleSync();
             SwipeDismissGrid grid=grid();int capacity=grid.getAdapter().getCount();
             Rect r=rect(grid);long start=SystemClock.uptimeMillis();float y=r.centerY();
             pointer(start,MotionEvent.ACTION_DOWN,r.right-r.width()*.2f,y);
             move(start,r.right-r.width()*.2f,y,r.left+r.width()*.2f,y);
             pointer(start,MotionEvent.ACTION_UP,r.left+r.width()*.2f,y);
             await(()->grid.page()==1,"Horizontal native swipe did not advance the drawer");
-            main(()->check(grid.sourcePosition(0)==capacity,"Drawer page lost its catalog offset"));
+            main(()->{
+                check(grid.sourcePosition(0)==capacity,"Drawer page lost its catalog offset");
+                ((android.widget.BaseAdapter)field(grid,"source")).notifyDataSetChanged();
+                check(grid.page()==1,"An unchanged catalog refresh reset the horizontal page");
+            });
             capture("093-horizontal-app-drawer");
             main(()->{
                 check(grid.performAccessibilityAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD,null),"Accessible drawer paging failed");

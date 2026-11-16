@@ -18,7 +18,7 @@ final class SwipeDismissGrid extends GridView {
     private ListAdapter source;private BaseAdapter pages;
     private final Paint indicator=new Paint(Paint.ANTI_ALIAS_FLAG);
     private final DataSetObserver observer=new DataSetObserver(){
-        @Override public void onChanged(){page=0;refresh();}
+        @Override public void onChanged(){refresh();}
         @Override public void onInvalidated(){page=0;if(pages!=null)pages.notifyDataSetInvalidated();}
     };
     SwipeDismissGrid(Context c,Runnable close){this(c,close,false);}
@@ -26,6 +26,7 @@ final class SwipeDismissGrid extends GridView {
         super(c);this.close=close;this.horizontal=horizontal;rowHeight=Ui.dp(c,132);
         if(horizontal){setVerticalScrollBarEnabled(false);setOverScrollMode(OVER_SCROLL_NEVER);}
     }
+    void firstPage(){if(horizontal){page=0;refresh();}}
     int page(){return page;}
     int pageCount(){return DrawerPaging.pages(source==null?0:source.getCount(),capacity);}
     int sourcePosition(int position){return horizontal?page*capacity+position:position;}
