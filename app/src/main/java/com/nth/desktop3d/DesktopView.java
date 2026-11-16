@@ -65,8 +65,8 @@ final class DesktopView extends FrameLayout {
         for(View view:cellViews.values()){if(view.getVisibility()!=View.VISIBLE||view.getAlpha()<.1f)continue;android.graphics.Rect rect=new android.graphics.Rect();if(view.getGlobalVisibleRect(rect)&&rect.intersect(visible))boxes.add(new android.graphics.RectF((rect.left-origin[0])/sx,(rect.top-origin[1])/sy,(rect.right-origin[0])/sx,(rect.bottom-origin[1])/sy));}
         return boxes;
     }
-    void configure(boolean reduced,boolean powerSave){this.reduced=reduced;this.powerSave=powerSave;}
-    void tilt(float x,float y){tiltX=x;tiltY=y;}
+    void configure(boolean reduced,boolean powerSave){this.reduced=reduced;this.powerSave=powerSave;if(reduced||powerSave)for(Body b:bodies)b.tile.light(0,0);}
+    void tilt(float x,float y){tiltX=x;tiltY=y;for(Body b:bodies)b.tile.light(reduced||powerSave?0:x,reduced||powerSave?0:y);}
     void setModal(boolean v){modal=v;if(v){clearSelection();touching=false;removeCallbacks(backgroundHold);}}
     void rebuild(){
         if(renderedPage!=store.page)pendingRevealItem=null;

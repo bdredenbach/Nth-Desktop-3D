@@ -25,7 +25,7 @@ public final class Realism087Smoke {
             check(LauncherStore.MODES.length==11&&SceneCatalog.PREVIEWS.length==11&&SceneCatalog.DESCRIPTIONS.length==11,"Scene catalogs differ in length");
             check("Biolume Reef".equals(LauncherStore.MODES[6])&&"Crystal Atrium".equals(LauncherStore.MODES[4]),"Existing scene IDs changed");
             main(()->{s.tilt=false;s.strength=.5f;s.reducedMotion=false;prefs.setParallax(false);});
-            for(int mode:new int[]{2,5,7,10,3,6,4,8,9}){
+            for(int mode:new int[]{0,2,5,7,10,3,6,4,8,9}){
                 final int chosen=mode;main(()->{model.set("scene",chosen);s.ambient=true;apply();});idle(1600);
                 check(new LauncherStore(activity).mode==chosen,"Scene selection did not persist: "+chosen);
                 Bitmap a=frame();idle(1100);Bitmap b=frame();try{check(difference(a,b,0)>.05,"Scene has no independent ambient motion: "+chosen);save(b,"087-scene-"+chosen+"-moving");}finally{a.recycle();b.recycle();}
@@ -37,9 +37,9 @@ public final class Realism087Smoke {
                 }catch(Exception e){throw new AssertionError(e);}});
             }
             main(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));idle(1600);
-            for(int mode:new int[]{2,5,7,10,3,6,4,8,9}){final int chosen=mode;main(()->model.set("scene",chosen));idle(600);Bitmap b=frame();try{check(b.getWidth()>b.getHeight(),"Scene did not rotate");save(b,"087-scene-"+chosen+"-landscape");}finally{b.recycle();}}
+            for(int mode:new int[]{0,2,5,7,10,3,6,4,8,9}){final int chosen=mode;main(()->model.set("scene",chosen));idle(600);Bitmap b=frame();try{check(b.getWidth()>b.getHeight(),"Scene did not rotate");save(b,"087-scene-"+chosen+"-landscape");}finally{b.recycle();}}
             main(()->invoke("showModes"));idle(400);
-            main(()->{for(int mode:new int[]{2,5,7,10,3,6,4,8,9})check(find(activity.getWindow().getDecorView(),"scene-card:"+mode)!=null,"Scene gallery choice missing: "+mode);invoke("closePanel");});
+            main(()->{for(int mode:new int[]{0,2,5,7,10,3,6,4,8,9})check(find(activity.getWindow().getDecorView(),"scene-card:"+mode)!=null,"Scene gallery choice missing: "+mode);invoke("closePanel");});
             check(layout.equals(s.preferences.getString("layout","")),"Scene selection changed desktop shortcuts");
         }finally{
             main(()->{activity.setRequestedOrientation(orientation);model.set("scene",originalMode);s.ambient=ambient;s.reducedMotion=reduced;s.tilt=tilt;s.strength=strength;prefs.setParallax(parallax);s.preferences.edit().putInt("wallpaper_source",source).apply();s.save();apply();});

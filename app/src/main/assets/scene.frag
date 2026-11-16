@@ -34,41 +34,44 @@ float fbm(vec2 p) { return noise(p)*.55+noise(p*2.1)*.25+noise(p*4.3)*.13; }
 float ellipse(vec2 p, vec2 scale) { return length(p/scale); }
 mat2 rotate(float a) { return mat2(cos(a),-sin(a),sin(a),cos(a)); }
 
-vec3 night(vec2 uv) {
-    vec2 p=uv; p+=tilt*.018;
-    vec3 col=mix(vec3(.012,.030,.075),vec3(.065,.145,.26),p.y);
-    // Crystal Glass atmosphere: independent luminous layers, not a static wallpaper.
-    vec2 lens=(uv-vec2(.73,.68)-tilt*.028)*vec2(resolution.x/resolution.y,1.0);
-    float halo=exp(-dot(lens,lens)*4.2);
-    col+=vec3(.025,.17,.24)*halo;
-    float beam=exp(-pow((lens.x+.20*lens.y)*5.5,2.0))*(.22+.78*smoothstep(.15,.95,uv.y));
-    col+=vec3(.025,.09,.15)*beam;
-    vec2 facets=(uv-vec2(.53,.54)-tilt*.012)*vec2(resolution.x/resolution.y,1.0);
-    float diamond=abs(facets.x)*.75+abs(facets.y)*1.25;
-    float rim=(1.0-smoothstep(.006,.022,abs(diamond-.34)))*.15;
-    col+=vec3(.12,.55,.75)*rim*shadowEnabled;
-    for(int i=0;i<3;i++){
-        float layer=float(i)+1.0;
-        vec2 stars=(uv+tilt*.009*layer)*vec2(23.0,37.0)/layer;
-        vec2 cell=floor(stars), f=fract(stars)-.5;
-        float sparkle=(1.0-smoothstep(.015,.08,length(f)))*step(.965,hash(cell+layer*9.0));
-        col+=vec3(.32,.72,1.0)*sparkle*(.18+.16*layer);
+// Spatial bank: a real distant lake and an independently displaced near shoreline.
+vec3 spatialPhoto(vec2 q) {return texture2D(glassSky,vec2(clamp(q.x,.003,.997),1.0-clamp(q.y,.003,.997))).rgb;}
+vec3 spatialScene(vec2 uv) {
+    float t=clockTime*motion,aspect=resolution.x/resolution.y;
+    vec2 q=photoCover(uv,1.5,.88)+tilt*.014;
+    float water=1.0-smoothstep(.34,.415,q.y);
+    vec2 flow=vec2(sin(q.y*74.0+t*.42+sin(q.x*13.0))*.0010,cos(q.x*39.0-t*.31+q.y*27.0)*.00065)*water*motion;
+    vec3 col=spatialPhoto(q+flow)*vec3(.88,.94,.97);
+    // Fine reflected wave glints follow the photographic water, leaving mountains still.
+    float glint=sin(q.y*220.0+sin(q.x*29.0-t*.24)*1.7+t*.48);
+    col+=vec3(.018,.022,.023)*glint*water*motion;
+    vec2 screen=resolution/min(resolution.x,resolution.y);
+    vec2 movement=tilt*.075+vec2(sin(t*.14)*.007,cos(t*.12)*.004);
+    vec2 p=(uv-vec2(.66,.34))*screen-movement;
+    float radius=.158,r=length(p)/radius;
+    vec2 shadow=(p-vec2(0,-.155))/vec2(.18,.025);
+    col*=1.0-exp(-dot(shadow,shadow))*water*.16*shadowEnabled;
+    if(r<1.015) {
+        vec3 n=normalize(vec3(p/radius,sqrt(max(.0001,1.0-r*r))));
+        vec2 through=q+flow-n.xy*(.035+.018*n.z);
+        vec3 clear=spatialPhoto(through);
+        clear.r=spatialPhoto(through+n.xy*.00065).r;
+        clear.b=spatialPhoto(through-n.xy*.00065).b;
+        vec3 reflected=spatialPhoto(vec2(.5+n.x*n.z*.80,.56+n.y*n.z*.72));
+        float fresnel=.045+.955*pow(1.0-n.z,5.0);
+        vec3 glass=mix(clear*vec3(.88,.97,1.0),reflected,.10+fresnel*.84);
+        glass*=.88+.12*smoothstep(-1.0,.3,n.y);
+        float shine=pow(max(0.0,dot(n,normalize(vec3(-.45,.58,.70)))),95.0);
+        glass+=vec3(.93,.87,.76)*shine*.75;
+        glass+=vec3(.18,.27,.29)*pow(1.0-n.z,9.0)*.38;
+        col=mix(col,glass,1.0-smoothstep(.995,1.012,r));
     }
-    float glow=exp(-length((p-vec2(.77,.72))*vec2(1.1,1.5))*4.0);
-    col+=vec3(.17,.15,.35)*glow;
-    // Three independently displaced ridgelines.
-    for(int i=0;i<3;i++) {
-        float layer=float(i);
-        float x=p.x+tilt.x*.018*layer;
-        float h=.33-layer*.06+sin(x*6.0+layer*2.0)*.055+sin(x*13.0+layer)*.035;
-        float mountain=1.0-smoothstep(h-.003,h+.003,p.y+tilt.y*.008*layer);
-        col=mix(col,vec3(.055,.095,.18)-layer*.012,mountain*.86);
+    float cropY=min(1.0,1.0/aspect);
+    vec2 nearUV=vec2(.5+(uv.x-.5)*min(1.0,aspect)*.84,.72+.22*cropY-uv.y*cropY*.95)+vec2(tilt.x*.045,-tilt.y*.026);
+    if(nearUV.y>.002) {
+        vec4 shore=texture2D(jellyfish,clamp(nearUV,vec2(.003),vec2(.997)));
+        col=mix(col,shore.rgb*.77,min(1.0,shore.a*1.025));
     }
-    float floorMask=1.0-smoothstep(.18,.28,uv.y);
-    vec2 floorUv=vec2((p.x-.5)/(p.y+.08),1.0/(p.y+.08))*3.0;
-    vec2 g=abs(fract(floorUv)-.5);
-    float grid=(1.0-smoothstep(.008,.025,min(g.x,g.y)))*floorMask;
-    col+=vec3(.035,.20,.27)*grid*(.3+uv.y);
     return col;
 }
 
@@ -427,7 +430,7 @@ vec3 reef(vec2 uv) {
 void main() {
     vec2 uv=gl_FragCoord.xy/resolution;
     vec3 col;
-    if(mode<.5) col=night(uv);
+    if(mode<.5) col=spatialScene(uv);
     else if(mode<1.5) col=gravityScene(uv);
     else if(mode<2.5) col=hologram(uv);
     else if(mode<3.5) col=pond(uv);

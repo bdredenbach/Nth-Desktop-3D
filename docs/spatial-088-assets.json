@@ -1,0 +1,29 @@
+{
+  "generator": "OpenAI imagegen",
+  "assets": [
+    {
+      "name": "spatial_environment",
+      "source": "exec-98046a8b-7b63-434e-85f2-09dce42a0225.png",
+      "sourceSha256": "c2608fe041ae6235fb76f0e962c8904cb037637ac9312a1e39048e2a6879a94f",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "name": "spatial_foreground",
+      "source": "exec-00a0f1b4-c6b8-49b4-abc5-bdbe1395785e.png",
+      "sourceSha256": "c23b9d3dc4b4d0a88a76348a99f0c35a6e8b190559588ecc6587984e9461793a",
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGBA"
+    }
+  ],
+  "prompts": {
+    "environment": "Use case: photorealistic-natural. Asset type: photographic environment texture for an Android parallax desktop. Primary request: an extraordinarily realistic tranquil alpine lake at blue hour just after sunset, viewed low over the water. Wide landscape 3:2 composition. Deep distant rugged mountains and forested slopes frame both outer sides and meet a lower distant central valley. The waterline/horizon lies around the vertical middle of the image; lower half is clear gently rippling dark teal water with fine realistic reflections of the sky and mountain silhouettes. Upper half is detailed soft luminous clouds in a restrained peach, slate-blue and pale teal dusk sky, with enough darker open sky for white desktop icon labels to read. A subtle wisp of mist along the distant shoreline, natural wet-rock textures only at the extreme outer edges, realistic photographic exposure and excellent microdetail. Central foreground water is unobstructed and central upper sky is open, because the app adds live objects. Quiet premium landscape photograph, convincing natural illumination, not painted, not cartoon, not a game render. No buildings, people, boats, glass spheres, crystals, floating objects, foreground branches, grid, interface, text, logo, watermark or frame. Edge-to-edge natural scene, keep both portrait center cropping and wide landscape useful.",
+    "foreground": "Use case: photorealistic-natural. Asset type: transparent foreground layer for a realistic parallax mountain lake desktop. Square transparent RGBA canvas, actual transparent background. Primary request: a sparse very close rocky lakeshore viewed from low above a calm alpine lake at blue hour. Beautiful realistic small smooth dark slate river stones and one larger wet dark grey boulder in the lower-right corner, with a few finely detailed muted moss patches and tiny damp pebbles. Entire solid terrain confined to the bottom 16 to 23 percent of the canvas; a natural gently uneven silhouette, bottom edge completely filled with stones, both edges extend beyond the frame. Middle and top 75 percent completely transparent alpha with no sky, no water and no background. Exposure is subdued blue-teal twilight with a tiny restrained peach reflection from the left, to match a photographic sunset lake. Foreground detail very photographic and lifelike with natural wet highlights, no polished gems or neon. No lake, mountains, horizon, clouds, people, branches, text, UI, logos, watermark or checkerboard. Actual transparent area above the low shoreline, no black rectangle."
+  }
+}
