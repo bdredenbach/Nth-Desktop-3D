@@ -73,6 +73,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private LayerSceneView layeredWallpaper;private SceneComposer sceneComposer;private long layeredStamp=-1;private byte[] pendingSceneImage;private boolean pendingSceneObject;
     private android.app.AlertDialog restoreConfirmation;
     private SetupGuide setupGuide;
+    private final Runnable setupReturn=()->restoreSetup();
     private AdaptiveMenuDrawable menuGlass;
     private long lastGlassUpdate;
     private final java.util.Set<String> newlyInstalled=new java.util.HashSet<>();
@@ -257,11 +258,12 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     @Override protected void onStart(){super.onStart();if(discover!=null)discover.start();try{widgetHost.startListening();dockWidgetHost.startListening();widgetListening=true;}catch(RuntimeException error){android.util.Log.e("NthWidgets","Could not listen for widget updates",error);}}
     @Override protected void onStop(){if(discover!=null)discover.stop();if(widgetListening){widgetHost.stopListening();dockWidgetHost.stopListening();widgetListening=false;}super.onStop();}
-    @Override protected void onResume(){super.onResume();resumed=true;previousFrame=lastRender=0;scene.onResume();applySettings(false);Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);handler.removeCallbacks(clockTick);clockTick.run();if(loaded)reloadApps();if(discover!=null)discover.resume();if(cardsView!=null)cardsView.refresh();if(setupGuide!=null)setupGuide.refresh();else if(setupPending())handler.post(this::welcome);if(nativeFeed!=null)nativeFeed.resume();}
+    @Override protected void onResume(){super.onResume();resumed=true;previousFrame=lastRender=0;scene.onResume();applySettings(false);Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);handler.removeCallbacks(clockTick);clockTick.run();if(loaded)reloadApps();if(discover!=null)discover.resume();if(cardsView!=null)cardsView.refresh();if(setupPending())queueSetupReturn();if(nativeFeed!=null)nativeFeed.resume();}
     @Override protected void onPause(){if(drawerDrags!=null)drawerDrags.cancel();if(desktopManager!=null)desktopManager.cancelDrag();resumed=false;if(layeredWallpaper!=null)layeredWallpaper.lighting(false);if(sceneComposer!=null)sceneComposer.reduced(true);Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();if(settingsStudio!=null)settingsStudio.pause();if(cardsView!=null)cardsView.pause();if(nativeFeed!=null)nativeFeed.pause();if(discover!=null)discover.pause();super.onPause();}
     @Override protected void onDestroy(){if(sceneComposer!=null){sceneComposer.persistNow();sceneComposer.dispose();sceneComposer=null;}if(layeredWallpaper!=null)layeredWallpaper.dispose();if(areaMenu!=null){areaMenu.dismiss();areaMenu=null;}destroyed=true;if(restoreConfirmation!=null){restoreConfirmation.dismiss();restoreConfirmation=null;}handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();sceneFiles.shutdown();if(desktopManager!=null)desktopManager.dispose();widgetHost.releaseViews();dockWidgetHost.releaseViews();if(shortcuts!=null)shortcuts.destroy();if(settingsStudio!=null)settingsStudio.dispose();if(cardsView!=null)cardsView.dispose();if(nativeFeed!=null)nativeFeed.dispose();if(discover!=null)discover.destroy();super.onDestroy();}
-    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(setupPending()){if(setupGuide!=null)setupGuide.refresh();else showSetup(store.preferences.getInt("setup_step",0));return;}boolean alreadyHome=resumed&&getWindow().getDecorView().hasWindowFocus()&&overlay==null&&store.page==store.homePage();closePanel();motion.recenter();if(!shortcuts.handle(intent)&&Intent.ACTION_MAIN.equals(intent.getAction())&&intent.hasCategory(Intent.CATEGORY_HOME)){if(alreadyHome)assignedGesture("gesture_home");else{store.page=store.homePage();desktop.rebuild();pageChanged();store.save();}}}
-    @Override public void onWindowFocusChanged(boolean focus){super.onWindowFocusChanged(focus);if(focus)restoreDesktopMotion();}
+    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(setupPending()){queueSetupReturn();return;}boolean alreadyHome=resumed&&getWindow().getDecorView().hasWindowFocus()&&overlay==null&&store.page==store.homePage();closePanel();motion.recenter();if(!shortcuts.handle(intent)&&Intent.ACTION_MAIN.equals(intent.getAction())&&intent.hasCategory(Intent.CATEGORY_HOME)){if(alreadyHome)assignedGesture("gesture_home");else{store.page=store.homePage();desktop.rebuild();pageChanged();store.save();}}}
+    @Override public void onWindowFocusChanged(boolean focus){super.onWindowFocusChanged(focus);if(focus){restoreDesktopMotion();if(store!=null&&setupPending())queueSetupReturn();}}
+    @Override protected void onPostResume(){super.onPostResume();if(setupPending())queueSetupReturn();}
     private void restoreDesktopMotion(){if(!resumed||destroyed||scene==null||motion==null)return;motion.pause();applySettings(false);scene.onResume();sceneDirty=true;scene.requestRender();Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);}
 
     @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);if(drawerDrags!=null)drawerDrags.cancel();int setup=setupGuide==null?-1:setupGuide.step();String page=settingsStudio==null?null:settingsStudio.page();boolean cards=cardsView!=null,managing=desktopManager!=null,composing=sceneComposer!=null;Bundle feedState=nativeFeed==null?null:nativeFeed.state();closePanel();if(discover!=null)discover.configurationChanged();motion.recenter();clock.setTextSize(compact()?30:54);desktop.rebuild();root.requestApplyInsets();if(composing)handler.post(this::showSceneCreator);else if(setup>=0)handler.post(()->showSetup(setup));else if(managing)handler.post(this::showDesktopManager);else if(page!=null)handler.post(()->showSettings(page));else if(cards)handler.post(()->showCards(cardsQuery));else if(feedState!=null)handler.post(()->{showNativeFeed();nativeFeed.restore(feedState);});}
@@ -785,6 +787,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);
+        if(request==101||request==3083){if(setupPending())queueSetupReturn();return;}
         if(request==3073){cardsPhotosResult(result,data);return;}
         if(request==3080||request==3081){sceneImageResult(request,result,data);return;}
         if(request==3082){applySettings(false);return;}
@@ -939,6 +942,18 @@ public final class MainActivity extends Activity implements MotionController.Lis
         LinearLayout body=scrollBody(openPanel("Nth Desktop 3D"));paragraph(body,"Version "+appVersion()+"\n\nSeven scenes. One desktop.\n\nTilt gently to explore depth. Swipe the desktop or use the arrows to turn pages. Hold an app for its menu. Hold the taskbar for desktop options.\n\nScene studio changes the environment. 3D settings mixes the transition and menu style independently.");
         paragraph(body,"This first version includes app launching, persistent shortcuts and folders, Nth Notes, Calculator, Calendar, scene controls, and Android settings shortcuts. Android widgets support direct hold/drag, cell snapping and resizing. The wider Nth utility suite and .nthdesktop imports are planned for later passes.");
         action(body,"Scene studio",this::showModes);action(body,"3D settings",this::showSettings);action(body,"Set default Home",this::requestHome);
+    }
+    private void queueSetupReturn(){handler.removeCallbacks(setupReturn);handler.post(setupReturn);}
+    private void restoreSetup(){
+        if(destroyed||!resumed||!setupPending())return;
+        if(setupGuide==null||panel==null||overlay==null||overlay.getParent()!=root)showSetup(store.preferences.getInt("setup_step",0));
+        else setupGuide.refresh();
+        // Home role changes can return through result, intent and focus callbacks in
+        // different orders. Recover the existing panel without depending on a later
+        // notification-shade round trip or replaying an interrupted opening pose.
+        overlay.setVisibility(View.VISIBLE);overlay.setAlpha(1);overlay.setTranslationX(0);overlay.setTranslationY(0);overlay.bringToFront();
+        panel.setVisibility(View.VISIBLE);panel.animate().cancel();PanelAnimations.apply(panel,PanelAnimations.STACK,1);panel.setTranslationX(0);
+        desktop.setModal(true);layoutPanel();overlay.requestLayout();overlay.invalidate();root.invalidate();
     }
     private boolean setupPending(){return store.preferences.getBoolean("setup_in_progress",false);}
     private void welcome(){if(!destroyed&&resumed&&setupGuide==null&&(setupPending()||!store.preferences.getBoolean("welcomed",false)))showSetup(store.preferences.getInt("setup_step",0));}
