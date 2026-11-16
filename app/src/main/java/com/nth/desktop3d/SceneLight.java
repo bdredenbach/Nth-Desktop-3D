@@ -2,8 +2,8 @@ package com.nth.desktop3d;
 
 /** Shared, deterministic light from the built-in environment, without Android dependencies. */
 final class SceneLight {
-    private static final int[] PRIMARY={0xFFFFC49A,0xFFB9A4FA,0xFFD8EBFF,0xFF8EDDD0,0xFFC1E9FF,0xFF73F0AE,0xFF81CFEF,0xFFF2D3A5,0xFFB5EDFA,0xFFFFAD60,0xFFD8E6F2};
-    private static final int[] SECONDARY={0xFFA2D4DF,0xFF91C8ED,0xFF8CAFD8,0xFFB7D6AD,0xFF8FC9F1,0xFFBD93F0,0xFFB5A8EE,0xFF91C5E8,0xFF8DBAD5,0xFFE77C56,0xFF94ACC8};
+    private static final int[] PRIMARY={0xFFFFC49A,0xFFB9A4FA,0xFFD8EBFF,0xFF39E3D0,0xFFB5DFFF,0xFF4AE777,0xFF81CFEF,0xFFF2D3A5,0xFFB5EDFA,0xFFFF8C1A,0xFF182027};
+    private static final int[] SECONDARY={0xFFA2D4DF,0xFF91C8ED,0xFF8CAFD8,0xFF268F9E,0xFF73BFFA,0xFF1E9656,0xFFB5A8EE,0xFF91C5E8,0xFF8DBAD5,0xFFFFBA46,0xFF444D53};
     static final class Frame {
         final int mode,primary,secondary;final float amount,x,y,pulse;
         Frame(int mode,int primary,int secondary,float amount,float x,float y,float pulse){this.mode=mode;this.primary=primary;this.secondary=secondary;this.amount=amount;this.x=x;this.y=y;this.pulse=pulse;}
@@ -14,6 +14,8 @@ final class SceneLight {
             float band=clamp(.5f+position*.5f+x*.65f),weight=clamp(amount*scale*pulse);
             return blend(argb,blend(primary,secondary,band),weight);
         }
+        boolean dominantPalette(){return mode==3||mode==4||mode==5||mode==9||mode==10;}
+        int surface(int argb,float position){return tint(argb,dominantPalette()?.68f:.30f,position);}
         boolean same(Frame other){return other!=null&&signature()==other.signature()&&Math.round(x*256)==Math.round(other.x*256)&&Math.round(y*256)==Math.round(other.y*256)&&Math.round(pulse*256)==Math.round(other.pulse*256);}
     }
     static Frame frame(int mode,boolean enabled,int strength,boolean moving,boolean steady,float seconds,float tiltX,float tiltY){

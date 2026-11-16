@@ -5,6 +5,7 @@ import java.util.Arrays;
 import static org.junit.Assert.*;
 
 public class IconOpticsTest {
+    @Test public void sceneCoreTintKeepsTheSameSilhouetteAndTransparency(){int[] env=new int[16];java.util.Arrays.fill(env,0xFF080808);int[] neutral=IconOptics.render(64,0,false,0,72,env,4,4);int[] orange=IconOptics.render(64,0,false,0,72,env,4,4,0xFFFF8C1A,1);int[] clear=IconOptics.render(64,0,false,0,72,env,4,4,0xFF182027,1);boolean changed=false;for(int i=0;i<neutral.length;i++){assertEquals(neutral[i]>>>24,orange[i]>>>24);assertEquals(neutral[i]>>>24,clear[i]>>>24);if(neutral[i]!=orange[i])changed=true;}assertTrue(changed);int core=orange[32*64+32];assertTrue((core>>16&255)>(core&255));}
     private static final int N=96;
     private static int[] environment(){int[] p=new int[32*32];for(int y=0;y<32;y++)for(int x=0;x<32;x++)p[y*32+x]=0xFF000000|((50+x*5)<<16)|((80+y*5)<<8)|180;return p;}
     private static int[] render(int shape,boolean folder,int material,int transparency){return IconOptics.render(N,shape,folder,material,transparency,environment(),32,32);}

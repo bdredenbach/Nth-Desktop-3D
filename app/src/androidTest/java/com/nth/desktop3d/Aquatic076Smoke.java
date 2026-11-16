@@ -19,12 +19,10 @@ public final class Aquatic076Smoke {
         Context isolated=new ContextWrapper(activity){@Override public SharedPreferences getSharedPreferences(String name,int mode){return super.getSharedPreferences(prefix+name,mode);}};
         main(()->{try{
             LauncherStore fresh=new LauncherStore(isolated);CrystalPreferences crystal=new CrystalPreferences(isolated);SettingsModel model=new SettingsModel(fresh,crystal,rebuild->{});
-            check(fresh.transition==PageTransitions.STACK&&crystal.menuAnimation()==PanelAnimations.STACK&&model.value("folder_animation")==PanelAnimations.STACK,"Fresh install did not use 3D Stack everywhere");
+            check(fresh.transition==PageTransitions.STACK&&crystal.menuAnimation()==PanelAnimations.STACK&&model.value("folder_animation")==PanelAnimations.PHYSICAL,"Fresh install animation defaults differ");
             for(String id:new String[]{"transition","menu_animation","folder_animation"})check("look".equals(model.specs.get(id).page),"Effect is not in Look & feel: "+id);
             model.set("transition",2);model.set("menu_animation",1);model.set("folder_animation",5);
             check(new LauncherStore(isolated).transition==2&&new CrystalPreferences(isolated).menuAnimation()==1&&model.value("folder_animation")==5,"Saved effect choices were reset");
-            model.useStackAnimations();check(fresh.transition==4&&crystal.menuAnimation()==3&&model.value("folder_animation")==3,"Shared Stack preset did not apply all three effects");
-            model.undo();check(fresh.transition==2&&crystal.menuAnimation()==1&&model.value("folder_animation")==5,"Stack preset Undo did not restore all three choices");
             for(int image:new int[]{R.drawable.pond_bed,R.drawable.reef_water,R.drawable.koi_fish,R.drawable.jellyfish}){
                 BitmapFactory.Options options=new BitmapFactory.Options();options.inScaled=false;options.inPremultiplied=false;
                 Bitmap bitmap=BitmapFactory.decodeResource(activity.getResources(),image,options);check(bitmap!=null&&bitmap.getWidth()>=768&&bitmap.getHeight()>bitmap.getWidth(),"Aquatic texture failed to decode");
@@ -37,9 +35,7 @@ public final class Aquatic076Smoke {
         tap(find(v->v instanceof Button&&((Button)v).getText().toString().startsWith("Desktop transition")));
         main(()->{check(find(v->v instanceof Button&&"Advanced  ▾".contentEquals(((Button)v).getText()))==null,"Transition choices are hidden behind Advanced");for(String name:PageTransitions.NAMES)check(find(v->v instanceof Button&&v.getContentDescription()!=null&&(name.contentEquals(v.getContentDescription())||("✓  "+name).contentEquals(v.getContentDescription())))!=null,"Missing transition: "+name);});
         capture("desktop-effect-choices");
-        invoke("showSettings",new Class[]{String.class},"look");tap(find(v->android.text.TextUtils.equals("Use 3D Stack everywhere",v.getContentDescription())));
-        main(()->{LauncherStore store=(LauncherStore)field("store");SettingsModel model=(SettingsModel)field("settingsModel");check(store.transition==4&&new CrystalPreferences(activity).menuAnimation()==3&&model.value("folder_animation")==3,"Preset tap did not update the live launcher");});
-        capture("stack-preset-selected");invoke("closePanel",new Class[]{});
+        invoke("showSettings",new Class[]{String.class},"look");main(()->check(find(v->android.text.TextUtils.equals("Use 3D Stack everywhere",v.getContentDescription()))==null,"Removed Stack shortcut is still visible"));invoke("closePanel",new Class[]{});
         // Inspect the live GL surface with a clear desktop, without changing saved shortcuts.
         for(int mode:new int[]{3,6}){
             final int chosen=mode;main(()->{LauncherStore store=(LauncherStore)field("store");store.mode=chosen;store.save();((View)field("desktop")).setVisibility(View.INVISIBLE);});invoke("applySettings",new Class[]{boolean.class},false);idle(1200);capture(mode==3?"lifelike-koi-live":"lifelike-jellyfish-live");

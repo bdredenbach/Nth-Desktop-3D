@@ -18,10 +18,14 @@ final class IconOptics {
         int color=0xFF000000;for(int shift=0;shift<=16;shift+=8){float upper=mix(a>>shift&255,b>>shift&255,px-x),lower=mix(c>>shift&255,d>>shift&255,px-x);color|=Math.round(mix(upper,lower,py-y))<<shift;}return color;
     }
     static int[] render(int size,int shape,boolean folder,int material,int transparency,int[] env,int ew,int eh){
+        return render(size,shape,folder,material,transparency,env,ew,eh,0,0);
+    }
+    static int[] render(int size,int shape,boolean folder,int material,int transparency,int[] env,int ew,int eh,int bodyTint,float tintAmount){
         if(size<8||size>384||shape<0||shape>2||ew<1||eh<1||env==null||env.length!=ew*eh)throw new IllegalArgumentException("Invalid optical shell inputs");
         material=Math.max(0,Math.min(3,material));
         float[] red={.09f,.21f,.17f,.035f},green={.22f,.28f,.16f,.21f},blue={.29f,.31f,.30f,.23f};
         float tr=red[material]+(folder?.045f:0),tg=green[material]+(folder?.012f:0),tb=blue[material]+(folder?.025f:0);
+        float tint=Float.isFinite(tintAmount)?clamp(tintAmount):0;tr=mix(tr,(bodyTint>>16&255)/255f*.28f,tint);tg=mix(tg,(bodyTint>>8&255)/255f*.28f,tint);tb=mix(tb,(bodyTint&255)/255f*.28f,tint);
         float core=1-Math.max(0,Math.min(100,transparency))/100f,aa=2.0f/size;
         int[] pixels=new int[size*size];
         for(int y=0;y<size;y++)for(int x=0;x<size;x++){

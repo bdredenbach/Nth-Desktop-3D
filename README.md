@@ -1,3 +1,9 @@
+## 0.9.1 desktop preset trial
+
+Save and restore named desktop setups through Settings → Desktop presets or the shortcut in Look & feel. Presets include scenes, appearance, layouts, folders, dock, gestures, wallpaper and widget placements, with persistent Undo. Notes/card content stay shared, and saved widget/shortcut references are preserved. See [desktop preset trial](docs/desktop-presets-091.md) for scope, limits and validation.
+
+Look & feel is first in settings, Physical folder is the new initialization default, and the shared Stack reset is removed. Lava, Pond, Atrium, Aurora and Asteroid lighting follows the requested orange, turquoise, light blue, green and dark neutral palettes. Saved choices stay intact.
+
 ## 0.9.0 folder trial
 
 Fresh initialization uses rounded-square app and folder shells, scene lighting on and strength 100. Both shape controls live in Look & feel; saved choices survive upgrades. Choose Look & feel → Folder opening animation → Physical folder to try the hinged glass front and staggered native icons, with reverse closing. Existing effects remain available. See [physical folder trial](docs/physical-folders-090.md) for behavior and verification limits and [feature queue](docs/feature-trials.md) for the one-at-a-time plan.
@@ -15,7 +21,7 @@ Open Settings → Launcher → Setup & permissions to revisit optional access. R
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and eleven original GPU scenes. Current test release: **0.9.0**.
+animated Start menus and eleven original GPU scenes. Current test release: **0.9.1**.
 
 Install the supplied signed release APK for continued updates. Version 0.3.2
 uses the owner's replacement **R2** signing certificate. Moving from the lost

@@ -29,4 +29,14 @@ public class SceneLightTest {
     @Test public void invalidTimeAndExtremeInputCannotProduceUnboundedLight(){
         for(float time:new float[]{Float.NaN,Float.POSITIVE_INFINITY,-1,Float.MAX_VALUE}){SceneLight.Frame f=SceneLight.frame(5,true,10000,true,false,time,Float.NaN,10000);assertEquals(1,f.amount,0);assertTrue(Float.isFinite(f.x)&&Float.isFinite(f.y)&&Float.isFinite(f.pulse));assertTrue(Math.abs(f.x)<.5f&&Math.abs(f.y)<.3f);}
     }
+    @Test public void requestedScenesTintDarkGlassTowardTheirDominantColors(){
+        int lava=surface(9);assertTrue(red(lava)>green(lava)&&green(lava)>blue(lava));
+        int pond=surface(3);assertTrue(green(pond)>red(pond)*2&&blue(pond)>red(pond)*2&&Math.abs(green(pond)-blue(pond))<30);
+        int atrium=surface(4);assertTrue(blue(atrium)>green(atrium)&&green(atrium)>red(atrium));
+        int aurora=surface(5);assertTrue(green(aurora)>red(aurora)*2&&green(aurora)>blue(aurora)*1.5f);
+    }
+    @Test public void asteroidGlassIsDarkAndNearlyNeutral(){int color=surface(10);assertTrue(Math.max(red(color),Math.max(green(color),blue(color)))<55);assertTrue(Math.max(red(color),blue(color))-Math.min(red(color),blue(color))<25);}
+    @Test public void newPalettesPreserveFadingOpacityAndOffComparison(){for(int mode:new int[]{3,4,5,9,10})for(int alpha=0;alpha<256;alpha+=17){int base=alpha<<24|0x123456;assertEquals(alpha,SceneLight.frame(mode,true,100,false,true,0,0,0).surface(base,0)>>>24);assertEquals(base,SceneLight.frame(mode,false,100,false,true,0,0,0).surface(base,0));assertEquals(base,SceneLight.frame(mode,true,0,false,true,0,0,0).surface(base,0));}}
+    private int surface(int mode){return SceneLight.frame(mode,true,100,false,true,0,0,0).surface(0xD0081728,0);}
+    private static int red(int c){return c>>16&255;}private static int green(int c){return c>>8&255;}private static int blue(int c){return c&255;}
 }

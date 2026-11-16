@@ -49,7 +49,7 @@ final class CrystalGlassDrawable extends Drawable {
 
         paint.setStyle(Paint.Style.FILL);
         paint.setShader(new LinearGradient(rect.left,rect.top,rect.right,rect.bottom,
-                new int[]{modulate(material==2?0xB8C8F8FF:material==1?0xD4C9E2EB:material==3?0xA04A8CBF:0xA8B4F5FF),modulate(material==2?0xAA446FCB:material==1?0xA28CB1C4:material==3?0xD00C2D58:top),modulate(material==2?0xAA7B3BA7:material==1?0xA46D91AA:material==3?0xE0061633:bottom),modulate(material==2?0xB019325D:0xB0081930)},
+                new int[]{surface(material==2?0xB8C8F8FF:material==1?0xD4C9E2EB:material==3?0xA04A8CBF:0xA8B4F5FF,-1),surface(material==2?0xAA446FCB:material==1?0xA28CB1C4:material==3?0xD00C2D58:top,-.4f),surface(material==2?0xAA7B3BA7:material==1?0xA46D91AA:material==3?0xE0061633:bottom,.4f),surface(material==2?0xB019325D:0xB0081930,1)},
                 new float[]{0f,.16f,.76f,1f},Shader.TileMode.CLAMP));
         canvas.drawRect(rect,paint); paint.setShader(null);
 
@@ -147,6 +147,7 @@ final class CrystalGlassDrawable extends Drawable {
             default:return bottom;
         }
     }
+    private int surface(int color,float position){SceneLight.Frame light=sceneLight.lighting.frame();return modulate(light.dominantPalette()?light.tint(color,.68f,position):color);}
     private int modulate(int color) {
         return (color & 0x00FFFFFF) | ((Color.alpha(color)*alpha/255)<<24);
     }

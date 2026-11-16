@@ -26,7 +26,8 @@ final class IconShellDrawable extends Drawable {
         synchronized(CACHE){
             Bitmap cached=CACHE.get(key);
             if(cached==null){
-                int[] pixels=IconOptics.render(SIZE,shape,folder,material,transparency,sceneLight.lighting.environment(),128,128);
+                SceneLight.Frame light=sceneLight.lighting.frame();int tint=SceneLight.blend(light.primary,light.secondary,.25f);
+                int[] pixels=IconOptics.render(SIZE,shape,folder,material,transparency,sceneLight.lighting.environment(),128,128,tint,light.dominantPalette()?light.amount*.85f:0);
                 cached=Bitmap.createBitmap(pixels,SIZE,SIZE,Bitmap.Config.ARGB_8888);CACHE.put(key,cached);
             }
             image=cached;environmentKey=environment;

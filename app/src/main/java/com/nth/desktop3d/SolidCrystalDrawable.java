@@ -14,6 +14,7 @@ final class SolidCrystalDrawable extends Drawable {
     private final int material,coreAlpha;
     private Shader body,bevel,shine,edge,rightRoll,bottomRoll;
     private int alpha=255;
+    private int bodyKey=Integer.MIN_VALUE;
     private final SceneLighting.Cover sceneLight;
     SolidCrystalDrawable(Context c,int radius,boolean selected){
         density=c.getResources().getDisplayMetrics().density;this.radius=radius*density;sceneLight=new SceneLighting.Cover(c,this);
@@ -24,9 +25,7 @@ final class SolidCrystalDrawable extends Drawable {
         float w=face.width(),h=face.height();if(w<=0||h<=0)return;
         float r=Math.min(radius,Math.min(w,h)*.5f);
         clip.reset();clip.addRoundRect(face,r,r,Path.Direction.CW);
-        int top=selected?0xFF315C78:material==1?0xFF526F84:material==3?0xFF153A56:0xFF28465E;
-        body=new LinearGradient(face.left,face.top,face.right,face.bottom,
-            new int[]{0xFF729BAF,top,0xFF12283E,0xFF071626,0xFF1D4159},new float[]{0,.13f,.48f,.85f,1},Shader.TileMode.CLAMP);
+        bodyKey=Integer.MIN_VALUE;updateBody();
         bevel=new LinearGradient(face.left,face.top,face.right,face.bottom,
             new int[]{0xF0F1FCFF,0x904385A7,0xFF061724,0xA51E789F,0xD6CEF6FF},new float[]{0,.18f,.48f,.77f,1},Shader.TileMode.CLAMP);
         shine=new LinearGradient(face.left,face.top,face.left+w*.62f,face.top+h*.8f,
@@ -43,6 +42,8 @@ final class SolidCrystalDrawable extends Drawable {
         reflection.cubicTo(face.left+w*.15f,face.top+h*.30f,face.left+w*.11f,face.top+h*.12f,face.left+w*.06f,face.top);reflection.close();
     }
     @Override public void draw(Canvas c){
+        if(face.isEmpty())return;
+        updateBody();
         if(face.isEmpty()||body==null)return;
         float r=Math.min(radius,Math.min(face.width(),face.height())*.5f),rim=Math.min(density*4,Math.min(face.width(),face.height())*.075f);
         int save=c.save();c.clipPath(clip);paint.setAlpha(alpha);paint.setStyle(Paint.Style.FILL);
@@ -58,6 +59,7 @@ final class SolidCrystalDrawable extends Drawable {
         if(selected){paint.setShader(null);paint.setColor(0xFFE3FBFF);paint.setAlpha(alpha);c.drawLine(face.left+r,face.top+rim,face.right-r,face.top+rim,paint);}
         sceneLight.draw(c,face,alpha,1);c.restoreToCount(save);paint.setShader(null);paint.setStyle(Paint.Style.FILL);paint.setAlpha(alpha);
     }
+    private void updateBody(){SceneLight.Frame light=sceneLight.lighting.frame();if(body!=null&&bodyKey==light.signature())return;bodyKey=light.signature();int top=selected?0xFF315C78:material==1?0xFF526F84:material==3?0xFF153A56:0xFF28465E;int[] colors={0xFF729BAF,top,0xFF12283E,0xFF071626,0xFF1D4159};if(light.dominantPalette())for(int i=0;i<colors.length;i++)colors[i]=light.tint(colors[i],.68f,i/2f-1);body=new LinearGradient(face.left,face.top,face.right,face.bottom,colors,new float[]{0,.13f,.48f,.85f,1},Shader.TileMode.CLAMP);}
     @Override public void setAlpha(int value){alpha=Math.max(0,Math.min(255,value));invalidateSelf();}
     @Override public void setColorFilter(ColorFilter filter){paint.setColorFilter(filter);invalidateSelf();}
     @Override public int getOpacity(){return PixelFormat.TRANSLUCENT;}

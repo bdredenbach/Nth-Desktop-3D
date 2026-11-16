@@ -48,7 +48,7 @@ public final class LauncherStore {
         }
     }
     public LauncherStore(Context context) {
-        preferences = context.getSharedPreferences("desktop3d", Context.MODE_PRIVATE);PaddingSettings.migrate(preferences);if(!preferences.getBoolean("visual_defaults_090",false)){SharedPreferences.Editor defaults=preferences.edit();for(java.util.Map.Entry<String,Object> entry:VisualDefaults.missing(preferences.getAll()).entrySet()){if(entry.getValue() instanceof Boolean)defaults.putBoolean(entry.getKey(),(Boolean)entry.getValue());else defaults.putInt(entry.getKey(),(Integer)entry.getValue());}defaults.putBoolean("visual_defaults_090",true).apply();}dock=new DockStore(preferences);
+        preferences = context.getSharedPreferences("desktop3d", Context.MODE_PRIVATE);PaddingSettings.migrate(preferences);if(!preferences.getBoolean("visual_defaults_091",false)){SharedPreferences.Editor defaults=preferences.edit();for(java.util.Map.Entry<String,Object> entry:VisualDefaults.missing(preferences.getAll()).entrySet()){if(entry.getValue() instanceof Boolean)defaults.putBoolean(entry.getKey(),(Boolean)entry.getValue());else defaults.putInt(entry.getKey(),(Integer)entry.getValue());}defaults.putBoolean("visual_defaults_091",true).apply();}dock=new DockStore(preferences);
         for (int n = 0; n < Math.max(1,Math.min(MAX_PAGES,preferences.getInt("page_count",PAGE_COUNT))); n++) pages.add(new ArrayList<>());
         mode = Math.max(0, Math.min(MODES.length-1, preferences.getInt("mode", 0)));
         transition = Math.max(0, Math.min(TRANSITIONS.length-1, preferences.getInt("transition", PageTransitions.STACK)));
