@@ -1,3 +1,9 @@
+# 0.9.2 — 2026-11-16
+
+- Trial 4: place native Crystal Cards on desktop pages with real data/actions, hold-to-move, full-edge resize, page moves and removal. Keep card geometry in presets and version 3 backups while accepting version 2 backups and retaining shared content.
+- Add selected-scene shuffle and optional timed rotation, off by default. A persistent shuffled bag avoids adjacent repeats; automatic changes wait for idle foreground Home and pause for menus, apps, other wallpaper sources and battery saving. No background wakeup is scheduled.
+- Keep earlier rounded-square, scene-lighting and physical-folder defaults, saved choices and Gravity mechanics. Trial 5 remains queued for phone feedback.
+
 # 0.8.9 — 2026-11-16
 
 - Trial 1 of 8: match built-in scene light across icon/folder glass, cards, dock and menu surfaces. Use the current scene photograph/material as the optical reflection map and coordinate restrained colored light sweeps with the scene clock.

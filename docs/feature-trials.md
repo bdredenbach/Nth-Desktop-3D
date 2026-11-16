@@ -7,7 +7,7 @@ The owner approved trying all eight ideas one at a time. Each feature gets its o
 | 1 | Scene-matched lighting | Accepted by owner; 0.9.0 fresh defaults use strength 100 and rounded squares |
 | 2 | Physical folder opening/closing | Accepted by owner; default for fresh initialization in 0.9.1 |
 | 3 | Complete saved desktop presets | 0.9.1 implementation; awaiting owner phone review |
-| 4 | Placeable 3D versions of Crystal Cards | Queued |
+| 4 | Placeable 3D versions of Crystal Cards | 0.9.2 implementation with requested scene randomizer; awaiting phone review |
 | 5 | Scene creator motion/lighting and individual scene packs | Queued |
 | 6 | Unified app/folder/settings/note/Nota search | Queued |
 | 7 | Adjustable physical haptic feedback | Queued |
@@ -29,10 +29,15 @@ Try a desktop folder, a drawer folder and a dock folder; check tapping apps, hol
 
 The owner accepted the folder animation and requested it as the initialization default. Version 0.9.1 uses Physical folder on fresh initialization and retains explicit choices and older implicit choices on upgrade. The shared Use 3D Stack everywhere button is removed. Look & feel is the first settings category.
 
-## Trial 3: compare before advancing
+## Trial 3: available for review
 
 Use Settings → Desktop presets or Look & feel → Desktop presets. Save a setup, change its scene/layout/dock, then save another. Apply either preset after reviewing its summary. Check Cancel and Undo last preset change. Presets include layouts, folders, gestures, visual settings, dock contents, photo wallpaper, the applied custom scene and widget placements. Notes/card content and Android access stay shared. Check Update from current desktop, Rename, Delete, and returning after restarting the app. Widget and pinned-shortcut references are retained by saved presets and the durable previous-desktop snapshot.
 
 The lighting revision maps the supplied screenshots to Parallax Lava (orange), Living Pond (turquoise), Crystal Atrium (light blue), Aurora Veil (green) and Asteroid Field (dark neutral crystal). Scene matching off/zero remains the neutral comparison. Phone appearance/performance requires review.
 
-Do not begin Trial 4 until owner feedback. The owner especially likes Gravity Playground's current mechanics: keep its drag, movement, collisions, pinning and layout behavior intact.
+The owner requested the next queued item with a scene randomizer. Trial 4 is implemented in 0.9.2; presets remain available for phone review. The owner especially likes Gravity Playground's current mechanics: keep its drag, movement, collisions, pinning and layout behavior intact.
+
+
+## Trial 4: compare before advancing
+
+See [desktop cards and scene shuffle](cards-shuffle-092.md). Place Notes or Media on a desktop, edit/use its normal actions, hold and drag, resize from its edge grips, move to another desktop and remove it. Save a preset with cards and restore it. Try manual shuffle, restrict the selected scenes and enable an interval if desired. Automatic rotation begins off and waits for idle Home. Review phone appearance, touch behavior and performance before starting Trial 5.
