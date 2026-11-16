@@ -23,8 +23,16 @@ public class FixtureDiscoverService extends Service {
         public void requestVoiceDetection(boolean start){}public String getVoiceSearchLanguage(){return "en";}public boolean isVoiceDetectionRunning(){return false;}
         public boolean hasOverlayContent(){return true;}public void unusedMethod(){}public void setActivityState(int flags){main.post(()->{if(apiVersion()<4)invalid=true;else lifecycle=flags;if(mode.equals("early_scroll")&&flags==3)show();});}public boolean startSearch(byte[] data,Bundle bundle){return false;}
     };
-    @Override public IBinder onBind(Intent intent){mode=getSharedPreferences("discover_fixture",0).getString("mode","normal");invalid=scrollStarted=registrationCleared=false;scrollPosition=0;lifecycle=attachCount=0;return mode.equals("null")?null:overlay;}
-    private void attach(WindowManager.LayoutParams params,ILauncherOverlayCallback cb,boolean bundle){hide();parent=params;callback=cb;attachCount++;invalid=bundle!=(apiVersion()>=3)&&!mode.equals("legacy_only");if(mode.equals("silent")||mode.equals("early_scroll")||(mode.equals("requires_reset")&&!registrationCleared)||(mode.equals("legacy_only")&&bundle))return;
+    @Override public IBinder onBind(Intent intent){mode=getSharedPreferences("discover_fixture",0).getString("mode","normal");invalid=scrollStarted=registrationCleared=false;scrollPosition=0;lifecycle=attachCount=0;if(mode.equals("null"))return null;
+        if(mode.startsWith("empty_descriptor")||mode.equals("wrong_descriptor"))return new Binder(){
+            @Override protected boolean onTransact(int code,Parcel data,Parcel reply,int flags)throws RemoteException{
+                if(code==IBinder.INTERFACE_TRANSACTION){if(reply!=null)reply.writeString(mode.equals("wrong_descriptor")?"com.nth.fixture.UnsupportedOverlay":"");return true;}
+                return overlay.asBinder().transact(code,data,reply,flags);
+            }
+        };
+        return overlay;
+    }
+    private void attach(WindowManager.LayoutParams params,ILauncherOverlayCallback cb,boolean bundle){hide();parent=params;callback=cb;attachCount++;invalid=bundle!=(apiVersion()>=3)&&!mode.equals("legacy_only");if(mode.equals("silent")||mode.equals("empty_descriptor_silent")||mode.equals("early_scroll")||(mode.equals("requires_reset")&&!registrationCleared)||(mode.equals("legacy_only")&&bundle))return;
         if(mode.equals("reattach")&&attachCount==1){main.postDelayed(()->{try{cb.overlayStatusChanged(0);}catch(RemoteException ignored){}},5500);return;}
         Runnable ready=()->{try{if(callback==cb)cb.overlayStatusChanged(invalid||mode.equals("not_ready")?0:1);}catch(RemoteException ignored){}};if(mode.equals("slow"))main.postDelayed(ready,3500);else ready.run();}
     // TYPE_APPLICATION requires the activity token. A panel would wrongly accept
