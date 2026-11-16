@@ -3,7 +3,7 @@
 # Leave memory for the emulator and its software GPU during rotation.
 nth_gradle() { ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m "$@"; }
 nth_suite=${1:-full}
-case "$nth_suite" in workspace|polish|core|settings|widgets|crystal|interaction|anchors|realism|folders|presets|cards|placement|packs|full) ;; *) exit 2 ;; esac
+case "$nth_suite" in workspace|polish|core|settings|widgets|crystal|interaction|anchors|realism|folders|presets|cards|placement|packs|drawer|full) ;; *) exit 2 ;; esac
 nth_output="app/build/native-verification/$nth_suite"
 mkdir -p "$nth_output"
 adb shell wm size 540x1200
@@ -37,7 +37,7 @@ if [ "$nth_smoke_status" -eq 0 ]; then
     case "$nth_suite" in
         workspace) timeout 3m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=workspace ;;
         polish) timeout 6m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=polish ;;
-        core|settings|widgets|crystal|interaction|anchors|realism|folders|presets|cards|placement|packs) timeout 6m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase="$nth_suite" ;;
+        core|settings|widgets|crystal|interaction|anchors|realism|folders|presets|cards|placement|packs|drawer) timeout 6m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase="$nth_suite" ;;
         full) timeout 14m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest ;;
     esac
     nth_smoke_status=$?

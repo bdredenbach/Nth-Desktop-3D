@@ -48,6 +48,7 @@ final class SettingsModel {
         bool("folder_labels","folders","Folder labels","Show shortcut names inside folders.",true,false);
         bool("folder_title","folders","Show folder name","Show the folder's title above its contents.",true,false);
         pref("folder_radius","folders","Folder corner radius","Round the folder window in dp.",0,36,2,26,false);
+        enumeration("drawer_scroll","drawer","App drawer scrolling","Scroll vertically or swipe horizontally between pages.",new String[]{"Vertical","Horizontal"},0,false);
         pref("drawer_columns","drawer","App drawer columns","Phone columns; landscape can fit two additional columns.",3,6,1,3,false);
         pref("drawer_icon_size","drawer","App drawer icon size","App icon size as a percentage.",70,130,5,100,false);
         bool("drawer_labels","drawer","App drawer labels","Show installed app names.",true,false);

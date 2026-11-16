@@ -578,7 +578,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         Button nth=Ui.button(this,"Nth tools",()->{if(appsAdapter!=null){appsAdapter.onlyBuiltins=true;appsAdapter.onlyFolders=false;appsAdapter.filter(appSearch.getText().toString());}});
         Button folders=Ui.button(this,"Folders",()->{if(appsAdapter!=null){appsAdapter.onlyBuiltins=false;appsAdapter.onlyFolders=true;appsAdapter.filter(appSearch.getText().toString());}});shortcuts.addView(folders,new LinearLayout.LayoutParams(0,dp(44),1));
         shortcuts.addView(all,new LinearLayout.LayoutParams(0,dp(44),1));LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(0,dp(44),1);np.leftMargin=dp(8);shortcuts.addView(nth,np);if(store.preferences.getBoolean("cards_in_search",true)){Button cards=Ui.button(this,"Cards",()->showCards(appSearch==null?"":appSearch.getText().toString()));LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(0,dp(44),1);cp.leftMargin=dp(8);shortcuts.addView(cards,cp);}p.addView(shortcuts);for(int n=0;n<shortcuts.getChildCount();n++)if(shortcuts.getChildAt(n) instanceof Button){Button filter=(Button)shortcuts.getChildAt(n);filter.setBackground(Ui.touch(this,Ui.crystal(this,14,false),14));filter.setTextSize(12);filter.setSingleLine(true);filter.setPadding(dp(6),0,dp(6),0);}
-        GridView grid=new SwipeDismissGrid(this,this::closePanel);
+        SwipeDismissGrid grid=new SwipeDismissGrid(this,this::closePanel,store.preferences.getInt("drawer_scroll",0)==1);
         grid.setOnTouchListener(new View.OnTouchListener(){
             float startY,startX;boolean dismissing;
             @Override public boolean onTouch(View v,MotionEvent e){
@@ -594,7 +594,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         });
         grid.setNumColumns(Math.min(8,store.preferences.getInt("drawer_columns",3)+(compact()?2:0)));grid.setVerticalSpacing(dp(10));grid.setHorizontalSpacing(dp(8));grid.setPadding(0,dp(16),0,dp(10));grid.setClipToPadding(false);grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);grid.setSelector(android.R.color.transparent);
         appsAdapter=new AppsAdapter();grid.setAdapter(appsAdapter);p.addView(grid,new LinearLayout.LayoutParams(-1,0,1));appsAdapter.filter("");
-        grid.setOnItemClickListener((a,v,pos,id)->openDrawerItem(pos,false));
+        grid.setOnItemClickListener((a,v,pos,id)->openDrawerItem(grid.sourcePosition(pos),false));
         grid.setLongClickable(false);
         appSearch.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int count,int after){}public void onTextChanged(CharSequence s,int st,int before,int count){if(appsAdapter!=null)appsAdapter.filter(s.toString());}public void afterTextChanged(Editable e){}});
         appSearch.setOnEditorActionListener((v,action,event)->{if(appsAdapter!=null&&appsAdapter.getCount()==1){openDrawerItem(0,false);return true;}return false;});

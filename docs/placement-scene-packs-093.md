@@ -1,5 +1,11 @@
 # Card placement and scene editor — version 0.9.3, Trial 5
 
+## Discover recovery and drawer direction
+
+The owner's 227346.png shows API 11 bound and attached, but no readiness callback through registration refresh and legacy reattachment. Final recovery now clears activity state and changes a client_session URI parameter before rebinding, so Android requests a fresh binding identity rather than reusing the same silent binding. Manual repair also creates a fresh session. Package/UID authority and v7/cv9 remain intact. The 15-second startup deadline and explicit-status/pause/cancel/visible safeguards remain. This cannot force-stop Google or guarantee recovery from a hung provider process; Pixel 10 / Google 17.74 needs phone confirmation.
+
+App drawer settings now offer Vertical or Horizontal. Vertical remains the default. Horizontal uses whole viewport rows, swipe pages, a page label and accessible forward/back actions. Filtering resets to the first page; each rendered icon retains its full-catalog tap/menu/drag target. Rotation or keyboard viewport changes recompute capacity.
+
 ## Cards and app tiles
 
 The owner's 227316.mp4 demonstrates a desktop card rejecting movement as occupied, and the drawer's Cards panel offering button-based placement. Cards now use the same continuous Android drag controller as drawer app shortcuts. Hold, then move to begin dragging; dwell at the left/right screen edge to change desktop, including creating a new desktop at the right edge. A stationary hold opens actions. Native child buttons and scrolling retain their normal behavior before a hold. The same drag works on cards opened through the app drawer's Cards action. Accessibility long-press opens the action menu.

@@ -51,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [workspace, polish, core, settings, widgets, crystal, interaction, anchors, realism, folders, presets, cards, placement, packs]
+        suite: [workspace, polish, core, settings, widgets, crystal, interaction, anchors, realism, folders, presets, cards, placement, packs, drawer]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
@@ -76,7 +76,7 @@ jobs:
           emulator-build: 12414864
           # Exercise optical-card screenshots on Android 11 after API 35 software-GPU disconnects.
           # Settings/recreation stays on Android 14; other suites cover Android 15.
-          api-level: ${{ (matrix.suite == 'crystal' || matrix.suite == 'interaction' || matrix.suite == 'anchors' || matrix.suite == 'realism' || matrix.suite == 'folders' || matrix.suite == 'presets' || matrix.suite == 'cards' || matrix.suite == 'placement' || matrix.suite == 'packs') && 30 || matrix.suite == 'settings' && 34 || 35 }}
+          api-level: ${{ (matrix.suite == 'crystal' || matrix.suite == 'interaction' || matrix.suite == 'anchors' || matrix.suite == 'realism' || matrix.suite == 'folders' || matrix.suite == 'presets' || matrix.suite == 'cards' || matrix.suite == 'placement' || matrix.suite == 'packs' || matrix.suite == 'drawer') && 30 || matrix.suite == 'settings' && 34 || 35 }}
           target: default
           arch: x86_64
           profile: pixel_7

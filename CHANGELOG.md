@@ -1,5 +1,8 @@
 # 0.9.3 — 2026-11-16
 
+- Add App drawer scrolling in App drawer settings: Vertical (existing default) or Horizontal pages. Preserve search, app/folder actions, held drags and accessible page navigation.
+- Refresh a silent Discover connection using a new binding URI session after clearing the old activity registration. Keep startup bounded, and leave explicit not-ready, visible, paused and canceled feeds alone. Add a separate-UID stale-binding fixture.
+
 - Continue card drags from the app drawer or desktop through Android's system drag, with edge paging, cancellation cleanup and new-desktop overflow for a crowded visible grid.
 - Add None app icon shape and native resizable app tiles with persistent spans, normal-shortcut reset and tap-to-launch behavior. Preserve folder shells, fresh defaults and ordinary Gravity mechanics.
 - Trial 5: per-object Still/Float/Orbit/Drift, motion amount/speed and scene light color/strength/direction. Keep old scenes still by default and honor reduced motion, ambient-off, pause and battery saving.
