@@ -79,6 +79,7 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
         crystalParallax=prefs.parallax(); crystalShadows=prefs.shadows();
     }
     public void tilt(float x,float y) { tiltX=x;tiltY=y; }
+    public float elapsedSeconds(){return (SystemClock.uptimeMillis()-start)/1000f;}
     public void ripple(float x,float y) { synchronized(touchData) { int i=(touchIndex++%4)*3;touchData[i]=x;touchData[i+1]=1-y;touchData[i+2]=(SystemClock.uptimeMillis()-start)/1000f; } requestRender(); }
     private static int shader(int type,String source) {
         int s=GLES20.glCreateShader(type);GLES20.glShaderSource(s,source);GLES20.glCompileShader(s);

@@ -42,4 +42,9 @@ public class SettingsCommandsTest {
         org.junit.Assert.assertEquals(Integer.valueOf(0),SettingsCommands.parse("disable dock spaces").value);
         org.junit.Assert.assertEquals("show_dock",SettingsCommands.parse("enable dock").id);
     }
+    @org.junit.Test public void sceneLightingCanBeComparedAndAdjusted(){
+        SettingsCommands.Command off=SettingsCommands.parse("turn off scene lighting");org.junit.Assert.assertEquals("scene_lighting",off.id);org.junit.Assert.assertEquals(Integer.valueOf(0),off.value);
+        SettingsCommands.Command strength=SettingsCommands.parse("set scene lighting strength to 40");org.junit.Assert.assertEquals("scene_light_strength",strength.id);org.junit.Assert.assertEquals(Integer.valueOf(40),strength.value);
+    }
+    @org.junit.Test public void sceneLightingNavigationFindsItsOwnControls(){org.junit.Assert.assertEquals("look",SettingsCommands.parse("open scene lighting").page);}
 }

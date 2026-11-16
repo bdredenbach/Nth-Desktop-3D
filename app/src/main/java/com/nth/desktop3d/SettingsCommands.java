@@ -36,13 +36,13 @@ public final class SettingsCommands {
             return page("choice:"+id);
         }
         if(navigate){
-            String target=folder?"folders":has(s,"dock")?"dock":drawer?"drawer":has(s,"grid","home screen","desktop","icon size")?"home":has(s,"glass","transparent","opacity","appearance","look")?"look":has(s,"gesture")?"gestures":has(s,"feed","discover")?"feed":has(s,"backup","restore")?"backup":has(s,"card")?"cards":has(s,"scene","tilt","motion")?"motion":has(s,"search","nota")?"search":null;
+            String target=has(s,"scene lighting","scene reflections","match scene")?"look":folder?"folders":has(s,"dock")?"dock":drawer?"drawer":has(s,"grid","home screen","desktop","icon size")?"home":has(s,"glass","transparent","opacity","appearance","look")?"look":has(s,"gesture")?"gestures":has(s,"feed","discover")?"feed":has(s,"backup","restore")?"backup":has(s,"card")?"cards":has(s,"scene","tilt","motion")?"motion":has(s,"search","nota")?"search":null;
             if(target!=null)return page(target);
         }
         String card=has(s,"media card","music card")?"card_media":has(s,"weather card")?"card_weather":has(s,"calendar card")?"card_calendar":has(s,"photo card","photos card")?"card_photos":has(s,"reading card")?"card_reading":has(s,"notes card")?"card_notes":null;
-        String id=card!=null?card:folder&&has(s,"radius","corners")?"folder_radius":has(s,"row height","row spacing")?"grid_row_dp":has(s,"column","grid")?(folder?"folder_columns":drawer?"drawer_columns":"grid_columns"):has(s,"icon size","icons larger","icons bigger","icons smaller","icon larger","icon bigger","icon smaller")?(folder?"folder_icon_size":drawer?"drawer_icon_size":"icon_size"):has(s,"transparency","transparent")?"transparency":has(s,"feather","fade width")?"glass_feather":has(s,"opacity strength","opacity")?"glass_strength":has(s,"adaptive glass","fading menus","adaptive menus")?"adaptive_glass":has(s,"reduced motion","reduce motion")?"reduced_motion":has(s,"tilt","parallax")?"tilt":has(s,"labels","label")?(folder?"folder_labels":drawer?"drawer_labels":"desktop_labels"):has(s,"dock spaces","dock slots")?"dock_content":has(s,"dock")?"show_dock":null;
+        String id=has(s,"scene lighting strength","scene light strength","reflection strength")?"scene_light_strength":has(s,"scene lighting","scene reflections","match scene")?"scene_lighting":card!=null?card:folder&&has(s,"radius","corners")?"folder_radius":has(s,"row height","row spacing")?"grid_row_dp":has(s,"column","grid")?(folder?"folder_columns":drawer?"drawer_columns":"grid_columns"):has(s,"icon size","icons larger","icons bigger","icons smaller","icon larger","icon bigger","icon smaller")?(folder?"folder_icon_size":drawer?"drawer_icon_size":"icon_size"):has(s,"transparency","transparent")?"transparency":has(s,"feather","fade width")?"glass_feather":has(s,"opacity strength","opacity")?"glass_strength":has(s,"adaptive glass","fading menus","adaptive menus")?"adaptive_glass":has(s,"reduced motion","reduce motion")?"reduced_motion":has(s,"tilt","parallax")?"tilt":has(s,"labels","label")?(folder?"folder_labels":drawer?"drawer_labels":"desktop_labels"):has(s,"dock spaces","dock slots")?"dock_content":has(s,"dock")?"show_dock":null;
         if(id==null||!action)return null;
-        if(id.startsWith("card_")||has(id,"tilt","labels","show_dock","dock_content","reduced_motion","adaptive_glass")){
+        if(id.startsWith("card_")||has(id,"tilt","labels","show_dock","dock_content","reduced_motion","adaptive_glass","scene_lighting")){
             boolean off=s.matches(".*\\b(off|disable|hide|without)\\b.*"),on=s.matches(".*\\b(on|enable|show)\\b.*")||s.contains("reduce motion");
             if(!off&&!on)return null;return new Command(id,off?0:1,null);
         }
@@ -50,6 +50,6 @@ public final class SettingsCommands {
         if(id.endsWith("icon_size")&&has(s,"larger","bigger","increase","large"))return new Command(id,Integer.MIN_VALUE+1,null);
         if(id.endsWith("icon_size")&&has(s,"smaller","decrease","small"))return new Command(id,Integer.MIN_VALUE+2,null);
         // A setting without a value opens its controls; no guessed mutation.
-        return page(folder?"folders":drawer?"drawer":id.equals("icon_size")?"home":id.startsWith("glass")||id.equals("transparency")?"look":"motion");
+        return page(folder?"folders":drawer?"drawer":id.equals("icon_size")?"home":id.startsWith("glass")||id.equals("transparency")||id.startsWith("scene_light")?"look":"motion");
     }
 }

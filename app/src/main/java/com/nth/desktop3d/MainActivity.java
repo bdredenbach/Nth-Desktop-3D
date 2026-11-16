@@ -99,11 +99,14 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private EditText appSearch;
     private AppsAdapter appsAdapter;
     private float currentX,currentY;
+    private SceneLighting sceneLighting;
+    SceneLighting sceneLighting(){return sceneLighting;}
 
     private final Choreographer.FrameCallback frames=new Choreographer.FrameCallback(){
         @Override public void doFrame(long time){
             if(!resumed||destroyed)return;
             float dt=previousFrame==0?1/60f:Math.min(.05f,(time-previousFrame)/1_000_000_000f);previousFrame=time;
+            sceneLighting.tick(scene.elapsedSeconds(),currentX,currentY,store.tilt&&crystal.parallax()&&crystal.dynamicLighting());
             desktop.frame(dt);updateMenuGlass();
             // Cap GPU work at 60 fps (30 in battery saver), independently of screen refresh.
             // Rendering tiers govern GPU submission cadence; Android power saver always wins.
@@ -129,6 +132,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
         getWindow().setStatusBarColor(Color.TRANSPARENT);getWindow().setNavigationBarColor(0xE60A1428);
         store=new LauncherStore(this);crystal=new CrystalPreferences(this);
+        sceneLighting=new SceneLighting(this);sceneLighting.configure(store,crystal,false,false);
         if(!store.preferences.getBoolean("padding_expands_073",false)){android.content.SharedPreferences.Editor padding=store.preferences.edit();for(String key:store.preferences.getAll().keySet())if(key.startsWith("widget_padding_"))padding.putBoolean(key,!store.preferences.getBoolean(key,true));padding.putBoolean("padding_expands_073",true).apply();}
         if(state==null&&Intent.ACTION_MAIN.equals(getIntent().getAction())&&getIntent().hasCategory(Intent.CATEGORY_HOME)){store.page=store.homePage();store.save();}
         widgetHost=new LauncherWidgetHost(this);dockWidgetHost=new LauncherWidgetHost(this,3048);
@@ -219,7 +223,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         if(panel!=null){
             boolean adaptive=store.preferences.getBoolean("adaptive_glass",true);
             overlay.setBackgroundColor(adaptive||flyoutPanel?Color.TRANSPARENT:0xAA030A17);
-            if(adaptive){if(!(panel.getBackground() instanceof AdaptiveMenuDrawable)){menuGlass=new AdaptiveMenuDrawable(getResources().getDisplayMetrics().density);panel.setBackground(menuGlass);}menuGlass.radius("folder".equals(panel.getTag())?store.preferences.getInt("folder_radius",26):26);}
+            if(adaptive){if(!(panel.getBackground() instanceof AdaptiveMenuDrawable)){menuGlass=new AdaptiveMenuDrawable(this);panel.setBackground(menuGlass);}menuGlass.radius("folder".equals(panel.getTag())?store.preferences.getInt("folder_radius",26):26);}
             else{menuGlass=null;int alpha=Math.max(175,Math.min(245,255-crystal.transparency()*2/3));panel.setBackground(flyoutPanel?new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT):Ui.satin(this,(alpha<<24)|0x00335C76,0xF20B1A30,26));}
         }
         styleAreaMenu();
@@ -232,7 +236,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private void styleAreaMenu(){
         if(areaMenuBody==null)return;if(store.preferences.getBoolean("adaptive_glass",true)){
-            if(!(areaMenuBody.getBackground() instanceof AdaptiveMenuDrawable)){areaMenuGlass=new AdaptiveMenuDrawable(getResources().getDisplayMetrics().density);areaMenuBody.setBackground(areaMenuGlass);}else areaMenuGlass=(AdaptiveMenuDrawable)areaMenuBody.getBackground();areaMenuGlass.radius(26);
+            if(!(areaMenuBody.getBackground() instanceof AdaptiveMenuDrawable)){areaMenuGlass=new AdaptiveMenuDrawable(this);areaMenuBody.setBackground(areaMenuGlass);}else areaMenuGlass=(AdaptiveMenuDrawable)areaMenuBody.getBackground();areaMenuGlass.radius(26);
         }else{areaMenuGlass=null;areaMenuBody.setBackground(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));}
     }
     void presentAreaMenu(AlertDialog dialog,View body,String title){
@@ -277,7 +281,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         systemReduced=Settings.Global.getFloat(getContentResolver(),Settings.Global.ANIMATOR_DURATION_SCALE,1)==0;
         boolean reduced=store.reducedMotion||systemReduced;
         if(discover!=null&&(!crystal.feedEnabled()||crystal.feedProvider()!=0))discover.disable();
-        applyWallpaper(reduced);scene.configure(store,powerSave,systemReduced);scene.configureCrystal(crystal);desktop.configure(reduced,powerSave);modeLabel.setText((store.preferences.getInt("wallpaper_source",0)==3?"My layered scene":store.preferences.getInt("wallpaper_source",0)==2?"Android wallpaper":store.preferences.getInt("wallpaper_source",0)==1?"Photo wallpaper":LauncherStore.MODES[store.mode])+(reduced?" · reduced motion":""));
+        applyWallpaper(reduced);scene.configure(store,powerSave,systemReduced);scene.configureCrystal(crystal);sceneLighting.configure(store,crystal,powerSave,systemReduced);desktop.configure(reduced,powerSave);modeLabel.setText((store.preferences.getInt("wallpaper_source",0)==3?"My layered scene":store.preferences.getInt("wallpaper_source",0)==2?"Android wallpaper":store.preferences.getInt("wallpaper_source",0)==1?"Photo wallpaper":LauncherStore.MODES[store.mode])+(reduced?" · reduced motion":""));
         if(resumed)motion.resume(store.tilt&&crystal.parallax()&&!reduced&&!powerSave);if(rebuild)desktop.rebuild();sceneDirty=true;scene.requestRender();pageChanged();applyDesktopChrome();
     }
     private void applyWallpaper(boolean reduced){

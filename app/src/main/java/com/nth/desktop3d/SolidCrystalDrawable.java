@@ -14,8 +14,9 @@ final class SolidCrystalDrawable extends Drawable {
     private final int material,coreAlpha;
     private Shader body,bevel,shine,edge,rightRoll,bottomRoll;
     private int alpha=255;
+    private final SceneLighting.Cover sceneLight;
     SolidCrystalDrawable(Context c,int radius,boolean selected){
-        density=c.getResources().getDisplayMetrics().density;this.radius=radius*density;
+        density=c.getResources().getDisplayMetrics().density;this.radius=radius*density;sceneLight=new SceneLighting.Cover(c,this);
         this.selected=selected;CrystalPreferences prefs=new CrystalPreferences(c);material=prefs.material();coreAlpha=Math.max(0,Math.min(255,255*(100-prefs.transparency())/100));
     }
     @Override protected void onBoundsChange(Rect b){
@@ -55,7 +56,7 @@ final class SolidCrystalDrawable extends Drawable {
         paint.setStyle(Paint.Style.STROKE);paint.setShader(bevel);paint.setStrokeWidth(rim*1.25f);paint.setStrokeCap(Paint.Cap.ROUND);c.drawPath(lip,paint);
         paint.setShader(edge);paint.setStrokeWidth(Math.max(1,density*.65f));c.drawPath(lip,paint);
         if(selected){paint.setShader(null);paint.setColor(0xFFE3FBFF);paint.setAlpha(alpha);c.drawLine(face.left+r,face.top+rim,face.right-r,face.top+rim,paint);}
-        c.restoreToCount(save);paint.setShader(null);paint.setStyle(Paint.Style.FILL);paint.setAlpha(alpha);
+        sceneLight.draw(c,face,alpha,1);c.restoreToCount(save);paint.setShader(null);paint.setStyle(Paint.Style.FILL);paint.setAlpha(alpha);
     }
     @Override public void setAlpha(int value){alpha=Math.max(0,Math.min(255,value));invalidateSelf();}
     @Override public void setColorFilter(ColorFilter filter){paint.setColorFilter(filter);invalidateSelf();}
