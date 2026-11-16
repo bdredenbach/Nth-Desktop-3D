@@ -45,8 +45,8 @@ public final class Crystal075Smoke {
                 try{SolidCrystalDrawable d=new SolidCrystalDrawable(activity,20,true);d.setBounds(0,0,200,160);Canvas ca=new Canvas(a),cb=new Canvas(b);ca.drawColor(Color.MAGENTA);cb.drawColor(Color.GREEN);d.draw(ca);d.draw(cb);check(a.getPixel(100,80)!=b.getPixel(100,80),"Crystal center is opaque");check(a.getPixel(100,80)!=a.getPixel(100,5),"Crystal bevel is flat");}finally{a.recycle();b.recycle();prefs.setMaterial(previous);}
             }
         });
-        invoke("showModes");main(()->{View card=find(v->"scene-card:6".equals(v.getTag()));check(card!=null&&card.isSelected(),"Current scene checkmark lost");card.requestRectangleOnScreen(new Rect(0,0,card.getWidth(),card.getHeight()),true);});
-        capture("crystal-selected-reef");invoke("closePanel");
+        invoke("showModes");main(()->{View card=find(v->("scene-card:"+(LauncherStore.MODES.length-1)).equals(v.getTag()));check(card!=null&&card.isSelected(),"Current scene checkmark lost");card.requestRectangleOnScreen(new Rect(0,0,card.getWidth(),card.getHeight()),true);});
+        capture("crystal-selected-scene");invoke("closePanel");
     }
     private String layout(String raw){try{org.json.JSONArray pages=new org.json.JSONArray(raw);for(int p=0;p<pages.length();p++){org.json.JSONArray items=pages.getJSONArray(p);for(int i=0;i<items.length();i++){org.json.JSONObject item=items.getJSONObject(i);item.remove("x");item.remove("y");}}return pages.toString();}catch(Exception e){throw new AssertionError(e);}}
     private Object field(String name){try{java.lang.reflect.Field f=MainActivity.class.getDeclaredField(name);f.setAccessible(true);return f.get(activity);}catch(Exception e){throw new AssertionError(e);}}

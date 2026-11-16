@@ -72,8 +72,8 @@ use(p)
 gen_textures=gl('glGenTextures',None,I,C.POINTER(U));active_texture=gl('glActiveTexture',None,U)
 bind_texture=gl('glBindTexture',None,U,U);texture_parameter=gl('glTexParameteri',None,U,U,I)
 texture_image=gl('glTexImage2D',None,U,I,I,I,I,I,U,U,P);u1i=gl('glUniform1i',None,I,I)
-textures=(U*4)();gen_textures(4,textures)
-for unit,(name,filename) in enumerate([('pondBed','pond_bed'),('koiFish','koi_fish'),('reefWater','reef_water'),('jellyfish','jellyfish')]):
+textures=(U*8)();gen_textures(8,textures)
+for unit,(name,filename) in enumerate([('pondBed','pond_bed'),('koiFish','koi_fish'),('reefWater','reef_water'),('jellyfish','jellyfish'),('glassSky','glass_sky'),('focusCity','focus_city'),('iceMaterial','ice_material'),('lavaMaterial','lava_material')]):
     image=Image.open(root/f'app/src/main/res/drawable-nodpi/{filename}.webp').convert('RGBA')
     active_texture(0x84C0+unit);bind_texture(0x0DE1,textures[unit])
     for key,value in [(0x2801,0x2601),(0x2800,0x2601),(0x2802,0x812F),(0x2803,0x812F)]:texture_parameter(0x0DE1,key,value)
@@ -85,14 +85,14 @@ u2(uniform(p,b'resolution'),width,height)
 u3v(uniform(p,b'touches[0]'),4,(F*12)(0,0,-100,0,0,-100,0,0,-100,0,0,-100))
 for name,value in [('clockTime',20),('motion',1),('fishCount',5),('fishSpeed',.6),('rippleEnabled',1),('shadowEnabled',1),('waterLight',.75)]:u1(uniform(p,name.encode()),value)
 results=[]
-for mode in range(7):
+for mode in range(10):
     u1(uniform(p,b'mode'),mode);u2(uniform(p,b'tilt'),0,0);draw(5,0,4);finish();assert error()==0
     pixels=(C.c_ubyte*(width*height*4))();read(0,0,width,height,0x1908,0x1401,pixels)
     image=Image.frombytes('RGBA',(width,height),bytes(pixels)).transpose(Image.Transpose.FLIP_TOP_BOTTOM).convert('RGB')
     assert len(image.getcolors(width*height) or [])>100,'Scene is blank or uniform'
     image.save(out/f'mode-{mode}.png');results.append({'mode':mode,'center':image.getpixel((width//2,height//2))})
 # New scenes must animate, freeze with ambient motion disabled, and respond to tilt.
-for mode in range(3,7):
+for mode in range(3,10):
     def frame(time, moving, x=0, y=0):
         u1(uniform(p,b'mode'),mode);u1(uniform(p,b'clockTime'),time);u1(uniform(p,b'motion'),moving);u2(uniform(p,b'tilt'),x,y)
         draw(5,0,4);finish();assert error()==0
@@ -143,7 +143,7 @@ u1(uniform(p,b'waterLight'),.75);u1(uniform(p,b'fishCount'),5)
 
 # Landscape shader draw without relying on a virtual device rotation.
 u2(uniform(p,b'resolution'),height,width)
-for mode in range(7):
+for mode in range(10):
     u1(uniform(p,b'mode'),mode);draw(5,0,4);finish();assert error()==0
 u2(uniform(p,b'resolution'),width,height);u1(uniform(p,b'motion'),1);u1(uniform(p,b'clockTime'),20)
 # Exercise tilted pond and an active touch ripple.
