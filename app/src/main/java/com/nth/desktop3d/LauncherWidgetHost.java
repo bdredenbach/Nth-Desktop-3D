@@ -7,8 +7,10 @@ import android.content.Context;
 
 /** Every displayed widget must be registered through createView, including restored widgets. */
 final class LauncherWidgetHost extends AppWidgetHost {
+    private final Context context;
     LauncherWidgetHost(Context context){this(context,3047);}
-    LauncherWidgetHost(Context context,int id){super(context,id);}
+    LauncherWidgetHost(Context context,int id){super(context,id);this.context=context;}
+    @Override public void deleteAppWidgetId(int id){if(!DesktopPresets.references(context,id))super.deleteAppWidgetId(id);}
     @Override protected AppWidgetHostView onCreateView(Context context,int id,AppWidgetProviderInfo info){return new LauncherWidgetView(context);}
     void releaseViews(){clearViews();}
 }

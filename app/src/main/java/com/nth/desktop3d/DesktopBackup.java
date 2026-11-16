@@ -66,7 +66,8 @@ final class DesktopBackup {
         }
         private void count(JSONObject item)throws JSONException {if("folder".equals(item.getString("key")))folders++;else shortcuts++;JSONArray children=item.getJSONArray("children");for(int i=0;i<children.length();i++)count(children.getJSONObject(i));}
         String summary(){return pages.size()+" desktops, "+folders+" folders, "+shortcuts+" shortcuts"+(widgets.length()>0?", "+widgets.length()+" widget placements":"")+".\n\nIncludes launcher settings, dock spaces, notes, photo wallpaper and your applied layered scene. Android widgets may need permission again after reinstalling. Current desktop contents will be replaced. Undo is available.";}
-        void apply(Context c,SettingsModel model)throws Exception {
+        void apply(Context c,SettingsModel model)throws Exception {apply(c,model,false,false);}
+        void apply(Context c,SettingsModel model,boolean keepWidgetBindings,boolean keepNotes)throws Exception {
             LauncherStore s=model.store;Map<String,?> previousPreferences=s.preferences.getAll();JSONObject values=settings.getJSONObject("values");JSONArray oldIds=new JSONArray();
             for(String key:s.preferences.getAll().keySet())if(key.startsWith("widget_ids_page_"))for(String id:s.preferences.getString(key,"").split(","))try{oldIds.put(Integer.parseInt(id));}catch(NumberFormatException ignored){}
             for(DockStore.Slot slot:s.dock.slots)if(slot.widgetId>=0)oldIds.put(slot.widgetId);
@@ -86,10 +87,10 @@ final class DesktopBackup {
                 }else{if(w.optString("location").equals("dock")){nextDock.getJSONObject(w.getInt("slot")).put("widgetId",-1);w=new JSONObject(w.toString()).put("id",-1);}pending.put(w);}
             }
             for(Map.Entry<Integer,List<Integer>> entry:perPage.entrySet()){StringBuilder ids=new StringBuilder();for(int id:entry.getValue()){if(ids.length()>0)ids.append(',');ids.append(id);}edit.putString("widget_ids_page_"+entry.getKey(),ids.toString());}
-            edit.putString("dock_slots",nextDock.toString()).putString("layout",layout.toString()).putInt("page_count",pages.size()).putInt("page",page).putInt("home_page",home).putString("note",note).putBoolean("seeded",true).putBoolean("appsSeeded",true).putString("restore_widgets",pending.toString()).putBoolean("padding_expands_073",true).remove("sort_undo_page").remove("sort_undo_pages").remove("sort_undo_ids").remove("pending_widget_restore");
+            edit.putString("dock_slots",nextDock.toString()).putString("layout",layout.toString()).putInt("page_count",pages.size()).putInt("page",page).putInt("home_page",home).putString("note",keepNotes?s.preferences.getString("note",""):note).putBoolean("seeded",true).putBoolean("appsSeeded",true).putString("restore_widgets",pending.toString()).putBoolean("padding_expands_073",true).remove("sort_undo_page").remove("sort_undo_pages").remove("sort_undo_ids").remove("pending_widget_restore");
             if(!edit.commit()){restorePreferences(s.preferences,previousPreferences);for(Map.Entry<SettingsModel.Spec,Integer> entry:oldValues.entrySet())entry.getKey().put.accept(entry.getValue());if(oldValues.containsKey(model.specs.get("wallpaper_source")))model.specs.get("wallpaper_source").put.accept(oldValues.get(model.specs.get("wallpaper_source")));WallpaperStore.write(c,previousPhoto);LayeredScene.write(c,previousScene,false);throw new IOException("Could not save restored desktops");}
             s.dock.load();s.pages.clear();s.pages.addAll(pages);s.page=page;s.save();
-            LauncherWidgetHost host=new LauncherWidgetHost(c);for(int i=0;i<oldIds.length();i++){int id=oldIds.getInt(i);if(!reused.contains(id))try{host.deleteAppWidgetId(id);}catch(RuntimeException ignored){}}
+            if(!keepWidgetBindings){LauncherWidgetHost host=new LauncherWidgetHost(c);for(int i=0;i<oldIds.length();i++){int id=oldIds.getInt(i);if(!reused.contains(id))try{host.deleteAppWidgetId(id);}catch(RuntimeException ignored){}}}
         }
     }
     private static void restorePreferences(SharedPreferences p,Map<String,?> values){SharedPreferences.Editor e=p.edit().clear();for(Map.Entry<String,?> entry:values.entrySet()){String k=entry.getKey();Object v=entry.getValue();if(v instanceof String)e.putString(k,(String)v);else if(v instanceof Integer)e.putInt(k,(Integer)v);else if(v instanceof Long)e.putLong(k,(Long)v);else if(v instanceof Float)e.putFloat(k,(Float)v);else if(v instanceof Boolean)e.putBoolean(k,(Boolean)v);}e.commit();}

@@ -1,0 +1,50 @@
+package com.nth.desktop3d;
+
+import android.app.AlertDialog;
+import android.content.Context;
+import android.os.Handler;
+import android.view.Gravity;
+import android.widget.*;
+import java.util.concurrent.Executor;
+import java.util.function.Consumer;
+
+/** Native preset controls; file work is serialized away from the UI thread. */
+final class DesktopPresetControls {
+    interface Host {void beforeCapture();boolean widgetPending();void applied();void message(String text);}
+    private interface Work<T>{T run()throws Exception;}
+    private final Context context;private final SettingsModel model;private final LinearLayout body;private final Executor executor;private final Handler handler;private final Host host;private final DesktopPresets presets;
+    private boolean disposed,busy;private AlertDialog dialog,progress;
+    DesktopPresetControls(Context context,SettingsModel model,LinearLayout body,Executor executor,Handler handler,Host host){this.context=context;this.model=model;this.body=body;this.executor=executor;this.handler=handler;this.host=host;presets=new DesktopPresets(context);reload();}
+    void dispose(){disposed=true;if(dialog!=null)dialog.dismiss();if(progress!=null)progress.dismiss();}
+    private void text(String value){TextView view=Ui.text(context,value,13,Ui.MUTED);view.setPadding(0,Ui.dp(context,8),0,Ui.dp(context,12));body.addView(view);}
+    private void action(LinearLayout parent,String label,Runnable action){Button button=Ui.quiet(context,label,()->{if(!busy&&!disposed)action.run();});button.setContentDescription(label);button.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);parent.addView(button,new LinearLayout.LayoutParams(-1,-2));}
+    private void reload(){
+        if(disposed)return;body.removeAllViews();text("Loading desktop presets");executor.execute(()->{try{DesktopPresets.Listing saved=presets.list();handler.post(()->{if(!disposed)render(saved);});}catch(Exception error){handler.post(()->{if(!disposed){body.removeAllViews();text("Saved presets could not be read. Your current desktop and saved files have been kept.");action(body,"Try again",this::reload);}});}});
+    }
+    private void render(DesktopPresets.Listing saved){
+        body.removeAllViews();text("Save scenes, app and folder layouts, dock spaces, wallpaper and launcher settings together. Notes, card content and Android permissions stay shared.");action(body,"Save current desktop",()->name(null,false));if(saved.undo)action(body,"Undo last preset change",()->preview(null,true));
+        if(saved.entries.isEmpty())text("No presets yet. Set up a desktop you like, then save it here.");
+        for(DesktopPresets.Entry entry:saved.entries){LinearLayout card=Ui.column(context);card.setBackground(Ui.satin(context,0x90334B5D,0x80203040,16));card.setPadding(Ui.dp(context,10),Ui.dp(context,8),Ui.dp(context,10),Ui.dp(context,10));LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.bottomMargin=Ui.dp(context,12);body.addView(card,cp);LinearLayout heading=Ui.row(context);ImageView thumbnail=new ImageView(context);if(entry.source==0)thumbnail.setImageResource(SceneCatalog.PREVIEWS[entry.scene]);else thumbnail.setImageDrawable(new IconTile.BuiltinIcon("builtin:modes"));thumbnail.setScaleType(ImageView.ScaleType.CENTER_CROP);thumbnail.setContentDescription(entry.sceneName());thumbnail.setBackground(Ui.surface(0x50102030,8,context));thumbnail.setClipToOutline(true);heading.addView(thumbnail,new LinearLayout.LayoutParams(Ui.dp(context,44),Ui.dp(context,44)));Button title=Ui.quiet(context,entry.name,()->preview(entry,false));title.setContentDescription("Apply preset "+entry.name);title.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);heading.addView(title,new LinearLayout.LayoutParams(0,-2,1));heading.addView(Ui.quiet(context,"⋮",()->options(entry)),new LinearLayout.LayoutParams(Ui.dp(context,44),Ui.dp(context,44)));heading.getChildAt(2).setContentDescription("Preset actions for "+entry.name);card.addView(heading);card.addView(Ui.text(context,entry.summary(),12,Ui.MUTED));card.addView(Ui.text(context,"Saved "+java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM,java.text.DateFormat.SHORT).format(new java.util.Date(entry.saved)),11,Ui.MUTED));}
+        text(saved.entries.size()+" of "+DesktopPresets.MAX_PRESETS+" presets saved on this device. Apply a preset, then use Backup & restore to export a portable copy. Android wallpaper uses your current system wallpaper.");
+    }
+    private boolean ready(){if(disposed||busy)return false;if(host.widgetPending()){host.message("Finish placing the widget before changing presets.");return false;}return true;}
+    private void options(DesktopPresets.Entry entry){if(!ready())return;dialog=new AlertDialog.Builder(context).setTitle(entry.name).setItems(new String[]{"Apply","Rename","Update from current desktop","Delete"},(d,which)->{switch(which){case 0:preview(entry,false);break;case 1:name(entry,true);break;case 2:confirm("Update saved preset?","Replace "+entry.name+" with your current desktop setup?",()->save(entry.name,entry.id));break;case 3:confirm("Delete saved preset?","Delete "+entry.name+"? Your current desktop will stay as it is.",()->task("Deleting preset",()->{presets.delete(entry.id);return true;},unused->finish("Saved preset deleted")));break;}}).create();Ui.themeDialog(dialog);}
+    private void name(DesktopPresets.Entry entry,boolean rename){
+        if(!ready())return;EditText input=new EditText(context);input.setSingleLine(true);input.setHint("Preset name");input.setContentDescription("Preset name");input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(80)});if(entry!=null)input.setText(entry.name);LinearLayout wrap=Ui.column(context);Ui.pad(wrap,18);wrap.addView(input);dialog=new AlertDialog.Builder(context).setTitle(rename?"Rename preset":"Save current desktop").setView(wrap).setNegativeButton("Cancel",null).setPositiveButton(rename?"Rename":"Save",null).create();AlertDialog naming=dialog;Ui.themeDialog(naming);naming.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{String value;try{value=PresetNames.checked(input.getText().toString());}catch(IllegalArgumentException invalid){input.setError(invalid.getMessage());return;}naming.dismiss();if(rename)task("Renaming preset",()->{presets.rename(entry.id,value);return true;},unused->finish("Preset renamed"));else save(value,null);});
+    }
+    private DesktopPresets.Snapshot capture()throws Exception {host.beforeCapture();return new DesktopPresets.Snapshot(DesktopBackup.capture(context,model),model);}
+    private void save(String name,String replace){if(!ready())return;try{DesktopPresets.Snapshot snapshot=capture();task("Saving desktop preset",()->{presets.save(name,replace,snapshot);return true;},unused->finish("Desktop preset saved"));}catch(Exception error){host.message("Could not prepare this desktop preset. Your saved presets were kept.");}}
+    private void preview(DesktopPresets.Entry entry,boolean undo){
+        if(!ready())return;task("Reading desktop preset",()->undo?presets.prepareUndo(model):presets.prepare(entry.id,model),next->{String summary=next.pages.size()+" desktops, "+next.folders+" folders, "+next.shortcuts+" shortcuts"+(next.widgets.length()>0?", "+next.widgets.length()+" widget placements":"")+".\n\nRestores the scene, layout, dock, wallpaper and launcher settings. Notes and card content stay shared. Unavailable widgets may need reconnecting."+(undo?"":" Your current setup will be saved for Undo.");confirm(undo?"Restore previous desktop?":"Apply "+entry.name+"?",summary,()->apply(next,undo));});
+    }
+    private void apply(DesktopBackup.Prepared next,boolean undo){
+        if(!ready())return;try{DesktopPresets.Snapshot before=capture();task("Applying desktop preset",()->{if(!undo)presets.remember(before);return next;},prepared->{try{model.applyDesktopPreset(context,prepared);if(undo)task("Finishing preset change",()->{presets.clearUndo();return true;},unused->finish("Previous desktop restored"));else finish("Desktop preset applied. Undo is available here.");}catch(Exception error){try{model.applyDesktopPreset(context,before.prepared);}catch(Exception rollback){android.util.Log.e("NthPresets","Could not roll back preset",rollback);}host.message("Could not apply this preset. The previous desktop is saved in Undo.");reload();}});}catch(Exception error){host.message("Could not save the current desktop for Undo. No preset was applied.");}
+    }
+    private void finish(String message){try{presets.collectWidgets(model.store);}catch(Exception error){android.util.Log.w("NthPresets","Widget cleanup deferred",error);}host.applied();host.message(message);reload();}
+    private void confirm(String title,String message,Runnable yes){if(!ready())return;dialog=new AlertDialog.Builder(context).setTitle(title).setMessage(message).setNegativeButton("Cancel",null).setPositiveButton("Continue",(d,w)->{if(ready())yes.run();}).create();Ui.themeDialog(dialog);}
+    private <T> void task(String message,Work<T> work,Consumer<T> done){
+        if(!ready())return;busy=true;LinearLayout row=Ui.row(context);Ui.pad(row,20);row.addView(new ProgressBar(context),new LinearLayout.LayoutParams(Ui.dp(context,40),Ui.dp(context,40)));TextView label=Ui.text(context,message,15,Ui.TEXT);label.setPadding(Ui.dp(context,16),0,0,0);row.addView(label,new LinearLayout.LayoutParams(0,-2,1));progress=new AlertDialog.Builder(context).setView(row).setCancelable(false).create();Ui.themeDialog(progress);
+        executor.execute(()->{try{T result=work.run();handler.post(()->{endTask();if(!disposed)done.accept(result);});}catch(Exception error){handler.post(()->{endTask();if(!disposed){String reason=error.getMessage();host.message(reason!=null&&(reason.startsWith("A preset")||reason.startsWith("You can")||reason.startsWith("Presets use")||reason.startsWith("This preset")||reason.startsWith("That preset"))?reason:"Could not complete this preset change. Saved presets were kept.");reload();}});}});
+    }
+    private void endTask(){busy=false;if(progress!=null){progress.dismiss();progress=null;}}
+}

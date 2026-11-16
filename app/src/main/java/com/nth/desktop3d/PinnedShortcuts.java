@@ -85,12 +85,13 @@ final class PinnedShortcuts {
     }
     void refresh(String packageName,List<ShortcutInfo> shortcuts){for(ShortcutInfo info:shortcuts){String key=identity(packageName,info.getId(),users.getSerialNumberForUser(info.getUserHandle()));if(find(key)!=null)saveIcon(info,key);}changed.accept(null);}
     void syncRemoved(){
+        java.util.Set<String> saved=DesktopPresets.shortcutReferences(activity);if(saved==null)return;
         // Each launcher owns its own pinned set. Preserve references in folders and other desktops.
         Map<String,LauncherStore.Item> all=new HashMap<>();for(List<LauncherStore.Item> page:store.pages)for(LauncherStore.Item item:page)collect(item,all);for(LauncherStore.Item item:store.dock.items())collect(item,all);
         for(UserHandle user:users.getUserProfiles())try{
             List<ShortcutInfo> pinned=launcher.getShortcuts(new LauncherApps.ShortcutQuery().setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED),user);
             if(pinned==null)continue;Map<String,List<String>> packages=new HashMap<>();
-            for(ShortcutInfo info:pinned){List<String> ids=packages.computeIfAbsent(info.getPackage(),p->new ArrayList<>());if(all.containsKey(identity(info.getPackage(),info.getId(),users.getSerialNumberForUser(user))))ids.add(info.getId());}
+            for(ShortcutInfo info:pinned){List<String> ids=packages.computeIfAbsent(info.getPackage(),p->new ArrayList<>());String key=identity(info.getPackage(),info.getId(),users.getSerialNumberForUser(user));if(all.containsKey(key)||saved.contains(key))ids.add(info.getId());}
             for(Map.Entry<String,List<String>> entry:packages.entrySet())launcher.pinShortcuts(entry.getKey(),entry.getValue(),user);
         }catch(RuntimeException unavailable){/* Locked profile or Home changed. */}
     }

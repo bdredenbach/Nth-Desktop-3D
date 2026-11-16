@@ -42,7 +42,7 @@ final class SettingsModel {
         bool("dock_clock","dock","Dock clock","Show the clock in the dock.",true,false);
         pref("dock_padding","dock","Dock padding","Zero keeps standard spacing. Negative expands the contents; positive adds space inside the dock.",-50,50,1,0,false);
         pref("dock_radius","dock","Dock corner radius","Round the dock surface in dp.",0,36,2,24,false);
-        enumeration("folder_animation","look","Folder opening animation","Independent of menu opening animation. Tap the preview to replay.",PanelAnimations.FOLDERS,PanelAnimations.STACK,false);
+        enumeration("folder_animation","look","Folder opening animation","Independent of menu opening animation. Tap the preview to replay.",PanelAnimations.FOLDERS,VisualDefaults.FOLDER_ANIMATION,false);
         pref("folder_columns","folders","Folder columns","Number of icon columns inside folders.",2,6,1,3,false);
         pref("folder_icon_size","folders","Folder icon size","Icon size inside a folder, as a percentage.",70,130,5,100,false);
         bool("folder_labels","folders","Folder labels","Show shortcut names inside folders.",true,false);
@@ -109,12 +109,6 @@ final class SettingsModel {
     void endGesture(){gesture=false;gestureUndo=null;if(pendingRebuild){pendingRebuild=false;changed.apply(true);}}
     boolean canUndo(){return undo!=null;}
     String undo(){if(undo==null)return "There is no setting change to undo.";Runnable previous=undo;undo=null;try{previous.run();return lastChange="Last change undone.";}catch(RuntimeException error){undo=previous;return lastChange="Could not complete Undo. Please try again.";}}
-    String useStackAnimations(){
-        int desktop=store.transition,menu=crystal.menuAnimation(),folder=value("folder_animation");
-        store.transition=PageTransitions.STACK;crystal.setMenuAnimation(PanelAnimations.STACK);store.preferences.edit().putInt("folder_animation",PanelAnimations.STACK).apply();store.save();changed.apply(false);
-        undo=()->{store.transition=desktop;crystal.setMenuAnimation(menu);store.preferences.edit().putInt("folder_animation",folder).apply();store.save();changed.apply(false);};
-        lastChange="3D Stack applied to desktops, menus and folders.";return lastChange;
-    }
     JSONObject exportSettings()throws org.json.JSONException {JSONObject values=new JSONObject();for(Spec s:specs.values())if(!s.id.equals("cloud_ai"))values.put(s.id,s.get.getAsInt());JSONObject targets=new JSONObject();for(String[] gesture:GestureAssignments.GESTURES){String target=store.preferences.getString(gesture[0]+"_target","");if(!target.isEmpty())targets.put(gesture[0],target);}return new JSONObject().put("format","nth-desktop-3d-settings").put("version",1).put("paddingOffsets",true).put("values",values).put("gestureTargets",targets);}
     void importSettings(JSONObject input)throws org.json.JSONException {
         if(!"nth-desktop-3d-settings".equals(input.optString("format"))||input.optInt("version")!=1)throw new org.json.JSONException("Not a supported 3D settings backup.");
@@ -130,6 +124,7 @@ final class SettingsModel {
         undo=()->{try{before.apply(context,this);changed.apply(true);}catch(Exception error){throw new IllegalStateException("Could not restore the previous desktop",error);}};
         lastChange="Desktop backup restored. Undo is available.";
     }
+    void applyDesktopPreset(android.content.Context context,DesktopBackup.Prepared next)throws Exception {next.apply(context,this,true,true);undo=null;gestureUndo=null;lastChange="Desktop preset applied. Previous desktop is available in Desktop presets.";changed.apply(true);}
     int value(String id){return specs.get(id).get.getAsInt();}
     int labelColor(){return TEXT_COLORS[value("label_color")];}
     String context(){StringBuilder b=new StringBuilder();for(Spec s:specs.values())b.append(s.title).append(": ").append(s.value()).append(". ").append(s.help).append('\n');return b.toString();}

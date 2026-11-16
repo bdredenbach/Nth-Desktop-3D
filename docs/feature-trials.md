@@ -5,8 +5,8 @@ The owner approved trying all eight ideas one at a time. Each feature gets its o
 | Trial | Feature | Status |
 |---|---|---|
 | 1 | Scene-matched lighting | Accepted by owner; 0.9.0 fresh defaults use strength 100 and rounded squares |
-| 2 | Physical folder opening/closing | 0.9.0 implementation; awaiting owner phone review |
-| 3 | Complete saved desktop presets | Queued |
+| 2 | Physical folder opening/closing | Accepted by owner; default for fresh initialization in 0.9.1 |
+| 3 | Complete saved desktop presets | 0.9.1 implementation; awaiting owner phone review |
 | 4 | Placeable 3D versions of Crystal Cards | Queued |
 | 5 | Scene creator motion/lighting and individual scene packs | Queued |
 | 6 | Unified app/folder/settings/note/Nota search | Queued |
@@ -21,10 +21,18 @@ Try Spatial Desktop, Aurora Veil and Parallax Lava, followed by a space or water
 
 This first trial matches the eleven built-in 3D scenes. Photo, custom layered and Android wallpapers retain neutral lighting. Scene matching uses bounded reflection maps and a shared scene-clock light model; it does not read back the full GPU framebuffer each frame.
 
-## Trial 2: compare before advancing
+## Trial 2: accepted
 
 Install 0.9.0 over the previous build. Under Look & feel → Folder opening animation choose **Physical folder**. Existing folder animation choices stay selected until changed. Tap the preview to replay the shared hinge and stagger phases. Real folders grow from the selected shell, turn a glass front down and fan their existing native controls into place. Back, outside tap and the close button reverse into the source shell. App launches, other panels and lifecycle changes cancel the transition safely.
 
 Try a desktop folder, a drawer folder and a dock folder; check tapping apps, holding apps, scrolling a long folder and closing it. Press Back quickly during opening, then open another panel. Try reduced motion and Android animation scale off. Verify portrait/landscape, labels and the scene lighting at strength 100. The dedicated folder interaction suite passed on the GitHub Android 11 emulator. Broader gesture/setup/rotation suites still have failures; this is not a clean full regression pass. Phone appearance and performance remain unverified.
 
-Wait for owner feedback before Trial 3. The owner especially likes Gravity Playground's current mechanics: keep its drag, movement, collisions, pinning and layout behavior intact.
+The owner accepted the folder animation and requested it as the initialization default. Version 0.9.1 uses Physical folder on fresh initialization and retains explicit choices and older implicit choices on upgrade. The shared Use 3D Stack everywhere button is removed. Look & feel is the first settings category.
+
+## Trial 3: compare before advancing
+
+Use Settings → Desktop presets or Look & feel → Desktop presets. Save a setup, change its scene/layout/dock, then save another. Apply either preset after reviewing its summary. Check Cancel and Undo last preset change. Presets include layouts, folders, gestures, visual settings, dock contents, photo wallpaper, the applied custom scene and widget placements. Notes/card content and Android access stay shared. Check Update from current desktop, Rename, Delete, and returning after restarting the app. Widget and pinned-shortcut references are retained by saved presets and the durable previous-desktop snapshot.
+
+The lighting revision maps the supplied screenshots to Parallax Lava (orange), Living Pond (turquoise), Crystal Atrium (light blue), Aurora Veil (green) and Asteroid Field (dark neutral crystal). Scene matching off/zero remains the neutral comparison. Phone appearance/performance requires review.
+
+Do not begin Trial 4 until owner feedback. The owner especially likes Gravity Playground's current mechanics: keep its drag, movement, collisions, pinning and layout behavior intact.

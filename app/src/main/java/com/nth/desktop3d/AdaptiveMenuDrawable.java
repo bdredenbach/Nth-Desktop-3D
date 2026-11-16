@@ -35,7 +35,7 @@ final class AdaptiveMenuDrawable extends Drawable {
             for(int y=0;y<ROWS;y++)for(int x=0;x<COLS;x++)targets[y*COLS+x]=Math.max(empty/100f,strength/100f*AdaptiveOpacity.coverage((x+.5f)*w/COLS,(y+.5f)*h/ROWS,boxes,feather*density));
         }
         SceneLight.Frame light=lighting==null?null:lighting.frame();boolean changed=light!=null&&!light.same(previousLight);previousLight=light;float blend=reduced?1:1-(float)Math.exp(-Math.max(0,dt)*13);
-        for(int i=0;i<values.length;i++){float next=Math.abs(targets[i]-values[i])<.002f?targets[i]:values[i]+(targets[i]-values[i])*blend;if(next!=values[i])changed=true;values[i]=next;int color=(Math.round(next*255)<<24)|0x00081728;pixels[i]=light==null?color:light.tint(color,.30f,(i%COLS)/(float)COLS+(i/COLS)/(float)ROWS-1);}
+        for(int i=0;i<values.length;i++){float next=Math.abs(targets[i]-values[i])<.002f?targets[i]:values[i]+(targets[i]-values[i])*blend;if(next!=values[i])changed=true;values[i]=next;int color=(Math.round(next*255)<<24)|0x00081728;pixels[i]=light==null?color:light.surface(color,(i%COLS)/(float)COLS+(i/COLS)/(float)ROWS-1);}
         if(changed){bitmap.setPixels(pixels,0,COLS,0,0,COLS,ROWS);invalidateSelf();}
     }
     @Override public void draw(Canvas canvas){RectF b=new RectF(getBounds());clip.reset();clip.addRoundRect(b,radius*density,radius*density,Path.Direction.CW);int save=canvas.save();canvas.clipPath(clip);paint.setAlpha(alpha);canvas.drawBitmap(bitmap,null,b,paint);canvas.restoreToCount(save);}
