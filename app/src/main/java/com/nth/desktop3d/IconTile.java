@@ -21,7 +21,7 @@ final class IconTile extends LinearLayout {
         super(c);fullName=IconLabel.menu(name);folder="folder".equals(key);desiredSize=Ui.dp(c,60);setOrientation(VERTICAL);setGravity(Gravity.CENTER);setClipChildren(false);setClipToPadding(false);
         setPadding(Ui.dp(c,3),Ui.dp(c,8),Ui.dp(c,3),Ui.dp(c,6));
         setBackground(Ui.touch(c,null,18));setCameraDistance(Ui.dp(c,1800));
-        FrameLayout plinth=new FrameLayout(c);plinth.setBackground(Ui.iconSurface(c,folder));plinth.setElevation(Ui.dp(c,9));
+        FrameLayout plinth=new Plinth(c);plinth.setBackground(Ui.iconSurface(c,folder));plinth.setElevation(Ui.dp(c,9));
         ImageView image=new ImageView(c);image.setImageDrawable(drawable==null?new BuiltinIcon(key):drawable);image.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
         image.setScaleType(ImageView.ScaleType.FIT_CENTER);FrameLayout.LayoutParams ip=new FrameLayout.LayoutParams(Ui.dp(c,45),Ui.dp(c,45),Gravity.CENTER);plinth.addView(image,ip);addView(plinth,new LayoutParams(Ui.dp(c,60),Ui.dp(c,60)));
         label=Ui.text(c,IconLabel.display(name),12,Ui.TEXT);label.setGravity(Gravity.CENTER);label.setSingleLine(true);label.setLines(1);label.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -37,8 +37,9 @@ final class IconTile extends LinearLayout {
         menuLabel=!scope.equals("desktop");if(menuLabel){label.setSingleLine(false);label.setMaxLines(Integer.MAX_VALUE);label.setEllipsize(null);label.setText(fullName);setGravity(Gravity.TOP|Gravity.CENTER_HORIZONTAL);setMinimumHeight(Ui.dp(getContext(),132));}
         int size=Math.max(70,Math.min(130,prefs.getInt(scope.equals("desktop")?"icon_size":scope+"_icon_size",100)));desiredSize=Ui.dp(getContext(),60*size/100f);
         label.setVisibility(prefs.getBoolean(scope+"_labels",true)?VISIBLE:GONE);label.setTextSize(Math.max(10,Math.min(18,prefs.getInt("label_size",12))));int color=Math.max(0,Math.min(3,prefs.getInt("label_color",0)));label.setTextColor(SettingsModel.TEXT_COLORS[color]);
-        FrameLayout plinth=(FrameLayout)getChildAt(0);if(menuLabel)plinth.setBackground(Ui.crystal(getContext(),Ui.iconRadius(getContext(),folder),false));plinth.setElevation(new CrystalPreferences(getContext()).shadows()?Ui.dp(getContext(),9):0);plinth.setLayoutParams(new LayoutParams(desiredSize,desiredSize));int icon=desiredSize*3/4;plinth.getChildAt(0).setLayoutParams(new FrameLayout.LayoutParams(icon,icon,Gravity.CENTER));
+        FrameLayout plinth=(FrameLayout)getChildAt(0);plinth.setBackground(Ui.iconSurface(getContext(),folder));plinth.setElevation(new CrystalPreferences(getContext()).shadows()?Ui.dp(getContext(),9):0);plinth.setLayoutParams(new LayoutParams(desiredSize,desiredSize));int icon=desiredSize*3/4;plinth.getChildAt(0).setLayoutParams(new FrameLayout.LayoutParams(icon,icon,Gravity.CENTER));
     }
+    void light(float x,float y){Drawable shell=getChildAt(0).getBackground();if(shell instanceof IconShellDrawable)((IconShellDrawable)shell).light(x,y);}
     void physicsStyle(){
         setPadding(Ui.dp(getContext(),3),Ui.dp(getContext(),4),Ui.dp(getContext(),3),Ui.dp(getContext(),4));
         int size=Math.round(desiredSize*.8f);FrameLayout plinth=(FrameLayout)getChildAt(0);plinth.setLayoutParams(new LayoutParams(size,size));
@@ -57,6 +58,11 @@ final class IconTile extends LinearLayout {
     }
     @Override public CharSequence getAccessibilityClassName(){return android.widget.Button.class.getName();}
     @Override public boolean performClick(){return super.performClick();}
+    @android.annotation.SuppressLint("ViewConstructor")
+    private static final class Plinth extends FrameLayout {
+        Plinth(Context context){super(context);}
+        @Override protected void dispatchDraw(Canvas canvas){super.dispatchDraw(canvas);Drawable shell=getBackground();if(shell instanceof IconShellDrawable)((IconShellDrawable)shell).drawCover(canvas);}
+    }
     static final class BuiltinIcon extends Drawable {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
         private final String key;

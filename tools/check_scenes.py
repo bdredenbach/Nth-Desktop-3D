@@ -85,9 +85,9 @@ for unit,(name,filename) in enumerate([('pondBed','pond_bed'),('koiFish','koi_fi
 shared_bank=-1
 def set_mode(chosen):
     global shared_bank
-    bank=int(chosen in (2,5,7,10))
+    bank=2 if chosen==0 else int(chosen in (2,5,7,10))
     if bank!=shared_bank:
-        names=('optical_frame','alpine_foreground','celestial_material','celestial_sky') if bank else ('jellyfish','glass_sky','ice_material','lava_material')
+        names=('spatial_foreground','spatial_environment','ice_material','lava_material') if bank==2 else ('optical_frame','alpine_foreground','celestial_material','celestial_sky') if bank==1 else ('jellyfish','glass_sky','ice_material','lava_material')
         for unit,name in zip((3,4,6,7),names):upload_texture(unit,name)
         shared_bank=bank
     u1(uniform(p,b'mode'),chosen)
@@ -103,7 +103,7 @@ for mode in range(11):
     assert len(image.getcolors(width*height) or [])>100,'Scene is blank or uniform'
     image.save(out/f'mode-{mode}.png');results.append({'mode':mode,'center':image.getpixel((width//2,height//2))})
 # New scenes must animate, freeze with ambient motion disabled, and respond to tilt.
-for mode in range(2,11):
+for mode in (0,*range(2,11)):
     def frame(time, moving, x=0, y=0):
         set_mode(mode);u1(uniform(p,b'clockTime'),time);u1(uniform(p,b'motion'),moving);u2(uniform(p,b'tilt'),x,y)
         draw(5,0,4);finish();assert error()==0
@@ -155,9 +155,9 @@ u1(uniform(p,b'waterLight'),.75);u1(uniform(p,b'fishCount'),5)
 # A bank change must restore exactly the same animals/materials at a frozen time.
 u1(uniform(p,b'motion'),0);u1(uniform(p,b'clockTime'),20);u2(uniform(p,b'tilt'),0,0)
 baselines={}
-for checked in (3,6,4,8,9):
+for checked in (0,3,6,4,8,9):
     set_mode(checked);baselines[checked]=aquatic_frame()
-for checked in (2,3,5,6,7,4,10,8,2,9,7,6,10,3):
+for checked in (2,0,3,5,6,0,7,4,10,8,2,9,7,6,10,0,3):
     set_mode(checked)
     result=aquatic_frame()
     if checked in baselines:assert result==baselines[checked],f'Scene {checked} changed after a texture-bank round trip'

@@ -39,7 +39,8 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
     private static final int[] BANK_SLOTS={3,4,6,7};
     private static final int[][] BANK_IMAGES={
         {R.drawable.jellyfish,R.drawable.glass_sky,R.drawable.ice_material,R.drawable.lava_material},
-        {R.drawable.optical_frame,R.drawable.alpine_foreground,R.drawable.celestial_material,R.drawable.celestial_sky}
+        {R.drawable.optical_frame,R.drawable.alpine_foreground,R.drawable.celestial_material,R.drawable.celestial_sky},
+        {R.drawable.spatial_foreground,R.drawable.spatial_environment,R.drawable.ice_material,R.drawable.lava_material}
     };
     public SceneSurface(Context context) {
         super(context);
@@ -123,7 +124,7 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
         try{GLUtils.texImage2D(GLES20.GL_TEXTURE_2D,0,image,0);}finally{image.recycle();}
     }
     private void selectTextureBank(int mode) {
-        int bank=mode==2||mode==5||mode==7||mode==10?1:0;
+        int bank=mode==0?2:mode==2||mode==5||mode==7||mode==10?1:0;
         if(textureBank==bank)return;
         for(int i=0;i<BANK_SLOTS.length;i++)uploadTexture(BANK_SLOTS[i],BANK_IMAGES[bank][i]);
         textureBank=bank;
@@ -143,7 +144,7 @@ public final class SceneSurface extends GLSurfaceView implements GLSurfaceView.R
         GLES20.glUniform1f(uWaterLight,waterLight);
         synchronized(touchData){GLES20.glUniform3fv(uTouches,4,touchData,0);}
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP,0,4);GLES20.glDisableVertexAttribArray(aPosition);
-        if(selectedMode<2) {
+        if(selectedMode==1) {
             GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glUseProgram(meshProgram);
             Matrix.setLookAtM(view,0,(crystalParallax?tiltX:0)*strength*crystalDepth*.28f,(crystalParallax?tiltY:0)*strength*crystalDepth*.28f,5,0,0,0,0,1,0);
             Matrix.setIdentityM(model,0);Matrix.translateM(model,0,.48f,-.35f,0);

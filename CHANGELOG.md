@@ -1,3 +1,11 @@
+# 0.8.8 — 2026-11-16
+
+- Rework Spatial Desktop as a photographic dusk mountain lake with independent near-shore parallax, subtle reflected water movement and a live refractive glass orb. Remove its original grid, procedural ridgelines and low-polygon crystal; keep the original Gravity background/mesh.
+- Replace app/folder icon surfaces with cached optical glass shells: continuous rounded bevels, photographic environment reflections, shaped extrusion, tint and a shared glass cover over actual icon artwork. Apply all three shapes consistently on Home, in menus/drawers and in settings/desktop-management previews.
+- Add subtle tilt-driven cover highlights that honor reduced motion, power saving and the lighting preference. Keep Gravity's drag/fling, forces, collision response, pinning, obstacles, save behavior and tile dimensions unchanged.
+- Center one/two-item folder contents inside a quieter inset pocket. Preserve actual installed app artwork, folder contents and saved shape/material/transparency choices.
+- Add material raster tests and extend scene checks to Spatial motion/freeze/tilt and round trips through its texture bank.
+
 # 0.8.7 — 2026-11-16
 
 - Replace City in Focus's procedural frame with photographic glasses and matching transparent lens masks; reduce city-background blur while keeping the same sharp city registered inside the moving lenses.
