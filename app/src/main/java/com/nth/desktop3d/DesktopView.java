@@ -259,7 +259,7 @@ final class DesktopView extends FrameLayout {
         if(originalPlan==null)return;
         boolean valid=!cancel&&previewPlan!=null;
         cells=valid?previewPlan:originalPlan;positionCells(cells,valid);
-        View view=cellViews.get(dragId);if(view!=null){view.setAlpha(1);view.setElevation(view instanceof DesktopCardView?Ui.dp(getContext(),9):0);}
+        View view=cellViews.get(dragId);if(view!=null){view.setAlpha(1);view.setElevation(view instanceof DesktopCardView&&new CrystalPreferences(getContext()).shadows()?Ui.dp(getContext(),9):0);}
         workspace.preview(null,true);if(!cancel&&!valid)android.widget.Toast.makeText(getContext(),"That space is occupied",android.widget.Toast.LENGTH_SHORT).show();
         originalPlan=previewPlan=null;dragStart=null;dragId=null;workspace.requestDisallowInterceptTouchEvent(false);
     }
