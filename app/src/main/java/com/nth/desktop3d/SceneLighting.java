@@ -13,7 +13,7 @@ final class SceneLighting {
     private final WeakHashMap<View,Boolean> views=new WeakHashMap<>();
     private final Map<Integer,int[]> environments=new HashMap<>();
     private int[] mixed;private int mixedKey=Integer.MIN_VALUE;
-    private int mode=-1,strength=65;private boolean enabled,moving,steady;private long lastFrame;
+    private int mode=-1,strength=VisualDefaults.LIGHT_STRENGTH;private boolean enabled,moving,steady;private long lastFrame;
     private float seconds,tiltX,tiltY;
     private SceneLight.Frame frame=SceneLight.frame(-1,false,0,false,true,0,0,0);
     SceneLighting(Context context){this.context=context;}
@@ -23,7 +23,7 @@ final class SceneLighting {
     }
     void configure(LauncherStore store,CrystalPreferences crystal,boolean powerSave,boolean systemReduced){
         int source=store.preferences.getInt("wallpaper_source",0);mode=source==0||source==1&&!WallpaperStore.file(context).exists()?store.mode:-1;
-        enabled=store.preferences.getBoolean("scene_lighting",true);strength=store.preferences.getInt("scene_light_strength",65);
+        enabled=store.preferences.getBoolean("scene_lighting",true);strength=store.preferences.getInt("scene_light_strength",VisualDefaults.LIGHT_STRENGTH);
         steady=store.reducedMotion||systemReduced||powerSave;
         moving=store.ambient&&crystal.dynamicLighting()&&!steady;
         if(steady||!store.tilt||!crystal.parallax()||!crystal.dynamicLighting()){tiltX=0;tiltY=0;}

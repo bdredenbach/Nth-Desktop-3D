@@ -8,9 +8,11 @@ import android.view.View;
 /** The same opening pose drives real panels and their settings preview. */
 final class PanelAnimations {
     static final int STACK=3;
-    static final String[] FOLDERS={"Rising Cards","Radial Arc","Floating Quick Actions","3D Stack","Minimal Context","Zoom","None"};
+    static final int PHYSICAL=7;
+    static final String[] FOLDERS={"Rising Cards","Radial Arc","Floating Quick Actions","3D Stack","Minimal Context","Zoom","None","Physical folder"};
     static float[] pose(int style,float progress){
         float p=Math.max(0,Math.min(1,progress)),q=1-p;
+        if(style==PHYSICAL){float e=FolderPose.expand(p);return new float[]{FolderPose.panelAlpha(p),.22f+.78f*e,(1-e)*.15f,-12*(1-e),0};}
         if(style==6)return new float[]{1,1,0,0,0};
         return new float[]{p,1-q*(style==2?.15f:style==5?.25f:0),style==0?q*.08f:0,style==0?-13*q:style==3?-28*q:style==4?-4*q:0,style==1?-32*q:0};
     }

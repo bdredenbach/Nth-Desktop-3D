@@ -1,6 +1,10 @@
+## 0.9.0 folder trial
+
+Fresh initialization uses rounded-square app and folder shells, scene lighting on and strength 100. Both shape controls live in Look & feel; saved choices survive upgrades. Choose Look & feel → Folder opening animation → Physical folder to try the hinged glass front and staggered native icons, with reverse closing. Existing effects remain available. See [physical folder trial](docs/physical-folders-090.md) for behavior and verification limits and [feature queue](docs/feature-trials.md) for the one-at-a-time plan.
+
 ## 0.7.3 interaction update
 
-Folders have their own opening animation under Settings → Folders. Menu and folder choices replay in the live preview; tap the preview to replay again. Settings → Gestures includes Home, swipes, double-tap swipes, two-finger movement, pinch and rotation, with launcher actions, installed apps and saved shortcuts. Notification shade, quick settings, recent apps and screen lock use the optional Nth gesture actions accessibility service; it does not retrieve window content or subscribe to events.
+Folders have their own opening animation under Settings → Look & feel. Menu and folder choices replay in the live preview; tap the preview to replay again. Settings → Gestures includes Home, swipes, double-tap swipes, two-finger movement, pinch and rotation, with launcher actions, installed apps and saved shortcuts. Notification shade, quick settings, recent apps and screen lock use the optional Nth gesture actions accessibility service; it does not retrieve window content or subscribe to events.
 
 Swipe up starting over a desktop folder to use the assigned swipe-up action. Pull down at the top of the app drawer to close it. Hold and drag a desktop folder to an edge to change screens or create a screen on the right. Widget Padding is checked when content is expanded; existing visual settings are preserved during migration.
 

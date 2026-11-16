@@ -25,8 +25,9 @@ final class SettingsModel {
         pref("grid_row_dp","home","Grid row height","Vertical cell spacing in dp. Dense layouts remain scrollable. Changing this setting makes the sorted page manual.",88,240,4,112,true);
         pref("icon_size","home","Desktop icon size","Resize icons in place. Grid row height controls their spacing; dense layouts remain scrollable.",70,130,5,100,true);
         enumeration("icon_shape","look","App icon shape","Shape of the Crystal surface around app icons on Home and in the drawer.",new String[]{"Rounded square","Circle","Square"},0,true);
+        enumeration("folder_shape","look","Folder icon shape","Shape of folder thumbnails on Home and in the drawer.",new String[]{"Circle","Rounded square","Square"},VisualDefaults.FOLDER_SHAPE,true);
         bool("scene_lighting","look","Match scene lighting","Reflect the active built-in 3D scene across launcher glass. Turn off to compare the previous look. Other wallpapers keep neutral lighting.",true,false);
-        pref("scene_light_strength","look","Scene lighting strength","Blend scene reflections and highlights into icons, folders, menus and the dock. Zero restores neutral glass.",0,100,5,65,false);
+        pref("scene_light_strength","look","Scene lighting strength","Blend scene reflections and highlights into icons, folders, menus and the dock. Zero restores neutral glass.",0,100,5,VisualDefaults.LIGHT_STRENGTH,false);
         bool("desktop_labels","home","Desktop labels","Show shortcut and folder names.",true,true);
         pref("label_size","home","Label text size","Text size in sp, with system font scaling.",10,18,1,12,true);
         pref("desktop_padding","home","Desktop side padding","Zero keeps standard spacing. Negative widens toward the screen edges; positive adds space.",-50,50,1,0,true);
@@ -43,7 +44,6 @@ final class SettingsModel {
         pref("dock_radius","dock","Dock corner radius","Round the dock surface in dp.",0,36,2,24,false);
         enumeration("folder_animation","look","Folder opening animation","Independent of menu opening animation. Tap the preview to replay.",PanelAnimations.FOLDERS,PanelAnimations.STACK,false);
         pref("folder_columns","folders","Folder columns","Number of icon columns inside folders.",2,6,1,3,false);
-        enumeration("folder_shape","folders","Folder icon shape","Shape of folder thumbnails on Home and in the drawer.",new String[]{"Circle","Rounded square","Square"},0,true);
         pref("folder_icon_size","folders","Folder icon size","Icon size inside a folder, as a percentage.",70,130,5,100,false);
         bool("folder_labels","folders","Folder labels","Show shortcut names inside folders.",true,false);
         bool("folder_title","folders","Show folder name","Show the folder's title above its contents.",true,false);
