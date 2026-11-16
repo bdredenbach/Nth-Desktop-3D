@@ -16,7 +16,7 @@ final class IconShellDrawable extends Drawable {
     private int environmentKey=Integer.MIN_VALUE;
     private LinearGradient reflection;private int alpha=255;private float lightX,lightY;
     IconShellDrawable(Context context,boolean folder){
-        CrystalPreferences prefs=new CrystalPreferences(context);int stored=context.getSharedPreferences("desktop3d",Context.MODE_PRIVATE).getInt(folder?"folder_shape":"icon_shape",0);
+        CrystalPreferences prefs=new CrystalPreferences(context);int stored=context.getSharedPreferences("desktop3d",Context.MODE_PRIVATE).getInt(folder?"folder_shape":"icon_shape",folder?VisualDefaults.FOLDER_SHAPE:VisualDefaults.APP_SHAPE);
         shape=stored==2?2:stored==(folder?0:1)?1:0;dynamic=prefs.dynamicLighting();shadows=prefs.shadows();
         this.folder=folder;material=prefs.material();transparency=prefs.transparency();sceneLight=new SceneLighting.Cover(context,this);refreshImage();
     }

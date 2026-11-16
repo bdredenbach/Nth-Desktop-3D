@@ -99,6 +99,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private EditText appSearch;
     private AppsAdapter appsAdapter;
     private float currentX,currentY;
+    private FolderMotion folderMotion;private String physicalFolderId;
     private SceneLighting sceneLighting;
     SceneLighting sceneLighting(){return sceneLighting;}
 
@@ -263,8 +264,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
     @Override protected void onStart(){super.onStart();if(discover!=null)discover.start();try{widgetHost.startListening();dockWidgetHost.startListening();widgetListening=true;}catch(RuntimeException error){android.util.Log.e("NthWidgets","Could not listen for widget updates",error);}}
     @Override protected void onStop(){if(discover!=null)discover.stop();if(widgetListening){widgetHost.stopListening();dockWidgetHost.stopListening();widgetListening=false;}super.onStop();}
     @Override protected void onResume(){super.onResume();resumed=true;previousFrame=lastRender=0;scene.onResume();applySettings(false);Choreographer.getInstance().removeFrameCallback(frames);Choreographer.getInstance().postFrameCallback(frames);handler.removeCallbacks(clockTick);clockTick.run();if(loaded)reloadApps();if(discover!=null)discover.resume();if(cardsView!=null)cardsView.refresh();if(setupPending())queueSetupReturn();if(nativeFeed!=null)nativeFeed.resume();}
-    @Override protected void onPause(){if(drawerDrags!=null)drawerDrags.cancel();if(desktopManager!=null)desktopManager.cancelDrag();resumed=false;if(layeredWallpaper!=null)layeredWallpaper.lighting(false);if(sceneComposer!=null)sceneComposer.reduced(true);Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();if(settingsStudio!=null)settingsStudio.pause();if(cardsView!=null)cardsView.pause();if(nativeFeed!=null)nativeFeed.pause();if(discover!=null)discover.pause();super.onPause();}
-    @Override protected void onDestroy(){if(sceneComposer!=null){sceneComposer.persistNow();sceneComposer.dispose();sceneComposer=null;}if(layeredWallpaper!=null)layeredWallpaper.dispose();if(areaMenu!=null){areaMenu.dismiss();areaMenu=null;}destroyed=true;if(restoreConfirmation!=null){restoreConfirmation.dismiss();restoreConfirmation=null;}handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();sceneFiles.shutdown();if(desktopManager!=null)desktopManager.dispose();widgetHost.releaseViews();dockWidgetHost.releaseViews();if(shortcuts!=null)shortcuts.destroy();if(settingsStudio!=null)settingsStudio.dispose();if(cardsView!=null)cardsView.dispose();if(nativeFeed!=null)nativeFeed.dispose();if(discover!=null)discover.destroy();super.onDestroy();}
+    @Override protected void onPause(){if(folderMotion!=null){if(folderMotion.closing())closePanel();else stopFolderMotion();}if(drawerDrags!=null)drawerDrags.cancel();if(desktopManager!=null)desktopManager.cancelDrag();resumed=false;if(layeredWallpaper!=null)layeredWallpaper.lighting(false);if(sceneComposer!=null)sceneComposer.reduced(true);Choreographer.getInstance().removeFrameCallback(frames);handler.removeCallbacks(clockTick);motion.pause();scene.onPause();desktop.savePositions();store.save();savePanel();if(settingsStudio!=null)settingsStudio.pause();if(cardsView!=null)cardsView.pause();if(nativeFeed!=null)nativeFeed.pause();if(discover!=null)discover.pause();super.onPause();}
+    @Override protected void onDestroy(){stopFolderMotion();if(sceneComposer!=null){sceneComposer.persistNow();sceneComposer.dispose();sceneComposer=null;}if(layeredWallpaper!=null)layeredWallpaper.dispose();if(areaMenu!=null){areaMenu.dismiss();areaMenu=null;}destroyed=true;if(restoreConfirmation!=null){restoreConfirmation.dismiss();restoreConfirmation=null;}handler.removeCallbacksAndMessages(null);catalog.launcher.unregisterCallback(packageCallback);unregisterReceiver(powerReceiver);loader.shutdownNow();sceneFiles.shutdown();if(desktopManager!=null)desktopManager.dispose();widgetHost.releaseViews();dockWidgetHost.releaseViews();if(shortcuts!=null)shortcuts.destroy();if(settingsStudio!=null)settingsStudio.dispose();if(cardsView!=null)cardsView.dispose();if(nativeFeed!=null)nativeFeed.dispose();if(discover!=null)discover.destroy();super.onDestroy();}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(setupPending()){queueSetupReturn();return;}boolean alreadyHome=resumed&&getWindow().getDecorView().hasWindowFocus()&&overlay==null&&store.page==store.homePage();closePanel();motion.recenter();if(!shortcuts.handle(intent)&&Intent.ACTION_MAIN.equals(intent.getAction())&&intent.hasCategory(Intent.CATEGORY_HOME)){if(alreadyHome)assignedGesture("gesture_home");else{store.page=store.homePage();desktop.rebuild();pageChanged();store.save();}}}
     @Override public void onWindowFocusChanged(boolean focus){super.onWindowFocusChanged(focus);if(focus){restoreDesktopMotion();if(store!=null&&setupPending())queueSetupReturn();}}
     @Override protected void onPostResume(){super.onPostResume();if(setupPending())queueSetupReturn();}
@@ -272,14 +273,14 @@ public final class MainActivity extends Activity implements MotionController.Lis
 
     @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);if(drawerDrags!=null)drawerDrags.cancel();int setup=setupGuide==null?-1:setupGuide.step();String page=settingsStudio==null?null:settingsStudio.page();boolean cards=cardsView!=null,managing=desktopManager!=null,composing=sceneComposer!=null;Bundle feedState=nativeFeed==null?null:nativeFeed.state();closePanel();if(discover!=null)discover.configurationChanged();motion.recenter();clock.setTextSize(compact()?30:54);desktop.rebuild();root.requestApplyInsets();if(composing)handler.post(this::showSceneCreator);else if(setup>=0)handler.post(()->showSetup(setup));else if(managing)handler.post(this::showDesktopManager);else if(page!=null)handler.post(()->showSettings(page));else if(cards)handler.post(()->showCards(cardsQuery));else if(feedState!=null)handler.post(()->{showNativeFeed();nativeFeed.restore(feedState);});}
     @Override protected void onSaveInstanceState(Bundle state){if(sceneComposer!=null){sceneComposer.persistNow();state.putBoolean("scene_creator",true);}if(setupGuide!=null)state.putInt("setup_step",setupGuide.step());if(desktopManager!=null)state.putBoolean("desktop_manager",true);if(settingsStudio!=null)state.putString("settings_page",settingsStudio.page());if(nativeFeed!=null)state.putBundle("native_feed",nativeFeed.state());super.onSaveInstanceState(state);}
-    @Override public void onBackPressed(){if(setupGuide!=null){setupGuide.back();return;}if(sceneComposer!=null&&sceneComposer.step()>0){sceneComposer.step(sceneComposer.step()-1);return;}if(desktopManager!=null&&desktopManager.cancelDrag())return;if(drawerDrags!=null&&drawerDrags.active()){drawerDrags.cancel();return;}if(discover!=null&&discover.close())return;if(settingsStudio!=null&&settingsStudio.back())return;if(nativeFeed!=null&&nativeFeed.back())return;if(overlay!=null)closePanel();else if(store.page!=store.homePage()){store.page=store.homePage();desktop.rebuild();pageChanged();store.save();}}
+    @Override public void onBackPressed(){if(setupGuide!=null){setupGuide.back();return;}if(sceneComposer!=null&&sceneComposer.step()>0){sceneComposer.step(sceneComposer.step()-1);return;}if(desktopManager!=null&&desktopManager.cancelDrag())return;if(drawerDrags!=null&&drawerDrags.active()){drawerDrags.cancel();return;}if(discover!=null&&discover.close())return;if(settingsStudio!=null&&settingsStudio.back())return;if(nativeFeed!=null&&nativeFeed.back())return;if(overlay!=null)requestClosePanel();else if(store.page!=store.homePage()){store.page=store.homePage();desktop.rebuild();pageChanged();store.save();}}
     @Override public int displayRotation(){return getWindowManager().getDefaultDisplay().getRotation();}
     @Override public void onTilt(float x,float y){if(Math.abs(x-currentX)>.002f||Math.abs(y-currentY)>.002f)sceneDirty=true;currentX=x;currentY=y;if(scene!=null)scene.tilt(x,y);if(wallpaper!=null)wallpaper.tilt(x,y);if(layeredWallpaper!=null&&layeredWallpaper.getVisibility()==View.VISIBLE)layeredWallpaper.tilt(x,y);if(sceneComposer!=null)sceneComposer.tilt(x,y);if(desktop!=null)desktop.tilt(x,y);if(settingsStudio!=null)settingsStudio.tilt(x,y);if(desktopManager!=null)desktopManager.tilt(x,y);if(cardsView!=null)cardsView.tilt(x,y);if(nativeFeed!=null)nativeFeed.tilt(x,y);}
     private void applySettings(boolean rebuild){
         int rotation=store.preferences.getInt("home_rotation",0);int requested=new int[]{android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER,android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR,android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE}[Math.max(0,Math.min(3,rotation))];if(appliedHomeRotation!=rotation){appliedHomeRotation=rotation;if(getRequestedOrientation()!=requested)setRequestedOrientation(requested);}
         powerSave=getSystemService(PowerManager.class).isPowerSaveMode();
         systemReduced=Settings.Global.getFloat(getContentResolver(),Settings.Global.ANIMATOR_DURATION_SCALE,1)==0;
-        boolean reduced=store.reducedMotion||systemReduced;
+        boolean reduced=store.reducedMotion||systemReduced;if(reduced||powerSave)stopFolderMotion();
         if(discover!=null&&(!crystal.feedEnabled()||crystal.feedProvider()!=0))discover.disable();
         applyWallpaper(reduced);scene.configure(store,powerSave,systemReduced);scene.configureCrystal(crystal);sceneLighting.configure(store,crystal,powerSave,systemReduced);desktop.configure(reduced,powerSave);modeLabel.setText((store.preferences.getInt("wallpaper_source",0)==3?"My layered scene":store.preferences.getInt("wallpaper_source",0)==2?"Android wallpaper":store.preferences.getInt("wallpaper_source",0)==1?"Photo wallpaper":LauncherStore.MODES[store.mode])+(reduced?" · reduced motion":""));
         if(resumed)motion.resume(store.tilt&&crystal.parallax()&&!reduced&&!powerSave);if(rebuild)desktop.rebuild();sceneDirty=true;scene.requestRender();pageChanged();applyDesktopChrome();
@@ -367,7 +368,17 @@ public final class MainActivity extends Activity implements MotionController.Lis
         try{closePanel();catalog.launcher.startMainActivity(e.component,e.user,null,null);}catch(SecurityException|IllegalStateException|android.content.ActivityNotFoundException ex){toast("Android could not open this app. Check its profile or App info.");}
     }
     private void savePanel(){if(onPanelClose!=null)onPanelClose.run();}
+    private boolean folderMotionAllowed(){return !store.reducedMotion&&!systemReduced&&!powerSave&&android.animation.ValueAnimator.areAnimatorsEnabled();}
+    private void stopFolderMotion(){if(folderMotion!=null){FolderMotion previous=folderMotion;folderMotion=null;physicalFolderId=null;previous.dispose();}}
+    private void requestClosePanel(){
+        if(folderMotion!=null&&folderMotionAllowed()){FolderMotion current=folderMotion;current.close(findFolderTile(root,physicalFolderId),()->{if(folderMotion==current)closePanel();});return;}closePanel();
+    }
+    private IconTile findFolderTile(View view,String id){
+        if(id==null||!view.isShown())return null;if(view instanceof IconTile&&("shortcut:"+id).equals(view.getTag()))return (IconTile)view;
+        if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=group.getChildCount()-1;i>=0;i--){IconTile result=findFolderTile(group.getChildAt(i),id);if(result!=null)return result;}}return null;
+    }
     private void closePanel(){
+        stopFolderMotion();
         savePanel();if(sceneComposer!=null){sceneComposer.dispose();sceneComposer=null;}if(areaMenu!=null){areaMenu.dismiss();areaMenu=null;}setupGuide=null;areaButton=null;panelArea=null;if(desktopManager!=null){desktopManager.dispose();desktopManager=null;}if(nativeFeed!=null){nativeFeed.dispose();nativeFeed=null;}if(discover!=null)discover.close();if(cardsView!=null){cardsView.dispose();cardsView=null;}if(settingsStudio!=null){settingsStudio.dispose();settingsStudio=null;}menuGlass=null;lastGlassUpdate=0;onPanelClose=null;panelKind=0;appsAdapter=null;appSearch=null;
         if(overlay!=null){((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(overlay.getWindowToken(),0);root.removeView(overlay);overlay=null;panel=null;}
         desktop.setModal(false);desktop.setAlpha(1);startButton.setSelected(false);restoreDesktopMotion();scene.requestRender();
@@ -377,14 +388,14 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private LinearLayout openPanel(String title,boolean flyout,int animation){
         closePanel();desktop.setModal(true);startButton.setSelected(true);panelKind=2;
         flyoutPanel=flyout;
-        overlay=new FrameLayout(this);overlay.setBackgroundColor(flyout?0x00000000:0xAA030A17);overlay.setOnClickListener(v->{if(setupGuide==null)closePanel();});root.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
+        overlay=new FrameLayout(this);overlay.setBackgroundColor(flyout?0x00000000:0xAA030A17);overlay.setOnClickListener(v->{if(setupGuide==null)requestClosePanel();});root.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
         panel=Ui.column(this);panel.setBackground(flyout?new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT):Ui.satin(this,0xE3335C76,0xF20B1A30,26));panel.setClipChildren(false);panel.setClipToPadding(false);panel.setElevation(flyout?0:dp(34));panel.setPadding(dp(flyout?12:20),dp(12),dp(flyout?12:20),dp(16));panel.setOnClickListener(v->{});panel.setCameraDistance(dp(2400));
         overlay.addView(panel);layoutPanel();applyCrystalAppearance();
         LinearLayout heading=Ui.row(this);TextView label=Ui.text(this,title,20,Ui.TEXT);label.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));heading.addView(label,new LinearLayout.LayoutParams(0,-2,1));heading.setMinimumHeight(dp(46));
         areaButton=Ui.quiet(this,"⋮",this::showAreaSettings);areaButton.setTextSize(25);heading.addView(areaButton,new LinearLayout.LayoutParams(dp(46),dp(46)));setPanelArea(AreaSettingsMenu.area(title));
-        Button close=Ui.icon(this,"close","Close "+title,this::closePanel);heading.addView(close,new LinearLayout.LayoutParams(dp(46),dp(46)));if(title.equals("Setup & permissions"))close.setVisibility(View.GONE);
+        Button close=Ui.icon(this,"close","Close "+title,this::requestClosePanel);heading.addView(close,new LinearLayout.LayoutParams(dp(46),dp(46)));if(title.equals("Setup & permissions"))close.setVisibility(View.GONE);
         if(" ".equals(title)){heading.setVisibility(View.GONE);}else panel.addView(heading);
-        LinearLayout opening=panel;opening.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener(){public boolean onPreDraw(){opening.getViewTreeObserver().removeOnPreDrawListener(this);if(panel==opening)PanelAnimations.play(opening,animation,store.reducedMotion||systemReduced);return true;}});
+        LinearLayout opening=panel;opening.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener(){public boolean onPreDraw(){opening.getViewTreeObserver().removeOnPreDrawListener(this);if(panel==opening&&animation!=PanelAnimations.PHYSICAL)PanelAnimations.play(opening,animation,store.reducedMotion||systemReduced);return true;}});
         return panel;
     }
     private void layoutPanel(){
@@ -582,7 +593,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         final List<AppCatalog.Entry> items=new ArrayList<>();final List<LauncherStore.Item> folders=new ArrayList<>();boolean onlyBuiltins,onlyFolders;
         void filter(String q){items.clear();if(!onlyFolders)items.addAll(catalog.filter(q,onlyBuiltins));folders.clear();if(!onlyBuiltins&&(onlyFolders||(store.preferences.getBoolean("search_folders",true)&&!q.trim().isEmpty())))for(LauncherStore.Item folder:store.folders())if(folder.label.toLowerCase(Locale.ROOT).contains(q.toLowerCase(Locale.ROOT).trim()))folders.add(folder);notifyDataSetChanged();}
         @Override public int getCount(){return items.size()+folders.size();}@Override public Object getItem(int n){return n<items.size()?items.get(n):folders.get(n-items.size());}@Override public long getItemId(int n){return n;}
-        @Override public View getView(int n,View old,ViewGroup parent){AppCatalog.Entry e=n<items.size()?items.get(n):null;LauncherStore.Item folder=e==null?folders.get(n-items.size()):null;IconTile tile=new IconTile(MainActivity.this,e==null?folder.label:e.label,e==null?catalog.icon(folder):e.icon,e==null?"folder":e.key);tile.appearance(store.preferences,"drawer");tile.fitCell(Math.max(dp(30),(root.getWidth()-dp(64))/Math.min(8,store.preferences.getInt("drawer_columns",3)+(compact()?2:0))),dp(132));tile.setFocusable(false);drawerDrags.install(tile,e==null?folder:new LauncherStore.Item(e.key,e.label),()->openDrawerItem(n,false),()->openDrawerItem(n,true));tile.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1,-2));return tile;}
+        @Override public View getView(int n,View old,ViewGroup parent){AppCatalog.Entry e=n<items.size()?items.get(n):null;LauncherStore.Item folder=e==null?folders.get(n-items.size()):null;IconTile tile=new IconTile(MainActivity.this,e==null?folder.label:e.label,e==null?catalog.icon(folder):e.icon,e==null?"folder":e.key);if(folder!=null)tile.setTag("shortcut:"+folder.id);tile.appearance(store.preferences,"drawer");tile.fitCell(Math.max(dp(30),(root.getWidth()-dp(64))/Math.min(8,store.preferences.getInt("drawer_columns",3)+(compact()?2:0))),dp(132));tile.setFocusable(false);drawerDrags.install(tile,e==null?folder:new LauncherStore.Item(e.key,e.label),()->openDrawerItem(n,false),()->openDrawerItem(n,true));tile.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1,-2));return tile;}
     }
 
     @Override public void menu(LauncherStore.Item item){
@@ -629,14 +640,15 @@ public final class MainActivity extends Activity implements MotionController.Lis
         });
     }
     private void showFolder(LauncherStore.Item folder){
-        LinearLayout folderPanel=openPanel(store.preferences.getBoolean("folder_title",true)?folder.label:"Folder",false,store.preferences.getInt("folder_animation",PanelAnimations.STACK));folderPanel.setTag("folder");setPanelArea("folders");applyCrystalAppearance();
+        int animation=store.preferences.getInt("folder_animation",PanelAnimations.STACK);FolderMotion.Origin origin=animation==PanelAnimations.PHYSICAL&&folderMotionAllowed()?FolderMotion.capture(root,findFolderTile(root,folder.id),catalog.icon(folder)):null;
+        LinearLayout folderPanel=openPanel(store.preferences.getBoolean("folder_title",true)?folder.label:"Folder",false,animation);folderPanel.setTag("folder");setPanelArea("folders");applyCrystalAppearance();
         LinearLayout body=scrollBody(folderPanel);
         if(folder.children.isEmpty())paragraph(body,"Hold an app in Start and choose Add to folder to put it here.");
         android.widget.GridLayout shelf=new android.widget.GridLayout(this);
         int folderColumns=Math.max(2,Math.min(6,store.preferences.getInt("folder_columns",3)));shelf.setColumnCount(folderColumns);shelf.setClipChildren(false);
         for(LauncherStore.Item item:folder.children){
             AppCatalog.Entry entry=catalog.find(item.key);
-            IconTile tile=new IconTile(this,item.label,catalog.icon(item),item.key);tile.appearance(store.preferences,"folder");tile.fitCell(Math.max(dp(30),(folderPanel.getLayoutParams().width-dp(56))/folderColumns),dp(132));
+            IconTile tile=new IconTile(this,item.label,catalog.icon(item),item.key);tile.setTag("shortcut:"+item.id);tile.appearance(store.preferences,"folder");tile.fitCell(Math.max(dp(30),(folderPanel.getLayoutParams().width-dp(56))/folderColumns),dp(132));
             tile.setOnClickListener(v->open(item));
             tile.setOnLongClickListener(v->{menu(item);return true;});
             android.widget.GridLayout.LayoutParams lp=new android.widget.GridLayout.LayoutParams();
@@ -644,6 +656,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
             lp.setMargins(dp(4),dp(6),dp(4),dp(8));shelf.addView(tile,lp);
         }
         body.addView(shelf,new LinearLayout.LayoutParams(-1,-2));
+        if(origin!=null){physicalFolderId=folder.id;FolderMotion current=new FolderMotion(root,folderPanel,shelf,folderColumns,origin);folderMotion=current;folderPanel.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener(){public boolean onPreDraw(){folderPanel.getViewTreeObserver().removeOnPreDrawListener(this);if(folderMotion==current&&panel==folderPanel)current.open();return true;}});}
     }
     private void showDesktopOverview(){
         LinearLayout body=scrollBody(openPanel("Desktop shortcuts"));

@@ -31,7 +31,7 @@ final class Ui {
     static Drawable satin(Context c,int top,int bottom,int radius){
         return new CrystalGlassDrawable(c,top,bottom,radius);
     }
-    static int iconRadius(Context c,boolean folder){int shape=c.getSharedPreferences("desktop3d",Context.MODE_PRIVATE).getInt(folder?"folder_shape":"icon_shape",0);return shape==2?0:shape==(folder?0:1)?100:18;}
+    static int iconRadius(Context c,boolean folder){int shape=c.getSharedPreferences("desktop3d",Context.MODE_PRIVATE).getInt(folder?"folder_shape":"icon_shape",folder?VisualDefaults.FOLDER_SHAPE:VisualDefaults.APP_SHAPE);return shape==2?0:shape==(folder?0:1)?100:18;}
     static Drawable crystal(Context c,int radius,boolean selected){return new SolidCrystalDrawable(c,radius,selected);}
     static Drawable iconSurface(Context c,boolean folder){return new IconShellDrawable(c,folder);}
     static Drawable touch(Context c,Drawable base,int radius){return new RippleDrawable(ColorStateList.valueOf(0x25B6D5FF),base,surface(0xFFFFFFFF,radius,c));}

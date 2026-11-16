@@ -84,7 +84,7 @@ final class DesktopView extends FrameLayout {
         for(LauncherStore.Item item:store.pages.get(store.page)){
             if(gravity()&&visible++>=18)break;
             AppCatalog.Entry entry=catalog.find(item.key);
-            IconTile tile=new IconTile(getContext(),item.label,catalog.icon(item),item.key);tile.appearance(store.preferences,"desktop");
+            IconTile tile=new IconTile(getContext(),item.label,catalog.icon(item),item.key);tile.setTag("shortcut:"+item.id);tile.appearance(store.preferences,"desktop");
             tile.setOnClickListener(v->host.open(item));tile.setOnLongClickListener(v->{host.menu(item);return true;});
             if(gravity())tile.physicsStyle();
             Body body=new Body(tile,item);bodies.add(body);cellViews.put(item.id,tile);
