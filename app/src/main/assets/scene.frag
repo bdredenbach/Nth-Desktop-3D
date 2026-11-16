@@ -14,6 +14,10 @@ uniform sampler2D pondBed;
 uniform sampler2D koiFish;
 uniform sampler2D reefWater;
 uniform sampler2D jellyfish;
+uniform sampler2D glassSky;
+uniform sampler2D focusCity;
+uniform sampler2D iceMaterial;
+uniform sampler2D lavaMaterial;
 
 float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 float noise(vec2 p) {
@@ -192,100 +196,129 @@ float roundedBox(vec2 p,vec2 size,float r) {
     return length(max(q,0.0))+min(max(q.x,q.y),0.0)-r;
 }
 
-// Rounded 3D optical solids. Rays enter a finite bevel rather than a neon outline.
-vec3 atriumCenter(float k) {return vec3((k-1.5)*.435,-.065+sin(k*1.7)*.035,-.10*k);}
-vec3 atriumLocal(vec3 v,float k) {v.xz=rotate(.30+k*.10)*v.xz;v.xy=rotate(-.08+k*.04)*v.xy;return v;}
-vec3 atriumWorld(vec3 v,float k) {v.xy=rotate(.08-k*.04)*v.xy;v.xz=rotate(-.30-k*.10)*v.xz;return v;}
-vec3 atriumSize(float k) {return vec3(.185,.77+k*.025,.105);}
-float atriumDistance(vec3 p,vec3 b) {vec3 q=abs(p)-b+.047;return length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0)-.047;}
-float atriumHit(vec3 ro,vec3 rd,float k,out vec3 point,out vec3 normal) {
-    vec3 origin=atriumLocal(ro-atriumCenter(k),k),direction=atriumLocal(rd,k),b=atriumSize(k);
-    vec3 inverse=mix(vec3(-1.0),vec3(1.0),step(vec3(0.0),direction))/max(abs(direction),vec3(.00001));
-    vec3 a=(-b-origin)*inverse,c=(b-origin)*inverse;
-    vec3 nearPlane=min(a,c),farPlane=max(a,c);
-    float begin=max(0.0,max(nearPlane.x,max(nearPlane.y,nearPlane.z)));
-    float end=min(farPlane.x,min(farPlane.y,farPlane.z));
-    if(end<begin)return 100.0;
-    float distance=begin;
-    for(int stepIndex=0;stepIndex<28;stepIndex++) {
-        point=origin+direction*distance;float surface=atriumDistance(point,b);
-        if(surface<.00035){vec3 edge=max(abs(point)-b+.047,0.0);normal=normalize(edge*sign(point)+vec3(.000001));return distance;}
-        distance+=max(surface,.00015);if(distance>end)break;
-    }
-    return 100.0;
+// Photographs retain detail while live geometry owns depth and material movement.
+vec2 photoCover(vec2 uv,float sourceAspect,float overscan) {
+    float aspect=resolution.x/resolution.y;
+    vec2 crop=vec2(min(1.0,aspect/sourceAspect),min(1.0,sourceAspect/aspect));
+    return clamp(.5+(uv-.5)*crop*overscan,vec2(.003),vec2(.997));
 }
-vec3 atriumEnvironment(vec3 direction,float t) {
-    vec3 col=mix(vec3(.012,.024,.040),vec3(.10,.17,.23),smoothstep(-.5,.9,direction.y));
-    vec3 key=normalize(vec3(-.85+sin(t*.23)*.22,.10,1.0));
-    float softbox=pow(max(0.0,dot(direction,key)),32.0);
-    float strip=exp(-pow((direction.x+.38*direction.z-sin(t*.19)*.12)*45.0,2.0))*smoothstep(-.65,.1,direction.y);
-    float rim=pow(max(0.0,dot(direction,normalize(vec3(.9,.15,-.65)))),65.0);
-    float panel=exp(-pow((direction.x+.80*direction.z-sin(t*.19)*.10)*46.0,2.0));
-    panel+=.50*exp(-pow((direction.x+1.25*direction.z+sin(t*.17)*.08)*55.0,2.0));
-    panel*=1.0-smoothstep(.58,.88,abs(direction.y));
-    col+=vec3(1.6,2.1,2.6)*softbox+vec3(7.0,8.2,8.8)*panel+vec3(5.0,6.3,7.0)*strip+vec3(.40,1.3,2.1)*rim;
-    return col;
-}
-vec3 atriumBackdrop(vec3 ro,vec3 rd,float t) {
-    vec3 col=atriumEnvironment(rd,t)*.075;
-    if(rd.y<-.0001) {
-        float distance=(-1.02-ro.y)/rd.y;
-        if(distance>0.0) {
-            vec3 hit=ro+rd*distance;vec2 floorPoint=hit.xz;
-            float grain=fbm(floorPoint*3.0);
-            vec3 floorColor=vec3(.004,.008,.013)+vec3(.006,.009,.012)*grain;
-            float seam=min(abs(fract(floorPoint.x*.65+.5)-.5),abs(fract(floorPoint.y*.65+.5)-.5));
-            floorColor*=.78+.22*smoothstep(.003,.012,seam);
-            float light=0.0,contact=0.0;
-            for(int j=0;j<4;j++) {
-                float k=float(j);vec2 offset=floorPoint-atriumCenter(k).xz;
-                contact+=exp(-dot(offset*vec2(3.7,2.2),offset*vec2(3.7,2.2)))*.32;
-                vec2 focused=offset-vec2(.10+sin(t*.23+k)*.08,.14+cos(t*.19+k)*.10);
-                float pool=exp(-dot(focused*vec2(3.0,1.4),focused*vec2(3.0,1.4)));
-                float fold=focused.x*10.0+sin(focused.y*9.0+t*.45+k)*.55+sin(t*.31+k)*.45;
-                light+=pool*(.10+.46*exp(-pow(fold*2.3,2.0))+.14*pow(.5+.5*sin(focused.y*17.0-t*.5+k),9.0));
-            }
-            floorColor*=1.0-min(.70,contact)*shadowEnabled;
-            floorColor+=vec3(.11,.34,.46)*light;
-            float fresnel=.035+.45*pow(1.0-max(0.0,-rd.y),5.0);
-            floorColor+=atriumEnvironment(reflect(rd,vec3(0,1,0)),t)*fresnel*.065;
-            col=mix(col,floorColor,exp(-distance*.028));
+vec3 skyPhoto(vec2 uv) {return texture2D(glassSky,vec2(clamp(uv.x,.003,.997),1.0-clamp(uv.y,.003,.997))).rgb;}
+vec3 paneLocal(vec3 v,float yaw,float pitch,float roll) {v.xz=rotate(yaw)*v.xz;v.yz=rotate(pitch)*v.yz;v.xy=rotate(roll)*v.xy;return v;}
+vec3 atrium(vec2 uv) {
+    float t=clockTime*motion,aspect=resolution.x/resolution.y;
+    vec2 p=(uv-.5)*vec2(aspect,1.0),background=photoCover(uv,1.0,.86)+tilt*.018;
+    vec3 col=skyPhoto(background)*vec3(.80,.89,.97);
+    vec3 ro=vec3(tilt*.10,3.0),rd=normalize(vec3(p*2.8,-3.0));
+    for(int i=0;i<9;i++) {
+        float k=float(i),column=mod(k,3.0)-1.0,row=floor(k/3.0)-1.0,depth=.25+k*.095;
+        vec3 center=vec3(column*aspect*1.15,row*1.08,-.50+k*.105);
+        center.xy+=vec2(sin(t*.19+k*1.7),cos(t*.16+k*2.1))*.035+tilt*depth*.10;
+        float yaw=.26*sin(k*1.7)+tilt.x*.15+sin(t*.11+k)*.035;
+        float pitch=.15*cos(k*1.2)+tilt.y*.12,roll=.12*sin(k*2.4);
+        vec3 origin=paneLocal(ro-center,yaw,pitch,roll),direction=paneLocal(rd,yaw,pitch,roll);
+        float distance=-origin.z/min(-.001,direction.z);vec2 q=(origin+direction*distance).xy;
+        vec2 size=vec2(aspect*.70,.72);float sd=roundedBox(q,size,.007);
+        float aa=2.5/max(540.0,resolution.y),mask=1.0-smoothstep(-aa,aa,sd);
+        if(mask>.001) {
+            vec2 bend=vec2(yaw,pitch)*.060+q*.012;
+            vec3 transmitted=skyPhoto(background+bend+tilt*depth*.015)*vec3(.71,.88,.97);
+            vec2 mirror=clamp(vec2(.50)+q/vec2(aspect*2.9,2.9)+vec2(k*.045-.16,.12*sin(k))+tilt*.09+vec2(sin(t*.13+k)*.012,0),.015,.985);
+            vec3 reflection=skyPhoto(mirror);float fresnel=.10+.40*pow(abs(sin(yaw+.25*rd.x)),2.0);
+            vec3 glass=mix(transmitted,reflection*vec3(.75,.89,1.02),fresnel);
+            float reflectedLight=exp(-pow((q.x+.42*q.y+sin(t*.15+k)*.16)*4.0,2.0));
+            glass+=vec3(.035,.065,.082)*reflectedLight;
+            float frame=1.0-smoothstep(.006,.015,abs(sd+.008));
+            float side=1.0-smoothstep(.008,.019,abs(roundedBox(q+vec2(.012,-.012),size,.007)));
+            glass=mix(glass,vec3(.016,.027,.035),max(frame,side*.70));
+            float glint=(1.0-smoothstep(.001,.004,abs(sd+.016)))*(.22+.78*pow(.5+.5*sin(q.y*2.0+t*.26+k),3.0));
+            glass+=vec3(.30,.43,.49)*glint;col=mix(col,glass,mask*.94);
         }
     }
     return col;
 }
-vec3 atrium(vec2 uv) {
-    vec2 p=(uv-.5)*vec2(resolution.x/resolution.y,1.0);
-    float t=clockTime*motion;
-    vec3 ro=vec3(tilt.x*.13,.22+tilt.y*.09,4.5);
-    vec3 rd=normalize(vec3(p*3.9-tilt*.055+vec2(0,-.30),-4.5));
-    vec3 col=atriumBackdrop(ro,rd,t),point=vec3(0),normal=vec3(0);
-    float nearest=100.0,chosen=0.0;vec3 localPoint=vec3(0),localNormal=vec3(0);
-    for(int i=0;i<4;i++) {
-        float k=float(i);float distance=atriumHit(ro,rd,k,point,normal);
-        if(distance<nearest){nearest=distance;chosen=k;localPoint=point;localNormal=normal;}
+// The two halves are registered copies: sharp on the left, defocused on the right.
+vec3 cityPhoto(vec2 uv,float blurred) {vec2 q=clamp(uv,vec2(.004),vec2(.996));return texture2D(focusCity,vec2(q.x*.5+blurred*.5,1.0-q.y)).rgb;}
+float segmentDistance(vec2 p,vec2 a,vec2 b){vec2 v=b-a;return length(p-a-v*clamp(dot(p-a,v)/dot(v,v),0.0,1.0));}
+vec3 focusScene(vec2 uv) {
+    float t=clockTime*motion,aspect=resolution.x/resolution.y;
+    vec2 cityUV=photoCover(uv,2.0/3.0,.82)+tilt*.023;
+    vec3 col=cityPhoto(cityUV,1.0)*.86;
+    vec2 p=(uv-.5)*vec2(aspect,1.0);float scale=min(aspect/.60,1.55);
+    vec2 movement=tilt*vec2(.095,.075)+vec2(sin(t*.17)*.007,cos(t*.13)*.004);
+    vec2 g=rotate(tilt.x*.07)*(p-movement-vec2(0,-.025))/scale;
+    float arms=min(segmentDistance(g,vec2(-.264,.025),vec2(-.320,.115)),segmentDistance(g,vec2(.264,.025),vec2(.320,.115)));
+    float arm=1.0-smoothstep(.010,.016,arms);col=mix(col,vec3(.022,.025,.029),arm);
+    float bridge=(1.0-smoothstep(.005,.011,abs(g.y-(.034+.012*cos(g.x*45.0)))))*(1.0-smoothstep(.026,.040,abs(g.x)));
+    col=mix(col,vec3(.030,.027,.026),bridge);
+    for(int i=0;i<2;i++) {
+        float side=float(i)*2.0-1.0;vec2 q=g-vec2(side*.145,0);q.y+=q.x*side*.045;q.x*=1.0+q.y*.42;
+        float sd=roundedBox(q,vec2(.122,.095),.041),lens=1.0-smoothstep(-.003,.001,sd);
+        vec2 lensUV=cityUV+q*vec2(.014,.016)+tilt*.002;
+        vec3 clear=cityPhoto(lensUV,0.0)*vec3(.98,1.0,1.025);float edge=1.0-smoothstep(0.0,.020,-sd);
+        vec3 reflected=skyPhoto(clamp(.5+q*1.5+tilt*.12,.02,.98));clear=mix(clear,reflected,.018+edge*.085);
+        float streak=exp(-pow((q.x+.65*q.y+.06+sin(t*.15)*.014)*140.0,2.0));clear+=vec3(.11,.16,.20)*streak*.32;
+        col=mix(col,clear,lens);
+        float rim=(1.0-smoothstep(.014,.018,abs(sd-.004)))*smoothstep(-.004,.002,sd),bevel=exp(-pow((sd-.013)*250.0,2.0));
+        vec3 acetate=vec3(.018,.015,.014)+vec3(.08,.066,.051)*(.5+.5*side*q.x*5.0);
+        acetate+=vec3(.22,.26,.29)*bevel*(.12+.88*smoothstep(-.06,.06,q.y));col=mix(col,acetate,rim);
+        float hinge=1.0-smoothstep(.002,.005,length(q-vec2(side*.116,.034)));col=mix(col,vec3(.64,.65,.61),hinge);
     }
-    if(nearest<99.0) {
-        vec3 hit=ro+rd*nearest,n=atriumWorld(localNormal,chosen);
-        float facing=max(.001,dot(-rd,n));
-        float fresnel=.042+.958*pow(1.0-facing,5.0);
-        vec3 inside=refract(rd,n,1.0/1.52);
-        float thickness=clamp(.21/max(.18,abs(inside.z)),.20,.85);
-        vec3 exitPoint=hit+inside*thickness;
-        // Separate color paths give a restrained dispersion at the curved bevel.
-        vec3 bend=n*(.018+.035*(1.0-facing));
-        vec3 transmission;
-        transmission.r=atriumBackdrop(exitPoint+bend*1.035,rd,t).r;
-        transmission.g=atriumBackdrop(exitPoint+bend,rd,t).g;
-        transmission.b=atriumBackdrop(exitPoint+bend*.965,rd,t).b;
-        transmission*=exp(-vec3(.23,.075,.045)*thickness);
-        vec3 reflected=atriumEnvironment(reflect(rd,n),t);
-        float backGlint=pow(max(0.0,dot(reflect(inside,-n),normalize(vec3(-.7,.8,1.0)))),55.0);
-        col=transmission*(1.0-fresnel)+reflected*fresnel+vec3(.35,.65,.80)*backGlint*.14;
-        // A clear front face carries a broad reflected studio light, not a fill tint.
-        col+=reflected*.018*(1.0-fresnel);
+    return col;
+}
+// Integer-domain hash prevents sin/fract reassociation from moving sites at tile boundaries.
+float iceHash(vec2 p) {vec2 a=mod(p,64.0);float n=mod(a.x*127.0+a.y*311.0+19.0,1021.0);return mod(n*n*13.0+n*17.0,1021.0)/1021.0;}
+vec3 icePhoto(vec2 p) {return texture2D(iceMaterial,clamp(p,.004,.996)).rgb;}
+vec3 iceScene(vec2 uv) {
+    float t=clockTime*motion,aspect=resolution.x/resolution.y;
+    vec2 p=(uv-.5)*vec2(aspect,1.0)*5.1+tilt*.17,cell=floor(p);
+    float closest=100.0;vec2 chosen=vec2(0),center=vec2(0);
+    for(int y=-2;y<=2;y++)for(int x=-2;x<=2;x++) {
+        vec2 id=cell+vec2(float(x),float(y));
+        vec2 point=id+.15+.70*vec2(iceHash(id+vec2(3,17)),iceHash(id+vec2(17,8)));
+        float d=dot(p-point,p-point);if(d<closest){closest=d;chosen=id;center=point;}
     }
-    return pow(vec3(1.0)-exp(-max(col,0.0)*1.25),vec3(.4545));
+    float seed=iceHash(chosen+vec2(8,1));
+    vec2 drift=vec2(sin(t*.25+seed*7.0),cos(t*.21+seed*11.0))*.018;
+    vec2 local=rotate(sin(t*.18+seed*9.0)*.008)*(p-center-drift),edgeNormal=vec2(0);
+    float nearest=-100.0;
+    // Fixed irregular Voronoi polygons drift inside their water gaps as rigid floes.
+    for(int y=-2;y<=2;y++)for(int x=-2;x<=2;x++) {
+        if(x!=0||y!=0){vec2 id=chosen+vec2(float(x),float(y));
+            vec2 neighbor=id+.15+.70*vec2(iceHash(id+vec2(3,17)),iceHash(id+vec2(17,8)));
+            vec2 v=neighbor-center;float lengthV=length(v);vec2 n=v/lengthV;
+            float distance=dot(local,n)-lengthV*.5+.038+.008*seed;
+            if(distance>nearest){nearest=distance;edgeNormal=n;}
+        }
+    }
+    nearest+=(noise(local*18.0+chosen)-.5)*.006;
+    vec2 waves=vec2(sin(p.y*4.0+t*.44),cos(p.x*4.6-t*.37))*.015;
+    vec3 water=mix(vec3(.018,.13,.19),vec3(.08,.30,.38),.5+.5*sin(p.y*.85+p.x*.5));
+    float ripple=pow(.5+.5*sin(p.x*12.0+p.y*8.0+sin(p.y*7.0+t*.51)+t*.40),14.0);
+    water+=vec3(.06,.13,.15)*ripple;water+=skyPhoto(.5+(uv-.5)*.32+waves)*.11;
+    water*=1.0-.35*exp(-max(nearest,0.0)*18.0)*shadowEnabled;
+    float mask=1.0-smoothstep(-.008,.008,nearest);
+    vec2 tex=.5+local*.26+(vec2(iceHash(chosen+vec2(12,7)),iceHash(chosen+vec2(5,6)))-.5)*.35+tilt*.017;
+    vec3 material=icePhoto(tex);float height=.18+.08*seed;
+    vec3 underneath=icePhoto(tex+tilt*height*.08+vec2(.008,.012));
+    vec3 ice=mix(material,underneath,.24)*mix(vec3(.75,.92,.99),vec3(.96,1.04,1.07),seed);
+    float bevel=exp(-max(0.0,-nearest)*31.0),below=1.0-smoothstep(.008,.070,nearest+.04+dot(edgeNormal,vec2(.015,-.022)));
+    ice=mix(water*vec3(.65,1.10,1.35),ice,.84+.16*below);
+    ice+=vec3(.22,.34,.39)*bevel*(.45+.55*dot(edgeNormal,normalize(vec2(-.6,.8))));
+    float shine=pow(max(0.0,.60+.30*sin(local.x*3.0+local.y*2.0+t*.22+seed*9.0)),18.0);ice+=vec3(.10,.16,.18)*shine;
+    return mix(water,ice,mask);
+}
+vec3 lavaPhoto(vec2 uv) {vec2 q=clamp(uv,.003,.997);return texture2D(lavaMaterial,vec2(q.x,1.0-q.y)).rgb;}
+float molten(vec3 color){return smoothstep(.12,.62,color.r-max(color.b,color.g*.42));}
+vec3 lavaScene(vec2 uv) {
+    float t=clockTime*motion;vec2 q=photoCover(uv,2.0/3.0,.80)+tilt*.015;
+    for(int i=0;i<3;i++){vec3 heightSample=lavaPhoto(q);float h=(1.0-molten(heightSample))*.65+dot(heightSample,vec3(.21,.72,.07))*.15;q+=tilt*h*.009;}
+    vec3 base=lavaPhoto(q);float heat=molten(base),phase=fract(t*.045),other=fract(phase+.5),blend=abs(phase-.5)*2.0;
+    vec2 flow=vec2(sin(q.y*18.0+t*.18)*.005,.032);vec3 a=lavaPhoto(q-flow*phase),b=lavaPhoto(q-flow*other),moving=mix(a,b,blend);
+    vec3 col=mix(base,moving,heat*.45);
+    float folds=.5+.5*sin(q.y*115.0-t*2.1+sin(q.x*85.0+t*.43)*1.9),pulse=.88+.12*sin(t*.54+q.y*12.0);
+    col+=vec3(.16,.055,.004)*heat*folds*pulse;
+    float nearHeat=molten(lavaPhoto(q+vec2(.006,0)))+molten(lavaPhoto(q-vec2(.006,0)))+molten(lavaPhoto(q+vec2(0,.006)))+molten(lavaPhoto(q-vec2(0,.006)));
+    col+=vec3(.043,.010,.001)*nearHeat*(1.0-heat)*(.8+.2*sin(t*.61+q.x*8.0));return min(col,vec3(1.0));
 }
 
 vec3 aurora(vec2 uv) {
@@ -367,7 +400,10 @@ void main() {
     else if(mode<3.5) col=pond(uv);
     else if(mode<4.5) col=atrium(uv);
     else if(mode<5.5) col=aurora(uv);
-    else col=reef(uv);
+    else if(mode<6.5) col=reef(uv);
+    else if(mode<7.5) col=focusScene(uv);
+    else if(mode<8.5) col=iceScene(uv);
+    else col=lavaScene(uv);
     // A gentle vignette keeps labels legible without flattening the scene.
     float vignette=1.0-.24*pow(length((uv-.5)*vec2(.8,1.0)),1.4);
     col*=vignette;
