@@ -55,7 +55,7 @@ public final class AppCatalog {
     public Entry find(String key) { return byKey.get(key); }
     public List<Entry> filter(String text, boolean builtins) {
         String q = text.toLowerCase(java.util.Locale.ROOT).trim(); List<Entry> out = new ArrayList<>();
-        for (Entry e : entries) if ((!builtins || e.component == null) && e.label.toLowerCase(java.util.Locale.ROOT).contains(q)) out.add(e);
+        for (Entry e : entries) if ((!builtins || e.component == null) && LocalSearch.matches(q,e.label,"")) out.add(e);
         return out;
     }
 }

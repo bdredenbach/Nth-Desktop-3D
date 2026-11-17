@@ -98,6 +98,8 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private boolean flyoutPanel;
     private EditText appSearch;
     private AppsAdapter appsAdapter;
+    private LinearLayout drawerSearchResults;private ScrollView drawerSearchScroll;private SwipeDismissGrid drawerGrid;
+    private String drawerResultQuery;private final List<Runnable> drawerLocalTargets=new ArrayList<>();private int drawerLocalCount;
     private float currentX,currentY;
     private FolderMotion folderMotion;private String physicalFolderId;
     private SceneRandomizer sceneRandomizer;private long shuffleHomeAfter;private AlertDialog randomizerDialog;private AlertDialog scenePackConfirmation;
@@ -391,7 +393,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void closePanel(){
         shuffleHomeAfter=android.os.SystemClock.uptimeMillis()+5000;if(randomizerDialog!=null){randomizerDialog.dismiss();randomizerDialog=null;}
         stopFolderMotion();
-        savePanel();if(sceneComposer!=null){sceneComposer.dispose();sceneComposer=null;}if(areaMenu!=null){areaMenu.dismiss();areaMenu=null;}setupGuide=null;areaButton=null;panelArea=null;if(desktopManager!=null){desktopManager.dispose();desktopManager=null;}if(nativeFeed!=null){nativeFeed.dispose();nativeFeed=null;}if(discover!=null)discover.close();if(cardsView!=null){cardsView.dispose();cardsView=null;}if(settingsStudio!=null){settingsStudio.dispose();settingsStudio=null;}menuGlass=null;lastGlassUpdate=0;onPanelClose=null;panelKind=0;appsAdapter=null;appSearch=null;
+        savePanel();if(sceneComposer!=null){sceneComposer.dispose();sceneComposer=null;}if(areaMenu!=null){areaMenu.dismiss();areaMenu=null;}setupGuide=null;areaButton=null;panelArea=null;if(desktopManager!=null){desktopManager.dispose();desktopManager=null;}if(nativeFeed!=null){nativeFeed.dispose();nativeFeed=null;}if(discover!=null)discover.close();if(cardsView!=null){cardsView.dispose();cardsView=null;}if(settingsStudio!=null){settingsStudio.dispose();settingsStudio=null;}menuGlass=null;lastGlassUpdate=0;onPanelClose=null;panelKind=0;appsAdapter=null;appSearch=null;drawerSearchResults=null;drawerSearchScroll=null;drawerGrid=null;drawerResultQuery=null;drawerLocalTargets.clear();drawerLocalCount=0;
         if(overlay!=null){((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(overlay.getWindowToken(),0);root.removeView(overlay);overlay=null;panel=null;}
         desktop.setModal(false);desktop.setAlpha(1);startButton.setSelected(false);restoreDesktopMotion();scene.requestRender();
     }
@@ -571,7 +573,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     }
     private void showStart(){
         LinearLayout p=openPanel("Your apps");panelKind=1;
-        appSearch=new EditText(this);appSearch.setSingleLine(true);appSearch.setHint("Search");appSearch.setTextColor(Ui.TEXT);appSearch.setHintTextColor(Ui.MUTED);appSearch.setTextSize(16);appSearch.setSelectAllOnFocus(true);appSearch.setContentDescription("Search installed apps");
+        appSearch=new EditText(this);appSearch.setSingleLine(true);appSearch.setHint("Search apps, folders, settings or notes");appSearch.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(512)});appSearch.setTextColor(Ui.TEXT);appSearch.setHintTextColor(Ui.MUTED);appSearch.setTextSize(16);appSearch.setSelectAllOnFocus(true);appSearch.setContentDescription("Search installed apps");
         appSearch.setBackground(Ui.surface(0xFF0B172B,14,this));appSearch.setPadding(dp(14),0,dp(14),0);LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(-1,dp(50));ep.setMargins(0,dp(10),0,dp(10));p.addView(appSearch,ep);
         SwipeDismissGrid grid=new SwipeDismissGrid(this,this::closePanel,store.preferences.getInt("drawer_scroll",0)==1);
         LinearLayout shortcuts=Ui.row(this);
@@ -579,6 +581,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         Button nth=Ui.button(this,"Nth tools",()->{if(appsAdapter!=null){appsAdapter.onlyBuiltins=true;appsAdapter.onlyFolders=false;grid.firstPage();appsAdapter.filter(appSearch.getText().toString());}});
         Button folders=Ui.button(this,"Folders",()->{if(appsAdapter!=null){appsAdapter.onlyBuiltins=false;appsAdapter.onlyFolders=true;grid.firstPage();appsAdapter.filter(appSearch.getText().toString());}});shortcuts.addView(folders,new LinearLayout.LayoutParams(0,dp(44),1));
         shortcuts.addView(all,new LinearLayout.LayoutParams(0,dp(44),1));LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(0,dp(44),1);np.leftMargin=dp(8);shortcuts.addView(nth,np);if(store.preferences.getBoolean("cards_in_search",true)){Button cards=Ui.button(this,"Cards",()->showCards(appSearch==null?"":appSearch.getText().toString()));LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(0,dp(44),1);cp.leftMargin=dp(8);shortcuts.addView(cards,cp);}p.addView(shortcuts);for(int n=0;n<shortcuts.getChildCount();n++)if(shortcuts.getChildAt(n) instanceof Button){Button filter=(Button)shortcuts.getChildAt(n);filter.setBackground(Ui.touch(this,Ui.crystal(this,14,false),14));filter.setTextSize(12);filter.setSingleLine(true);filter.setPadding(dp(6),0,dp(6),0);}
+        drawerGrid=grid;
         grid.setOnTouchListener(new View.OnTouchListener(){
             float startY,startX;boolean dismissing;
             @Override public boolean onTouch(View v,MotionEvent e){
@@ -593,19 +596,59 @@ public final class MainActivity extends Activity implements MotionController.Lis
             }
         });
         grid.setNumColumns(Math.min(8,store.preferences.getInt("drawer_columns",3)+(compact()?2:0)));grid.setVerticalSpacing(dp(10));grid.setHorizontalSpacing(dp(8));grid.setPadding(0,dp(16),0,dp(10));grid.setClipToPadding(false);grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);grid.setSelector(android.R.color.transparent);
-        appsAdapter=new AppsAdapter();grid.setAdapter(appsAdapter);p.addView(grid,new LinearLayout.LayoutParams(-1,0,1));appsAdapter.filter("");
+        appsAdapter=new AppsAdapter();grid.setAdapter(appsAdapter);p.addView(grid,new LinearLayout.LayoutParams(-1,0,2));
+        drawerSearchScroll=new ScrollView(this);drawerSearchScroll.setVisibility(View.GONE);drawerSearchResults=Ui.column(this);drawerSearchResults.setTag("unified-search-results");drawerSearchScroll.addView(drawerSearchResults);p.addView(drawerSearchScroll,new LinearLayout.LayoutParams(-1,0,1));appsAdapter.filter("");
         grid.setOnItemClickListener((a,v,pos,id)->openDrawerItem(grid.sourcePosition(pos),false));
         grid.setLongClickable(false);
         appSearch.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int count,int after){}public void onTextChanged(CharSequence s,int st,int before,int count){if(appsAdapter!=null){grid.firstPage();appsAdapter.filter(s.toString());}}public void afterTextChanged(Editable e){}});
-        appSearch.setOnEditorActionListener((v,action,event)->{if(appsAdapter!=null&&appsAdapter.getCount()==1){openDrawerItem(0,false);return true;}return false;});
+        appSearch.setOnEditorActionListener((v,action,event)->{
+            if(appsAdapter==null)return false;
+            if(appsAdapter.getCount()+drawerLocalCount==1){if(appsAdapter.getCount()==1)openDrawerItem(0,false);else if(!drawerLocalTargets.isEmpty())drawerLocalTargets.get(0).run();}
+            return true;
+        });
         p.setFocusableInTouchMode(true);p.requestFocus();if(store.preferences.getBoolean("search_keyboard",false)){EditText field=appSearch;handler.postDelayed(()->{if(appSearch==field&&overlay!=null){field.requestFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(field,InputMethodManager.SHOW_IMPLICIT);}},280);}
+    }
+    private void renderDrawerSearch(String query){
+        if(drawerSearchResults==null||drawerSearchScroll==null||drawerGrid==null||appsAdapter==null)return;
+        String q=query.trim();boolean show=!q.isEmpty()&&!appsAdapter.onlyBuiltins&&!appsAdapter.onlyFolders;
+        drawerSearchScroll.setVisibility(show?View.VISIBLE:View.GONE);
+        drawerGrid.setVisibility(!show||appsAdapter.getCount()>0?View.VISIBLE:View.GONE);
+        if(!show){drawerResultQuery=null;drawerLocalTargets.clear();drawerLocalCount=0;return;}
+        if(q.equals(drawerResultQuery))return;drawerResultQuery=q;drawerLocalTargets.clear();drawerLocalCount=0;drawerSearchResults.removeAllViews();
+        List<SettingsModel.Spec> settings=new ArrayList<>();
+        for(SettingsModel.Spec spec:settingsModel().specs.values())if(LocalSearch.matches(q,spec.title,spec.help+" "+spec.page))settings.add(spec);
+        settings.sort((a,b)->{int score=Integer.compare(LocalSearch.rank(q,a.title,a.help+" "+a.page),LocalSearch.rank(q,b.title,b.help+" "+b.page));return score!=0?score:a.title.compareToIgnoreCase(b.title);});
+        if(!settings.isEmpty()){
+            drawerSearchResults.addView(Ui.text(this,"Settings",14,Ui.ACCENT));drawerLocalCount+=settings.size();
+            for(SettingsModel.Spec spec:settings.subList(0,Math.min(20,settings.size())))searchTarget("search-setting:"+spec.id,spec.title,spec.value(),()->{showSettings(spec.page);settingsStudio.focusSetting(spec.id);});
+            if(settings.size()>20)searchRow("search-more-settings","All matching settings",settings.size()+" matches",()->{showSettings("root");settingsStudio.findSettings(q);});
+        }
+        for(String[] page:SettingsStudio.PAGES)if(LocalSearch.matches(q,page[1],page[2])){
+            drawerLocalCount++;searchTarget("search-page:"+page[0],page[1],"Settings category",()->showSettings(page[0]));
+        }
+        String note=store.preferences.getString("note","");
+        if(!note.isEmpty()&&LocalSearch.matches(q,"Nth Notes",note)){
+            drawerLocalCount++;searchTarget("search-note","Nth Notes",LocalSearch.excerpt(note,q),()->showNoteMatch(q));
+        }
+        searchRow("search-nota","Ask Nth Nota",q,()->{showSettings("nota");settingsStudio.draftQuestion(q);});
+    }
+    private void searchTarget(String tag,String title,String detail,Runnable open){drawerLocalTargets.add(open);searchRow(tag,title,detail,open);}
+    private void searchRow(String tag,String title,String detail,Runnable open){
+        Button button=Ui.quiet(this,title+(detail.isEmpty()?"":"\n"+detail),open);button.setTag(tag);button.setContentDescription(title);button.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);drawerSearchResults.addView(button,new LinearLayout.LayoutParams(-1,-2));
+    }
+    private void showNoteMatch(String query){
+        showNotes();for(int n=0;n<panel.getChildCount();n++)if(panel.getChildAt(n) instanceof EditText){
+            EditText editor=(EditText)panel.getChildAt(n);String text=editor.getText().toString(),q=query.trim().toLowerCase(Locale.ROOT);int at=text.toLowerCase(Locale.ROOT).indexOf(q);
+            if(at<0&&!q.isEmpty())at=text.toLowerCase(Locale.ROOT).indexOf(q.split("\\s+")[0]);
+            int start=Math.max(0,Math.min(text.length(),at)),end=Math.min(text.length(),start+query.trim().length());editor.setSelection(start,end);editor.post(()->editor.bringPointIntoView(start));break;
+        }
     }
     private void openDrawerItem(int position,boolean held){if(position<appsAdapter.items.size()){AppCatalog.Entry entry=appsAdapter.items.get(position);if(held)appMenu(entry,null);else launch(entry.key);}else{LauncherStore.Item folder=appsAdapter.folders.get(position-appsAdapter.items.size());if(held)menu(folder);else showFolder(folder);}}
     private final class AppsAdapter extends BaseAdapter {
         final List<AppCatalog.Entry> items=new ArrayList<>();final List<LauncherStore.Item> folders=new ArrayList<>();boolean onlyBuiltins,onlyFolders;
-        void filter(String q){items.clear();if(!onlyFolders)items.addAll(catalog.filter(q,onlyBuiltins));folders.clear();if(!onlyBuiltins&&(onlyFolders||(store.preferences.getBoolean("search_folders",true)&&!q.trim().isEmpty())))for(LauncherStore.Item folder:store.folders())if(folder.label.toLowerCase(Locale.ROOT).contains(q.toLowerCase(Locale.ROOT).trim()))folders.add(folder);notifyDataSetChanged();}
+        void filter(String q){items.clear();if(!onlyFolders)items.addAll(catalog.filter(q,onlyBuiltins));folders.clear();if(!onlyBuiltins&&(onlyFolders||(store.preferences.getBoolean("search_folders",true)&&!q.trim().isEmpty())))for(LauncherStore.Item folder:store.folders())if(LocalSearch.matches(q,folder.label,""))folders.add(folder);notifyDataSetChanged();renderDrawerSearch(q);}
         @Override public int getCount(){return items.size()+folders.size();}@Override public Object getItem(int n){return n<items.size()?items.get(n):folders.get(n-items.size());}@Override public long getItemId(int n){return n;}
-        @Override public View getView(int n,View old,ViewGroup parent){AppCatalog.Entry e=n<items.size()?items.get(n):null;LauncherStore.Item folder=e==null?folders.get(n-items.size()):null;IconTile tile=new IconTile(MainActivity.this,e==null?folder.label:e.label,e==null?catalog.icon(folder):e.icon,e==null?"folder":e.key);if(folder!=null)tile.setTag("shortcut:"+folder.id);tile.appearance(store.preferences,"drawer");tile.fitCell(Math.max(dp(30),(root.getWidth()-dp(64))/Math.min(8,store.preferences.getInt("drawer_columns",3)+(compact()?2:0))),dp(132));tile.setFocusable(false);drawerDrags.install(tile,e==null?folder:new LauncherStore.Item(e.key,e.label),()->openDrawerItem(n,false),()->openDrawerItem(n,true));tile.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1,-2));return tile;}
+        @Override public View getView(int n,View old,ViewGroup parent){AppCatalog.Entry e=n<items.size()?items.get(n):null;LauncherStore.Item folder=e==null?folders.get(n-items.size()):null;IconTile tile=new IconTile(MainActivity.this,e==null?folder.label:e.label,e==null?catalog.icon(folder):e.icon,e==null?"folder":e.key);if(folder!=null)tile.setTag("shortcut:"+folder.id);tile.appearance(store.preferences,"drawer");tile.fitCell(Math.max(dp(30),(root.getWidth()-dp(64))/Math.min(8,store.preferences.getInt("drawer_columns",3)+(compact()?2:0))),dp(132));tile.setFocusable(false);drawerDrags.install(tile,e==null?folder:new LauncherStore.Item(e.key,e.label),()->{if(folder!=null)showFolder(folder);else launch(e.key);},()->{if(folder!=null)menu(folder);else appMenu(e,null);});tile.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1,-2));return tile;}
     }
 
     @Override public void menu(LauncherStore.Item item){

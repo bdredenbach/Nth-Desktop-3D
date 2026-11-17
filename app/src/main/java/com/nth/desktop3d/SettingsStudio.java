@@ -84,9 +84,11 @@ final class SettingsStudio extends LinearLayout {
     private void renderSearch(String value){
         String q=value.trim().toLowerCase(Locale.ROOT);if(q.isEmpty()){showPage(current.startsWith("choice:")?parent:current);return;}
         clear();title.setText("Search results");back.setVisibility(VISIBLE);int matches=0;
-        for(SettingsModel.Spec s:model.specs.values())if((s.title+" "+s.help+" "+pageTitle(s.page)).toLowerCase(Locale.ROOT).contains(q)){matches++;row(s.title,pageTitle(s.page)+" · "+s.value(),()->{focusSetting(s.id);});}
+        for(SettingsModel.Spec s:model.specs.values())if(LocalSearch.matches(q,s.title,s.help+" "+pageTitle(s.page))){matches++;row(s.title,pageTitle(s.page)+" · "+s.value(),()->{focusSetting(s.id);});}
         if(matches==0)paragraph("No matching settings. Try grid, folders, opacity, gestures or tilt.");
     }
+    void draftQuestion(String text){showPage("nota");question.setText(text);question.setSelection(question.length());}
+    void findSettings(String text){search.setText(text);}
     void focusSetting(String id){SettingsModel.Spec spec=model.specs.get(id);if(spec==null)return;if(spec.options!=null){choice(spec);return;}showPage(spec.page);View target=body.findViewWithTag("setting:"+id);if(target==null)return;for(android.view.ViewParent p=target.getParent();p instanceof View&&p!=body;p=p.getParent()){if(((View)p).getVisibility()==GONE)advanced=true;((View)p).setVisibility(VISIBLE);}android.view.ViewTreeObserver observer=target.getViewTreeObserver();observer.addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener(){public void onGlobalLayout(){if(observer.isAlive())observer.removeOnGlobalLayoutListener(this);if(target.isAttachedToWindow()&&target.getHeight()>0)target.requestRectangleOnScreen(new android.graphics.Rect(0,0,target.getWidth(),target.getHeight()),true);}});}
     private void control(SettingsModel.Spec s){control(s,body);}
     private void control(SettingsModel.Spec s,LinearLayout parent){

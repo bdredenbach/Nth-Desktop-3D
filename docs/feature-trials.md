@@ -9,7 +9,7 @@ The owner approved trying all eight ideas one at a time. Each feature gets its o
 | 3 | Complete saved desktop presets | 0.9.1 implementation; awaiting owner phone review |
 | 4 | Placeable 3D versions of Crystal Cards | Phone video reviewed; placement revisions and app tiles in 0.9.3 |
 | 5 | Scene creator motion/lighting and individual scene packs | 0.9.3 implementation; awaiting phone review |
-| 6 | Unified app/folder/settings/note/Nota search | Queued |
+| 6 | Unified app/folder/settings/note/Nota search | 0.9.4 implementation with responsive card content; awaiting video/phone review |
 | 7 | Adjustable physical haptic feedback | Queued |
 | 8 | Automatic graphics quality | Queued |
 
@@ -46,3 +46,7 @@ See [desktop cards and scene shuffle](cards-shuffle-092.md). Place Notes or Medi
 ## Trial 5: compare before advancing
 
 The owner requested card edge transfers, dragging cards from the drawer, crowded-screen overflow, None app icon shape, resizable app icons and the next trial. Version 0.9.3 includes these revisions plus per-object Still/Float/Orbit/Drift, speed/amount, scene light controls and individual `.nth3dscene` export/import. Imported scenes stay drafts until Apply. See [placement and scene editor](placement-scene-packs-093.md). Trial 6 remains queued until phone feedback. Existing Gravity mechanics, saved defaults and personal card content remain intact.
+
+## Trial 6: responsive card revision and unified search
+
+The owner requested continuing the queue and adapting card data to resized cards, with recording 227388.mp4. Version 0.9.4 removes the Notes preview cutoff, measures text/spacing against the card viewport, wraps actions and keeps complete images. Readable overflow remains scrollable. Unified drawer search adds settings, local Notes and an explicit Nota draft action; search never auto-executes commands or sends a cloud question. See [responsive cards and search](responsive-cards-search-094.md). Video inspection and signing are blocked while the execution environment is unavailable. Trial 7 remains queued until owner feedback.
