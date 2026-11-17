@@ -1,6 +1,10 @@
+## 0.9.5 opt-in live questions
+
+Enable **Cloud questions for Nth Nota AI** in Settings → Search & Nth Nota AI (or on the Ask Nota page), then send a question. Next-game questions use current ESPN schedules for NFL/NBA/WNBA/NHL/MLB teams; factual answers retrieve Wikipedia excerpts and show checked source links. Unsupported or unavailable live facts get an honest fallback and a manual web-search button. The toggle starts off, turning it off cancels a request, and local commands remain offline. See [live questions](docs/live-questions-095.md) for coverage, privacy and tests.
+
 ## 0.9.4 responsive cards and unified search trial
 
-Desktop cards adapt spacing, readable text, wrapping buttons and photo framing to their current size. Notes retain their complete saved content; long content stays scrollable. The drawer search now includes local settings/categories and Notes alongside apps/folders. Ask Nth Nota opens a draft without sending or running it. See [responsive cards and unified search](docs/responsive-cards-search-094.md). Video/phone review and signing remain pending.
+Desktop cards adapt spacing, readable text, wrapping buttons and photo framing to their current size. Notes retain their complete saved content; long content stays scrollable. The drawer search now includes local settings/categories and Notes alongside apps/folders. Ask Nth Nota opens a draft without sending or running it. See [responsive cards and unified search](docs/responsive-cards-search-094.md). The owner reports unified search works well. The 0.9.4 APK was signed and delivered; video-specific card appearance remains available for review.
 
 ## 0.9.3 card placement and scene editor trial
 
@@ -39,7 +43,7 @@ Open Settings → Launcher → Setup & permissions to revisit optional access. R
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and eleven original GPU scenes. Current test release: **0.9.4**.
+animated Start menus and eleven original GPU scenes. Current test release: **0.9.5**.
 
 Install the supplied signed release APK for continued updates. Version 0.3.2
 uses the owner's replacement **R2** signing certificate. Moving from the lost
