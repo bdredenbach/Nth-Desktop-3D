@@ -1,3 +1,9 @@
+# 0.9.4 — 2026-11-16
+
+- Desktop cards remeasure for their allocated width/height, compact spacing and text within readable limits, wrap complete button labels, preserve complete Notes and fit photos without cropping. Long content remains scrollable with a visible scrollbar.
+- Trial 6: one drawer query finds apps, folders, settings/categories and local Notes, plus an explicit Nota draft action. Search does not execute commands, change settings or send a cloud request. Settings results focus their controls; Notes results open the full saved note.
+- Retain horizontal/vertical paging, held shortcut drags and stable app identities during catalog refresh. Add focused native adaptive-card/search checks and local matcher tests.
+
 # 0.9.3 — 2026-11-16
 
 - Add App drawer scrolling in App drawer settings: Vertical (existing default) or Horizontal pages. Preserve search, app/folder actions, held drags and accessible page navigation.

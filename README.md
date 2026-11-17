@@ -1,3 +1,7 @@
+## 0.9.4 responsive cards and unified search trial
+
+Desktop cards adapt spacing, readable text, wrapping buttons and photo framing to their current size. Notes retain their complete saved content; long content stays scrollable. The drawer search now includes local settings/categories and Notes alongside apps/folders. Ask Nth Nota opens a draft without sending or running it. See [responsive cards and unified search](docs/responsive-cards-search-094.md). Video/phone review and signing remain pending.
+
 ## 0.9.3 card placement and scene editor trial
 
 Settings → App drawer → App drawer scrolling adds Vertical or Horizontal pages, with search, held drags and accessible page navigation. Vertical remains the default. Discover repair also refreshes a silent binding with a fresh connection session within the existing 15-second startup limit; real Google recovery still needs phone confirmation.
@@ -35,7 +39,7 @@ Open Settings → Launcher → Setup & permissions to revisit optional access. R
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and eleven original GPU scenes. Current test release: **0.9.3**.
+animated Start menus and eleven original GPU scenes. Current test release: **0.9.4**.
 
 Install the supplied signed release APK for continued updates. Version 0.3.2
 uses the owner's replacement **R2** signing certificate. Moving from the lost
