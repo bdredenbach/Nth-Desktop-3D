@@ -34,7 +34,7 @@ public final class ResponsiveSearch094Smoke extends Trial093Support {
             main(()->{
                 AdaptiveCardScroll scroll=(AdaptiveCardScroll)card.getChildAt(0);
                 check(scroll.getVerticalScrollbarWidth()>0,"Overflow has no visible scroll affordance");
-                inspect(scroll);
+                check(!scroll.isLayoutRequested(),"Card did not settle after fitting");inspect(scroll);
                 if(type[0].equals("notes"))check(find(scroll,v->v instanceof TextView&&note().contentEquals(((TextView)v).getText()))!=null,"Notes were truncated to a preview");
                 ImageView image=(ImageView)find(scroll,v->v instanceof ImageView);if(image!=null)check(image.getScaleType()==ImageView.ScaleType.FIT_CENTER,"Photo was cropped at a small size");
             });

@@ -11,7 +11,7 @@ import java.util.*;
 final class AdaptiveCardScroll extends ScrollView {
     private static final float[] DENSITY={1f,.92f,.86f};
     private final IdentityHashMap<View,Style> styles=new IdentityHashMap<>();
-    private int profile;
+    private int profile,lastWidth=-1,lastHeight=-1,lastData;
     private static final class Style {
         final int left,top,right,bottom,height;final float sp;
         Style(View view){
@@ -31,7 +31,9 @@ final class AdaptiveCardScroll extends ScrollView {
         int height=Math.max(1,MeasureSpec.getSize(heightSpec)-getPaddingTop()-getPaddingBottom());
         View content=getChildAt(0);Set<View> live=Collections.newSetFromMap(new IdentityHashMap<>());
         capture(content,live);styles.keySet().retainAll(live);
-        int start=width<Ui.dp(getContext(),200)||height<Ui.dp(getContext(),240)?1:0;
+        int data=1;for(View view:live){data+=31*System.identityHashCode(view)+view.getVisibility();if(view instanceof TextView)data+=((TextView)view).getText().toString().hashCode();if(view instanceof ImageView)data+=System.identityHashCode(((ImageView)view).getDrawable());}
+        boolean changed=width!=lastWidth||height!=lastHeight||data!=lastData;lastWidth=width;lastHeight=height;lastData=data;
+        int start=changed?(width<Ui.dp(getContext(),200)||height<Ui.dp(getContext(),240)?1:0):profile;
         for(int level=start;level<DENSITY.length;level++){
             apply(content,level,height);profile=level;
             content.measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));
