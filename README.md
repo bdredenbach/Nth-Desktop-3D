@@ -1,3 +1,7 @@
+## 0.9.6 Nth Nota conversation trial
+
+Ask Nth Nota now has a dedicated glass chat interface with saved conversations, follow-up context, draft-only suggestions, a fixed composer, Stop, Copy and source links. Explicit launcher commands stay local. The client supports the paired conversation/search gateway and remains compatible with the existing writing service. Full web search requires a separately configured provider and remains off by default. See [conversation trial and validation status](docs/nota-conversations-096.md).
+
 ## 0.9.5 opt-in live questions
 
 Enable **Cloud questions for Nth Nota AI** in Settings → Search & Nth Nota AI (or on the Ask Nota page), then send a question. Next-game questions use current ESPN schedules for NFL/NBA/WNBA/NHL/MLB teams; factual answers retrieve Wikipedia excerpts and show checked source links. Unsupported or unavailable live facts get an honest fallback and a manual web-search button. The toggle starts off, turning it off cancels a request, and local commands remain offline. See [live questions](docs/live-questions-095.md) for coverage, privacy and tests.
@@ -43,7 +47,7 @@ Open Settings → Launcher → Setup & permissions to revisit optional access. R
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and eleven original GPU scenes. Current test release: **0.9.5**.
+animated Start menus and eleven original GPU scenes. Current source trial: **0.9.6**; build verification is pending.
 
 Install the supplied signed release APK for continued updates. Version 0.3.2
 uses the owner's replacement **R2** signing certificate. Moving from the lost

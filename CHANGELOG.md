@@ -1,3 +1,10 @@
+## 0.9.6 — conversation trial
+
+- Replace the settings-form assistant with a dedicated native glass conversation surface, saved/new conversations, separate message bubbles, a fixed composer, Send/Stop, Copy, source actions and draft-only suggestions.
+- Send bounded completed cloud exchanges as follow-up context; exclude local actions, canceled replies and unavailable answers. Keep conversations outside desktop backups/presets.
+- Support the conversation gateway with semantic search decisions and optional general web search while retaining compatibility with the deployed writing gateway and existing public-source checks. Search configuration and Cloudflare deployment remain separate.
+- Keep conversational mentions of launcher controls from executing as local setting commands. Add a focused native conversation suite and preserve existing command/usage tests.
+
 # 0.9.5 — 2026-11-16
 
 - Extend the existing opt-in Cloud questions switch to online questions. Directly retrieve next-game schedules for NFL/NBA/WNBA/NHL/MLB teams, resolve ambiguous names, skip canceled/past games and show local times or an explicit unconfirmed time.

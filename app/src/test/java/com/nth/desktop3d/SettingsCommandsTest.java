@@ -7,6 +7,7 @@ public class SettingsCommandsTest {
     @Test public void toggleAndNavigationAreDistinct(){assertEquals(0,SettingsCommands.parse("Turn off tilt").value.intValue());assertEquals(1,SettingsCommands.parse("Show dock").value.intValue());assertEquals("folders",SettingsCommands.parse("Show folder settings").page);}
     @Test public void overflowDoesNotCrash(){assertNull(SettingsCommands.parse("set icon size 999999999999999999999"));}
     @Test public void spacingAndUndoAreUnderstood(){assertEquals("undo",SettingsCommands.parse("Please  undo that!").id);assertEquals(128,SettingsCommands.parse("set grid row height to 128").value.intValue());assertEquals("grid_row_dp",SettingsCommands.parse("set grid row height to 128").id);}
+    @Test public void conversationalMentionsDoNotRunLauncherActions(){assertNull(SettingsCommands.parse("Write a poem about turning off tilt"));assertNull(SettingsCommands.parse("Can you explain why I should turn off tilt?"));assertNull(SettingsCommands.parse("Make a story about how to turn off tilt"));assertNull(SettingsCommands.parse("Compare phones that let me set icon size to 100"));}
     @Test public void unrelatedConversationDoesNotExecute(){assertNull(SettingsCommands.parse("I like larger icons"));assertNull(SettingsCommands.parse("what is an icon size of 100"));}
     @Test public void recordedCommandsOpenTheRelevantChoicesWithoutGuessing(){
         assertEquals("choice:folder_shape",SettingsCommands.parse("change folder shape").page);

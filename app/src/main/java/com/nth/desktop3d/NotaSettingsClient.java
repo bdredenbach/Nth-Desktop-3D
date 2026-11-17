@@ -25,6 +25,12 @@ final class NotaSettingsClient {
     private boolean enabled(){return preferences.getBoolean("cloud_ai",false);}
     void cancel(){generation++;LiveQuestions.Transport current=transport;if(current!=null)current.cancel();}
     void ask(String question,String settings,Consumer<LiveAnswer> result){
+        askInternal(question,settings,null,false,stage->{},result);
+    }
+    void ask(String question,String settings,org.json.JSONArray history,boolean alwaysSearch,Consumer<String> progress,Consumer<LiveAnswer> result){
+        askInternal(question,settings,history,alwaysSearch,progress,result);
+    }
+    private void askInternal(String question,String settings,org.json.JSONArray history,boolean alwaysSearch,Consumer<String> progress,Consumer<LiveAnswer> result){
         cancel();if(closed)return;final int request=generation;
         if(!enabled()){handler.post(()->{if(!closed&&request==generation)result.accept(LiveAnswer.plain("Turn on Cloud questions for Nth Nota AI to ask online questions. Local launcher commands still work.","Cloud questions off"));});return;}
         BooleanSupplier allowed=()->!closed&&request==generation&&enabled();
@@ -32,7 +38,7 @@ final class NotaSettingsClient {
             LiveQuestions.Transport current=null;LiveAnswer reply;
             try{
                 if(!allowed.getAsBoolean())return;current=factory.create(allowed);transport=current;if(!allowed.getAsBoolean()){current.cancel();return;}
-                reply=new LiveQuestions(clock).answer(question,settings,current,allowed);
+                reply=history==null?new LiveQuestions(clock).answer(question,settings,current,allowed):new LiveQuestions(clock).converse(question,settings,history,alwaysSearch,current,allowed,stage->{if(allowed.getAsBoolean())handler.post(()->{if(allowed.getAsBoolean())progress.accept(stage);});});
             }catch(CancellationException canceled){return;}
             catch(Exception error){
                 if(!allowed.getAsBoolean())return;

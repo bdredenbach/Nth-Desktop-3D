@@ -58,7 +58,7 @@ public final class Polish074Smoke {
         check("choice:menu_animation".equals(((SettingsStudio)field(activity,"settingsStudio")).page()),"Advanced menu setting did not open directly");
         invoke("showStart",new Class[]{});click("App drawer settings menu");dialog=(android.app.AlertDialog)field(activity,"areaMenu");View drawer=dialog.getWindow().getDecorView();check(find(drawer,v->android.text.TextUtils.equals("Search folders",v.getContentDescription()))!=null,"Drawer omitted its search settings");
         invoke("showModes",new Class[]{});check(!((android.app.AlertDialog)dialog).isShowing(),"Context menu survived closing its area");check(find(v->android.text.TextUtils.equals("Scenes & motion settings menu",v.getContentDescription()))!=null,"Scene menu missing");
-        invoke("showSettings",new Class[]{String.class},"nota");check(find(v->android.text.TextUtils.equals("Command examples",v.getContentDescription()))!=null,"Nota examples menu missing");check(find(v->android.text.TextUtils.equals("Nth Nota AI settings menu",v.getContentDescription()))==null,"Nota has a duplicate settings menu");
+        invoke("showSettings",new Class[]{String.class},"nota");check(find(v->android.text.TextUtils.equals("Conversation menu",v.getContentDescription()))!=null,"Nota examples menu missing");check(find(v->android.text.TextUtils.equals("Nth Nota AI settings menu",v.getContentDescription()))==null,"Nota has a duplicate settings menu");
         invoke("closePanel",new Class[]{});
     }
     private void managerGeometry(){
