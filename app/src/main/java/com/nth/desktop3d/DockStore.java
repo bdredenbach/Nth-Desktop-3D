@@ -21,7 +21,7 @@ final class DockStore {
     void clear(int index){slots.set(index,new Slot());save();}
     void leaveEmpty(int index){Slot slot=new Slot();slot.blank=true;slots.set(index,slot);save();}
     void item(int index,LauncherStore.Item source){Slot s=new Slot();s.item=copy(source);slots.set(index,s);save();}
-    static LauncherStore.Item copy(LauncherStore.Item source){LauncherStore.Item out=source.copy();for(LauncherStore.Item child:source.children)out.children.add(copy(child));return out;}
+    static LauncherStore.Item copy(LauncherStore.Item source){LauncherStore.Item out=source.copy();out.normalShortcut();for(LauncherStore.Item child:source.children)out.children.add(copy(child));return out;}
     void widget(int index,int id,String provider,long user,String label){Slot s=new Slot();s.widgetId=id;s.provider=provider;s.user=user;s.label=label;slots.set(index,s);save();}
     int widgetSlot(int id){if(id<0)return -1;for(int i=0;i<MAX;i++)if(slots.get(i).widget()&&slots.get(i).widgetId==id)return i;return -1;}
     List<LauncherStore.Item> items(){List<LauncherStore.Item> out=new ArrayList<>();for(Slot s:slots)if(s.item!=null)out.add(s.item);return out;}

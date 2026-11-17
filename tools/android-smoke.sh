@@ -3,7 +3,7 @@
 # Leave memory for the emulator and its software GPU during rotation.
 nth_gradle() { ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m "$@"; }
 nth_suite=${1:-full}
-case "$nth_suite" in workspace|polish|core|settings|widgets|crystal|interaction|anchors|realism|folders|presets|cards|full) ;; *) exit 2 ;; esac
+case "$nth_suite" in workspace|polish|core|settings|widgets|crystal|interaction|anchors|realism|folders|presets|cards|placement|packs|drawer|full) ;; *) exit 2 ;; esac
 nth_output="app/build/native-verification/$nth_suite"
 mkdir -p "$nth_output"
 adb shell wm size 540x1200
@@ -37,7 +37,7 @@ if [ "$nth_smoke_status" -eq 0 ]; then
     case "$nth_suite" in
         workspace) timeout 3m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=workspace ;;
         polish) timeout 6m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase=polish ;;
-        core|settings|widgets|crystal|interaction|anchors|realism|folders|presets|cards) timeout 6m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase="$nth_suite" ;;
+        core|settings|widgets|crystal|interaction|anchors|realism|folders|presets|cards|placement|packs|drawer) timeout 6m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.phase="$nth_suite" ;;
         full) timeout 14m ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m :app:connectedDebugAndroidTest ;;
     esac
     nth_smoke_status=$?
@@ -51,6 +51,10 @@ timeout 15s adb pull /sdcard/Android/media/com.nth.desktop3d/additional_test_out
 if [ "$nth_smoke_status" -ne 0 ]; then timeout 10s adb exec-out screencap -p > "$nth_output/screenshots/timeout-or-failure.png" || true; fi
 timeout 15s adb logcat -d > "$nth_output/logcat-tail.txt" || true
 if [ "$nth_smoke_status" -ne 0 ]; then
+    for nth_report in app/build/outputs/androidTest-results/connected/debug/*.xml app/build/outputs/androidTest-results/connected/debug/*/*.xml; do
+        if [ -f "$nth_report" ]; then cat "$nth_report"; fi
+    done
+    tail -n 160 "$nth_output/logcat-tail.txt"
     free -m > "$nth_output/host-memory.txt"
     ps -eo pid,rss,comm --sort=-rss | head -20 > "$nth_output/host-processes.txt"
     sudo dmesg | tail -80 > "$nth_output/host-kernel.txt" 2>/dev/null || true

@@ -6,7 +6,7 @@ import android.content.Intent;
 
 public final class FixtureCommandReceiver extends BroadcastReceiver {
     @Override public void onReceive(Context context,Intent intent){
-        String mode=intent.getStringExtra("discoverMode");if(mode!=null)context.getSharedPreferences("discover_fixture",0).edit().putString("mode",mode).commit();
+        String mode=intent.getStringExtra("discoverMode");if(mode!=null)context.getSharedPreferences("discover_fixture",0).edit().putString("mode",mode).remove("stale_session").commit();
         int id=intent.getIntExtra("widgetId",-1);String label=intent.getStringExtra("label");
         if(id>=0&&label!=null)FixtureWidgetProvider.update(context,id,label);
     }

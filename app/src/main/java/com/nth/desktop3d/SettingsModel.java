@@ -24,7 +24,7 @@ final class SettingsModel {
         pref("grid_columns","home","Desktop grid columns","Apps, folders and widgets share this grid. Auto-sort fits its own page until you change this setting.",3,12,1,4,true);
         pref("grid_row_dp","home","Grid row height","Vertical cell spacing in dp. Dense layouts remain scrollable. Changing this setting makes the sorted page manual.",88,240,4,112,true);
         pref("icon_size","home","Desktop icon size","Resize icons in place. Grid row height controls their spacing; dense layouts remain scrollable.",70,130,5,100,true);
-        enumeration("icon_shape","look","App icon shape","Shape of the Crystal surface around app icons on Home and in the drawer.",new String[]{"Rounded square","Circle","Square"},0,true);
+        enumeration("icon_shape","look","App icon shape","Choose a Crystal shell, or None to show the original app artwork.",new String[]{"Rounded square","Circle","Square","None"},0,true);
         enumeration("folder_shape","look","Folder icon shape","Shape of folder thumbnails on Home and in the drawer.",new String[]{"Circle","Rounded square","Square"},VisualDefaults.FOLDER_SHAPE,true);
         bool("scene_lighting","look","Match scene lighting","Reflect the active built-in 3D scene across launcher glass. Turn off to compare the previous look. Other wallpapers keep neutral lighting.",true,false);
         pref("scene_light_strength","look","Scene lighting strength","Blend scene reflections and highlights into icons, folders, menus and the dock. Zero restores neutral glass.",0,100,5,VisualDefaults.LIGHT_STRENGTH,false);
@@ -48,6 +48,7 @@ final class SettingsModel {
         bool("folder_labels","folders","Folder labels","Show shortcut names inside folders.",true,false);
         bool("folder_title","folders","Show folder name","Show the folder's title above its contents.",true,false);
         pref("folder_radius","folders","Folder corner radius","Round the folder window in dp.",0,36,2,26,false);
+        enumeration("drawer_scroll","drawer","App drawer scrolling","Scroll vertically or swipe horizontally between pages.",new String[]{"Vertical","Horizontal"},0,false);
         pref("drawer_columns","drawer","App drawer columns","Phone columns; landscape can fit two additional columns.",3,6,1,3,false);
         pref("drawer_icon_size","drawer","App drawer icon size","App icon size as a percentage.",70,130,5,100,false);
         bool("drawer_labels","drawer","App drawer labels","Show installed app names.",true,false);
@@ -99,7 +100,7 @@ final class SettingsModel {
     private void bool(String id,String page,String title,String help,boolean fallback,boolean rebuild){add(id,page,title,help,0,1,1,null,true,rebuild,()->store.preferences.getBoolean(id,fallback)?1:0,v->store.preferences.edit().putBoolean(id,v==1).apply());}
     private void enumeration(String id,String page,String title,String help,String[] options,int fallback,boolean rebuild){add(id,page,title,help,0,options.length-1,1,options,false,rebuild,()->Math.max(0,Math.min(options.length-1,store.preferences.getInt(id,fallback))),v->store.preferences.edit().putInt(id,v).apply());}
     private Runnable layoutUndo(){
-        int wallpaperSource=store.preferences.getInt("wallpaper_source",0);List<Runnable> restore=new ArrayList<>();for(List<LauncherStore.Item> page:store.pages)for(LauncherStore.Item item:page){int x=item.cellX,y=item.cellY,w=item.cardWidth,h=item.cardHeight;float px=item.x,py=item.y;restore.add(()->{item.cellX=x;item.cellY=y;item.cardWidth=w;item.cardHeight=h;item.x=px;item.y=py;});}
+        int wallpaperSource=store.preferences.getInt("wallpaper_source",0);List<Runnable> restore=new ArrayList<>();for(List<LauncherStore.Item> page:store.pages)for(LauncherStore.Item item:page){int x=item.cellX,y=item.cellY,w=item.cardWidth,h=item.cardHeight,aw=item.appWidth,ah=item.appHeight;boolean resized=item.resizable;float px=item.x,py=item.y;restore.add(()->{item.cellX=x;item.cellY=y;item.cardWidth=w;item.cardHeight=h;item.appWidth=aw;item.appHeight=ah;item.resizable=resized;item.x=px;item.y=py;});}
         Map<String,Object> widget=new LinkedHashMap<>();for(Map.Entry<String,?> entry:store.preferences.getAll().entrySet())if(widgetPosition(entry.getKey()))widget.put(entry.getKey(),entry.getValue());
         return ()->{store.preferences.edit().putInt("wallpaper_source",wallpaperSource).apply();for(Runnable task:restore)task.run();SharedPreferences.Editor edit=store.preferences.edit();for(String key:store.preferences.getAll().keySet())if(widgetPosition(key))edit.remove(key);for(Map.Entry<String,Object> e:widget.entrySet())if(e.getValue() instanceof Integer)edit.putInt(e.getKey(),(Integer)e.getValue());edit.apply();};
     }
