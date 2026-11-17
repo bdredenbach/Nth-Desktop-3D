@@ -1,3 +1,10 @@
+# 0.9.5 — 2026-11-16
+
+- Extend the existing opt-in Cloud questions switch to online questions. Directly retrieve next-game schedules for NFL/NBA/WNBA/NHL/MLB teams, resolve ambiguous names, skip canceled/past games and show local times or an explicit unconfirmed time.
+- Retrieve Wikipedia source excerpts for factual AI replies; require exact supporting source quotes, show links and check time, and refuse unverifiable or unsupported live questions instead of falling back to model memory. Keep retrieved sources visible when the AI service is unavailable.
+- Check consent before requests, cancel active work when switched off, and discard late replies on Stop/navigation/pause. Local commands stay offline; online replies never execute settings changes.
+- Add routing/link unit tests and an Android suite for schedules, source validation, failures, consent cancellation and native source controls. Trial 7 remains queued.
+
 # 0.9.4 — 2026-11-16
 
 - Desktop cards remeasure for their allocated width/height, compact spacing and text within readable limits, wrap complete button labels, preserve complete Notes and fit photos without cropping. Long content remains scrollable with a visible scrollbar.

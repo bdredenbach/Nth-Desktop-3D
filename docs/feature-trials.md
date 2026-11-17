@@ -9,7 +9,7 @@ The owner approved trying all eight ideas one at a time. Each feature gets its o
 | 3 | Complete saved desktop presets | 0.9.1 implementation; awaiting owner phone review |
 | 4 | Placeable 3D versions of Crystal Cards | Phone video reviewed; placement revisions and app tiles in 0.9.3 |
 | 5 | Scene creator motion/lighting and individual scene packs | 0.9.3 implementation; awaiting phone review |
-| 6 | Unified app/folder/settings/note/Nota search | 0.9.4 implementation with responsive card content; awaiting video/phone review |
+| 6 | Unified app/folder/settings/note/Nota search | Owner reports search works well; 0.9.5 adds requested opt-in live questions |
 | 7 | Adjustable physical haptic feedback | Queued |
 | 8 | Automatic graphics quality | Queued |
 
@@ -49,4 +49,4 @@ The owner requested card edge transfers, dragging cards from the drawer, crowded
 
 ## Trial 6: responsive card revision and unified search
 
-The owner requested continuing the queue and adapting card data to resized cards, with recording 227388.mp4. Version 0.9.4 removes the Notes preview cutoff, measures text/spacing against the card viewport, wraps actions and keeps complete images. Readable overflow remains scrollable. Unified drawer search adds settings, local Notes and an explicit Nota draft action; search never auto-executes commands or sends a cloud question. See [responsive cards and search](responsive-cards-search-094.md). Video inspection and signing are blocked while the execution environment is unavailable. Trial 7 remains queued until owner feedback.
+The owner requested continuing the queue and adapting card data to resized cards, with recording 227388.mp4. Version 0.9.4 removes the Notes preview cutoff, measures text/spacing against the card viewport, wraps actions and keeps complete images. Readable overflow remains scrollable. Unified drawer search adds settings, local Notes and an explicit Nota draft action; search never auto-executes commands or sends a cloud question. See [responsive cards and search](responsive-cards-search-094.md). The 0.9.4 APK was signed and delivered. The owner reports unified search works well and requested live cloud questions after testing a Bills question. Version 0.9.5 adds this explicitly requested follow-up; see [live questions](live-questions-095.md). Trial 7 remains queued.

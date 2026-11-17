@@ -49,13 +49,7 @@ shortcut/widget grid placement, rather than merely changing the grid count back.
 A continuous slider drag is one undoable change and defers desktop reconstruction
 until release while the preview updates immediately.
 
-Cloud questions default off. The visible switch explains that the question and
-current setting values are sent to the owner's existing Nth Nota gateway. No
-provider keys are shipped; no paid service is added. A successful live request to
-the configured endpoint was verified on 2026-11-13. The endpoint may be temporarily
-unavailable or rate limited; direct local commands remain usable. Replies are
-plain advice and cannot execute commands. Stop, navigation, pause and disposal
-cancel outstanding delivery and discard late replies.
+Cloud questions default off. In 0.9.5 the existing switch also enables live schedules and source-grounded factual questions; see [coverage, privacy and checks](live-questions-095.md). Wikipedia/ESPN receive the relevant public lookup; the existing Nth Nota gateway receives the question and source excerpts. Only launcher-settings questions include current setting values. No provider keys or paid service are added. Source buttons open only when tapped. Unsupported facts and outages are reported without a guessed current answer. Local commands remain usable offline. Replies cannot execute commands. Turning the toggle off, Stop, navigation, pause and disposal cancel outstanding requests/delivery and discard late replies.
 
 ## Settings backup
 

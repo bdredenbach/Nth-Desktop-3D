@@ -1,37 +1,45 @@
 package com.nth.desktop3d;
 
+import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
-import org.json.JSONObject;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.function.Consumer;
+import java.time.Clock;
+import java.util.Collections;
+import java.util.concurrent.*;
+import java.util.function.*;
 
-/** The owner's existing public Nth Nota gateway; no provider secret is bundled. */
+/** Opt-in online questions, with local commands kept outside the cloud path. */
 final class NotaSettingsClient {
-    private final ExecutorService executor=Executors.newSingleThreadExecutor();private final Handler handler=new Handler(Looper.getMainLooper());
-    private volatile HttpURLConnection connection;private volatile int generation;private boolean closed;
-    void cancel(){generation++;HttpURLConnection c=connection;if(c!=null)c.disconnect();}
-    void ask(String question,String settings,Consumer<String> result){
-        cancel();int request=generation;
-        executor.execute(()->{HttpURLConnection c=null;String response;
+    interface Factory { LiveQuestions.Transport create(BooleanSupplier allowed); }
+    private final ExecutorService executor=Executors.newSingleThreadExecutor();
+    private final Handler handler=new Handler(Looper.getMainLooper());
+    private final SharedPreferences preferences;private final Factory factory;private final Clock clock;
+    private final SharedPreferences.OnSharedPreferenceChangeListener consent;
+    private volatile LiveQuestions.Transport transport;private volatile int generation;private volatile boolean closed;
+    NotaSettingsClient(SharedPreferences preferences,Runnable revoked){this(preferences,revoked,LiveQuestionHttp::new,Clock.systemDefaultZone());}
+    NotaSettingsClient(SharedPreferences preferences,Runnable revoked,Factory factory,Clock clock){
+        this.preferences=preferences;this.factory=factory;this.clock=clock;
+        consent=(values,key)->{if("cloud_ai".equals(key)&&!enabled()){cancel();handler.post(()->{if(!closed)revoked.run();});}};
+        preferences.registerOnSharedPreferenceChangeListener(consent);
+    }
+    private boolean enabled(){return preferences.getBoolean("cloud_ai",false);}
+    void cancel(){generation++;LiveQuestions.Transport current=transport;if(current!=null)current.cancel();}
+    void ask(String question,String settings,Consumer<LiveAnswer> result){
+        cancel();if(closed)return;final int request=generation;
+        if(!enabled()){handler.post(()->{if(!closed&&request==generation)result.accept(LiveAnswer.plain("Turn on Cloud questions for Nth Nota AI to ask online questions. Local launcher commands still work.","Cloud questions off"));});return;}
+        BooleanSupplier allowed=()->!closed&&request==generation&&enabled();
+        executor.execute(()->{
+            LiveQuestions.Transport current=null;LiveAnswer reply;
             try{
-                c=(HttpURLConnection)new URL("https://nth-nota-free-ai.bdredenbach.workers.dev/v1/write").openConnection();connection=c;c.setInstanceFollowRedirects(false);c.setConnectTimeout(12000);c.setReadTimeout(35000);c.setRequestMethod("POST");c.setDoOutput(true);c.setRequestProperty("Content-Type","application/json");c.setRequestProperty("Origin","https://appassets.androidplatform.net");
-                String prompt="You are Nth Nota, the settings assistant in Nth Desktop 3D. Answer briefly in plain text. Explain only the available settings below. You cannot perform actions through this cloud reply; never claim you changed a setting. Direct commands such as 'turn off tilt', 'set grid to five columns', 'make icons larger', 'show folder settings' and 'undo' are handled on the phone. Do not invent integrations, menus or permissions. Available settings and current values:\n"+settings+"\nUser question:\n"+question;
-                byte[] bytes=new JSONObject().put("task","brainstorm").put("prompt",prompt).put("consentAccepted",true).toString().getBytes(StandardCharsets.UTF_8);c.setFixedLengthStreamingMode(bytes.length);
-                if(request!=generation)return;try(OutputStream stream=c.getOutputStream()){stream.write(bytes);}int status=c.getResponseCode();InputStream stream=status>=200&&status<300?c.getInputStream():c.getErrorStream();if(stream==null)throw new java.io.IOException();
-                ByteArrayOutputStream data=new ByteArrayOutputStream();try(InputStream in=stream){byte[] chunk=new byte[4096];int count;while((count=in.read(chunk))!=-1){if(data.size()+count>100000)throw new java.io.IOException();data.write(chunk,0,count);}}
-                JSONObject json=new JSONObject(data.toString("UTF-8"));response=status>=200&&status<300?json.optString("text"):"Cloud assistance is unavailable right now. Local setting commands still work.";if(response.trim().isEmpty())throw new java.io.IOException();
-            }catch(Exception error){response="Cloud assistance could not connect. Try again later, or use a local setting command.";}
-            finally{if(c!=null)c.disconnect();if(connection==c)connection=null;}
-            final String answer=response;if(request==generation)handler.post(()->{if(!closed&&request==generation)result.accept(answer);});
+                if(!allowed.getAsBoolean())return;current=factory.create(allowed);transport=current;if(!allowed.getAsBoolean()){current.cancel();return;}
+                reply=new LiveQuestions(clock).answer(question,settings,current,allowed);
+            }catch(CancellationException canceled){return;}
+            catch(Exception error){
+                if(!allowed.getAsBoolean())return;
+                reply=LiveAnswer.unavailable("I couldn't verify an online answer right now. Check the connection and try again, or use Search the web. Local launcher commands still work.",clock.millis(),Collections.emptyList());
+            }finally{if(current!=null)current.cancel();if(transport==current)transport=null;}
+            LiveAnswer answer=reply;if(allowed.getAsBoolean())handler.post(()->{if(allowed.getAsBoolean())result.accept(answer);});
         });
     }
-    void close(){closed=true;cancel();executor.shutdownNow();}
+    void close(){closed=true;preferences.unregisterOnSharedPreferenceChangeListener(consent);cancel();executor.shutdownNow();}
 }
