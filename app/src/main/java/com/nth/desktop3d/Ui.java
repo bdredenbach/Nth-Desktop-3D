@@ -28,6 +28,7 @@ final class Ui {
     static GradientDrawable surface(int color,float radius,Context c) {
         GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(c,radius));d.setStroke(dp(c,1),0x1FFFFFFF);return d;
     }
+    static Drawable notaSurface(Context c){GradientDrawable d=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{0xFF1C293B,0xFF121C2A,0xFF191E32});d.setCornerRadius(dp(c,26));d.setStroke(dp(c,1),0x785C84A8);return d;}
     static Drawable satin(Context c,int top,int bottom,int radius){
         return new CrystalGlassDrawable(c,top,bottom,radius);
     }

@@ -228,7 +228,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
             boolean adaptive=store.preferences.getBoolean("adaptive_glass",true)&&!"nota".equals(panelArea);
             overlay.setBackgroundColor(adaptive||flyoutPanel?Color.TRANSPARENT:0xAA030A17);
             if(adaptive){if(!(panel.getBackground() instanceof AdaptiveMenuDrawable)){menuGlass=new AdaptiveMenuDrawable(this);panel.setBackground(menuGlass);}menuGlass.radius("folder".equals(panel.getTag())?store.preferences.getInt("folder_radius",26):26);}
-            else{menuGlass=null;int alpha=Math.max(175,Math.min(245,255-crystal.transparency()*2/3));panel.setBackground("nota".equals(panelArea)?Ui.satin(this,0xF5243046,0xFD101C2B,26):flyoutPanel?new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT):Ui.satin(this,(alpha<<24)|0x00335C76,0xF20B1A30,26));}
+            else{menuGlass=null;int alpha=Math.max(175,Math.min(245,255-crystal.transparency()*2/3));panel.setBackground("nota".equals(panelArea)?Ui.notaSurface(this):flyoutPanel?new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT):Ui.satin(this,(alpha<<24)|0x00335C76,0xF20B1A30,26));}
         }
         styleAreaMenu();
     }
