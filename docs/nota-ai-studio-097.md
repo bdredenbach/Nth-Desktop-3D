@@ -42,7 +42,7 @@ The previous complete focused Nota passes at `5db716b` and `af4c0bb` cover saved
 
 The exact unsigned Google-enabled artifact is `14635946609` from the final CI run. Archive SHA-256: `c4e2ed8544180f36bbdb48385213aade93ca05640b536400bf671730db79027f`. It is retained in GitHub Actions for signing; it is not an installable update.
 
-An update APK must reuse the owner's permanent R2 certificate. Its private backup was absent from this resumed workspace and could not be located among available saved files. No replacement key was generated. The previous signed 0.9.6 APK is available for the eventual in-place package/certificate/version comparison. A CI debug key cannot replace the installed owner's update identity.
+The owner reattached the private R2 backup. The Google-enabled **0.9.7 / code 10112** APK is signed and verified with the permanent R2 certificate. Its package/certificate match the prior signed 0.9.6 build, and its version code is higher, so it belongs to the same in-place update series. All 40 original unsigned APK entries remain byte-identical after alignment/signing. APK SHA-256: `6b48818b1a57d573385234fa3e79d89cd10d46d1d0bde2732dd98f3d879d9da6`. Private signing material remains outside Git; no replacement key was generated.
 
 ## Final native previews
 

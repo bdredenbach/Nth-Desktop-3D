@@ -12,8 +12,8 @@
   "nativeNotaJob": 136348007695,
   "nativeNotaArtifactId": 14636623203,
   "nativeArchiveSha256": "23e9a7eca0f1e9dd40c4f4bf48651363bda730755ef6f867dac1823ff33329d4",
-  "apkSigned": false,
-  "signingStatus": "Needs the existing private R2 signing backup; no replacement key generated.",
+  "apkSigned": true,
+  "signingStatus": "Signed and verified with the original permanent R2 identity; compatible with the signed 0.9.6 update series.",
   "expectedUpdateCertificateSha256": "a78336d0c29334ecfa9d10bdcd13083179d2b31170f85bda0f5170305885ef01",
   "checks": {
     "buildLintUnit": "passed",
@@ -23,5 +23,10 @@
     "fullRegression": "not green; core, anchors, workspace, widgets and settings have broader failures"
   },
   "workerChanges": false,
-  "physicalDeviceVerified": false
+  "physicalDeviceVerified": false,
+  "apkSha256": "6b48818b1a57d573385234fa3e79d89cd10d46d1d0bde2732dd98f3d879d9da6",
+  "apkSizeBytes": 7085391,
+  "originalZipPayloadEntriesUnchanged": 40,
+  "updateCompatibleWith": "0.9.6 / versionCode 10111 / same package and R2 certificate",
+  "signingSourceCommit": "92a31d93b0504697cda6b9be4f5e6b4d8392fcae"
 }

@@ -51,7 +51,7 @@ Open Settings → Launcher → Setup & permissions to revisit optional access. R
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and eleven original GPU scenes. Current signed trial: **0.9.6**. Build/lint and the new conversation suite pass; broader regression limitations are recorded in the conversation trial notes.
+animated Start menus and eleven original GPU scenes. Current signed trial: **0.9.7**. Build/lint and the new conversation suite pass; broader regression limitations are recorded in the conversation trial notes.
 
 Install the supplied signed release APK for continued updates. Version 0.3.2
 uses the owner's replacement **R2** signing certificate. Moving from the lost
