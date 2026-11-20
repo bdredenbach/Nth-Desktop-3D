@@ -22,7 +22,7 @@ final class NotaReplyView extends LinearLayout {
         LayoutParams p=new LayoutParams(-1,-2);p.bottomMargin=Ui.dp(c,block.kind.equals("list")?5:13);addView(text,p);if(primary==null)primary=text;
     }if(primary==null){primary=text(c,content,16,NotaDesign.TEXT);addView(primary);}}
     static TextView text(Context c,String value,int size,int color){TextView v=Ui.text(c,value,size,color);v.setShadowLayer(0,0,0,0);v.setIncludeFontPadding(false);return v;}
-    static void copy(Context c,String value){ClipboardManager clipboard=(ClipboardManager)c.getSystemService(Context.CLIPBOARD_SERVICE);if(clipboard!=null)clipboard.setPrimaryClip(ClipData.newPlainText("Nth Nota AI reply",value));Toast.makeText(c,"Copied",Toast.LENGTH_SHORT).show();}
+    static void copy(Context c,String value){android.content.ClipboardManager clipboard=(android.content.ClipboardManager)c.getSystemService(Context.CLIPBOARD_SERVICE);if(clipboard!=null)clipboard.setPrimaryClip(ClipData.newPlainText("Nth Nota AI reply",value));Toast.makeText(c,"Copied",Toast.LENGTH_SHORT).show();}
     static CharSequence inline(String value){
         SpannableStringBuilder result=new SpannableStringBuilder();Pattern tokens=Pattern.compile("`([^`\\n]+)`|\\*\\*([^*\\n]+)\\*\\*|__([^_\\n]+)__|\\*([^*\\n]+)\\*");Matcher matcher=tokens.matcher(value);int position=0;
         while(matcher.find()){result.append(value,position,matcher.start());int start=result.length();boolean code=matcher.group(1)!=null;String words=code?matcher.group(1):matcher.group(2)!=null?matcher.group(2):matcher.group(3)!=null?matcher.group(3):matcher.group(4);result.append(words);
