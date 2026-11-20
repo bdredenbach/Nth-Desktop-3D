@@ -1,0 +1,27 @@
+{
+  "applicationId": "com.nth.desktop3d",
+  "versionName": "0.9.7",
+  "versionCode": 10112,
+  "applicationCommit": "b7926709ae2584527933f5246bbd5fdb499cadcf",
+  "sourceTree": "83ac204de54de1df90b351ca938087e2fdf67486",
+  "appTree": "59c477040064871ca7588e4680d7b713ad78a548",
+  "ciMergeCommit": "4c4db85b460010dd3364ec1c5f6780a7bc349f48",
+  "ciRun": "https://github.com/bdredenbach/Nth-Desktop-3D/actions/runs/44751644061",
+  "unsignedGoogleArtifactId": 14635946609,
+  "unsignedGoogleArchiveSha256": "c4e2ed8544180f36bbdb48385213aade93ca05640b536400bf671730db79027f",
+  "nativeNotaJob": 136348007695,
+  "nativeNotaArtifactId": 14636623203,
+  "nativeArchiveSha256": "23e9a7eca0f1e9dd40c4f4bf48651363bda730755ef6f867dac1823ff33329d4",
+  "apkSigned": false,
+  "signingStatus": "Needs the existing private R2 signing backup; no replacement key generated.",
+  "expectedUpdateCertificateSha256": "a78336d0c29334ecfa9d10bdcd13083179d2b31170f85bda0f5170305885ef01",
+  "checks": {
+    "buildLintUnit": "passed",
+    "newMarkdownUnitCases": 5,
+    "nativeNota": "passed on isolated retry; first attempt had a system-server screenshot watchdog crash",
+    "nativeLive": "passed",
+    "fullRegression": "not green; core, anchors, workspace, widgets and settings have broader failures"
+  },
+  "workerChanges": false,
+  "physicalDeviceVerified": false
+}

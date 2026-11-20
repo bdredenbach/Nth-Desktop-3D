@@ -1,3 +1,7 @@
+## 0.9.7 Nth Nota AI studio
+
+The launcher assistant now has its own graphite conversation studio, original Nth branding, quick new/recent chats, native formatted replies, code copying, comparison tables, source cards and a keyboard-aware composer. It is named **Nth Nota AI** throughout launcher entry points, separately from the **Nth Nota** notes app. Provider and AI-variant setup remains independently maintained. See [studio design and verification](docs/nota-ai-studio-097.md).
+
 ## 0.9.6 Nth Nota conversation trial
 
 Ask Nth Nota now has a dedicated glass chat interface with saved conversations, follow-up context, draft-only suggestions, a fixed composer, Stop, Copy and source links. Explicit launcher commands stay local. The client supports the paired conversation/search gateway and remains compatible with the existing writing service. Full web search requires a separately configured provider and remains off by default. See [conversation trial and validation status](docs/nota-conversations-096.md).
