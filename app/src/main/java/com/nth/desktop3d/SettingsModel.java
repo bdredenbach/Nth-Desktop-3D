@@ -54,7 +54,7 @@ final class SettingsModel {
         bool("drawer_labels","drawer","App drawer labels","Show installed app names.",true,false);
         bool("search_folders","search","Search folders","Include matching desktop folders in app searches.",true,false);
         bool("search_keyboard","search","Open search keyboard","Focus the app search field when the drawer opens.",false,false);
-        bool("cloud_ai","search","Cloud questions for Nth Nota AI","Allow conversations and online questions. Your message and recent cloud conversation turns go to Nth Nota's AI service. Public sources or the configured search provider may receive search terms. Launcher questions can include current setting values. Notes and app lists are not attached. Local commands work offline.",false,false);
+        bool("cloud_ai","search","Cloud questions for Nth Nota AI","Allow conversations and online questions. Your message and recent cloud conversation turns go to Nth Nota AI's service. Public sources or the configured search provider may receive search terms. Launcher questions can include current setting values. Notes and app lists are not attached. Local commands work offline.",false,false);
         bool("cards_in_search","cards","Cards in app search","Show the Cards action beside filtered app results.",true,false);
         for(String[] type:CrystalCards.TYPES)bool("card_"+type[0],"cards",type[1],"Show this card in the Cards panel. Placed desktop cards stay until removed.",true,false);
         enumeration("wallpaper_source","wallpaper","Wallpaper source","Use a 3D scene, your own photo, Android wallpaper, or your layered scene.",new String[]{"3D scene","Photo","Android wallpaper","My layered scene"},0,true);
