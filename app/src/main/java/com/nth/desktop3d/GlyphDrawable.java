@@ -15,6 +15,8 @@ final class GlyphDrawable extends Drawable {
     @Override public void draw(Canvas c){
         c.save();c.translate(getBounds().left,getBounds().top);c.scale(getBounds().width()/24f,getBounds().height()/24f);
         switch(name){
+            case "more":for(int i=0;i<3;i++)c.drawCircle(12,6+i*6,.7f,p);break;
+            case "compose":c.drawLine(6,18,6,6,p);c.drawLine(6,18,18,18,p);c.drawLine(10,14,19,5,p);c.drawLine(17,5,19,7,p);break;
             case "close":c.drawLine(7,7,17,17,p);c.drawLine(17,7,7,17,p);break;
             case "left":case "right":float x=name.equals("left")?14:10;float mid=name.equals("left")?9:15;Path a=new Path();a.moveTo(x,6);a.lineTo(mid,12);a.lineTo(x,18);c.drawPath(a,p);break;
             case "search":c.drawCircle(10.5f,10.5f,6,p);c.drawLine(15,15,20,20,p);break;

@@ -630,7 +630,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         if(!note.isEmpty()&&LocalSearch.matches(q,"Nth Notes",note)){
             drawerLocalCount++;searchTarget("search-note","Nth Notes",LocalSearch.excerpt(note,q),()->showNoteMatch(q));
         }
-        searchRow("search-nota","Ask Nth Nota",q,()->{showSettings("nota");settingsStudio.draftQuestion(q);});
+        searchRow("search-nota","Ask Nth Nota AI",q,()->{showSettings("nota");settingsStudio.draftQuestion(q);});
     }
     private void searchTarget(String tag,String title,String detail,Runnable open){drawerLocalTargets.add(open);searchRow(tag,title,detail,open);}
     private void searchRow(String tag,String title,String detail,Runnable open){
