@@ -16,7 +16,7 @@ public final class SettingsCommands {
         String s=input.toLowerCase(Locale.ROOT).trim().replaceAll("\\s+"," ").replaceAll("[.!?]+$","");
         String[] words={"zero","one","two","three","four","five","six","seven","eight","nine","ten"};for(int i=0;i<words.length;i++)s=s.replaceAll("\\b"+words[i]+"\\b",String.valueOf(i));
         if(s.matches("(please )?(undo|undo that|undo last change|revert last change)"))return new Command("undo",null,null);
-        if(s.matches("^(how|why|what|explain)\\b.*"))return null;
+        if(s.matches("^(how|why|what|who|when|explain|compare|summarize|write|draft|compose|rewrite|proofread|brainstorm|tell me|can you explain|could you explain|do you think|help me (write|plan|understand)|make (a|an|me) (story|poem|plan|list|explanation))\\b.*"))return null;
         boolean action=has(s,"set ","change ","switch ","make ","turn ","enable ","disable ","hide ","show ","increase ","decrease ","reduce ");
         boolean navigate=s.matches(".*\\b(find|open|go to|where)\\b.*")||(s.contains("show ")&&s.contains("settings"));
         boolean folder=s.contains("folder"),drawer=has(s,"drawer","all apps");

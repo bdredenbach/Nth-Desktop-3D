@@ -19,6 +19,9 @@ final class LiveQuestionPolicy {
         String q = words(question);
         return !current(question) && q.matches("^(write|draft|compose|rewrite|proofread|brainstorm|create|give me ideas|help me write|help me plan)\\b.*");
     }
+    static boolean conversationalRequest(String question) {
+        return words(question).matches("^(write|draft|compose|rewrite|proofread|brainstorm|create|give me ideas|help me write|help me plan|plan|what should i|how can i)\\b.*");
+    }
     static boolean current(String question) {
         return words(question).matches(".*\\b(now|today|tonight|tomorrow|yesterday|current|currently|latest|recent|next|upcoming|live|score|scores|weather|forecast|price|prices|news|president|ceo|mayor|governor|leader|prime minister)\\b.*");
     }

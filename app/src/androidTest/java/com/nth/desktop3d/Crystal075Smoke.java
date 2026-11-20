@@ -15,7 +15,7 @@ public final class Crystal075Smoke {
         LauncherStore store=(LauncherStore)field("store");
         String original=layout(store.preferences.getString("layout","[]"));
         invoke("showStart");
-        main(()->{EditText search=(EditText)find(v->v instanceof EditText);check(search!=null&&"Search".contentEquals(search.getHint()),"Drawer hint was not simplified");AppCatalog catalog=(AppCatalog)field("catalog");check(catalog.filter("About Nth Desktop 3D",true).isEmpty(),"About tile remains in drawer");check(find(v->v instanceof TextView&&((TextView)v).getText().toString().startsWith("Hold and move an app"))==null,"Drawer footer remains");});
+        main(()->{EditText search=(EditText)find(v->v instanceof EditText);check(search!=null&&"Search apps, folders, settings or notes".contentEquals(search.getHint()),"Drawer hint does not describe unified search");AppCatalog catalog=(AppCatalog)field("catalog");check(catalog.filter("About Nth Desktop 3D",true).isEmpty(),"About tile remains in drawer");check(find(v->v instanceof TextView&&((TextView)v).getText().toString().startsWith("Hold and move an app"))==null,"Drawer footer remains");});
         capture("crystal-drawer");
         invoke("showCards",new Class[]{String.class},"");capture("crystal-cards");
         invoke("showDesktopManager");

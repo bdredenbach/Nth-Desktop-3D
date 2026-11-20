@@ -225,10 +225,10 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void applyCrystalAppearance(){
         if(dock!=null){int opacity=Math.max(50,Math.min(235,255*(100-crystal.transparency())/100+80));dock.setBackground(store.preferences.getBoolean("dock_background",true)?Ui.satin(this,(opacity<<24)|0x0044819C,0xCF0B1E36,store.preferences.getInt("dock_radius",24)):new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));}
         if(panel!=null){
-            boolean adaptive=store.preferences.getBoolean("adaptive_glass",true);
+            boolean adaptive=store.preferences.getBoolean("adaptive_glass",true)&&!"nota".equals(panelArea);
             overlay.setBackgroundColor(adaptive||flyoutPanel?Color.TRANSPARENT:0xAA030A17);
             if(adaptive){if(!(panel.getBackground() instanceof AdaptiveMenuDrawable)){menuGlass=new AdaptiveMenuDrawable(this);panel.setBackground(menuGlass);}menuGlass.radius("folder".equals(panel.getTag())?store.preferences.getInt("folder_radius",26):26);}
-            else{menuGlass=null;int alpha=Math.max(175,Math.min(245,255-crystal.transparency()*2/3));panel.setBackground(flyoutPanel?new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT):Ui.satin(this,(alpha<<24)|0x00335C76,0xF20B1A30,26));}
+            else{menuGlass=null;int alpha=Math.max(175,Math.min(245,255-crystal.transparency()*2/3));panel.setBackground("nota".equals(panelArea)?Ui.notaSurface(this):flyoutPanel?new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT):Ui.satin(this,(alpha<<24)|0x00335C76,0xF20B1A30,26));}
         }
         styleAreaMenu();
     }
@@ -630,7 +630,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
         if(!note.isEmpty()&&LocalSearch.matches(q,"Nth Notes",note)){
             drawerLocalCount++;searchTarget("search-note","Nth Notes",LocalSearch.excerpt(note,q),()->showNoteMatch(q));
         }
-        searchRow("search-nota","Ask Nth Nota",q,()->{showSettings("nota");settingsStudio.draftQuestion(q);});
+        searchRow("search-nota","Ask Nth Nota AI",q,()->{showSettings("nota");settingsStudio.draftQuestion(q);});
     }
     private void searchTarget(String tag,String title,String detail,Runnable open){drawerLocalTargets.add(open);searchRow(tag,title,detail,open);}
     private void searchRow(String tag,String title,String detail,Runnable open){
@@ -952,7 +952,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void showSettings(){showSettings("root");}
     private void showSettings(String page){
         LinearLayout p=openPanel("3D settings");settingsStudio=new SettingsStudio(this,settingsModel(),catalog,new SettingsStudio.Host(){
-            public void area(String id){setPanelArea(id);}
+            public void area(String id){setPanelArea(id);applyCrystalAppearance();if(p.getChildCount()>0)p.getChildAt(0).setVisibility(id.equals("nota")?View.GONE:View.VISIBLE);}public void close(){requestClosePanel();}
             public void setup(){showSetup(0);}public void home(){requestHome();}public void arrange(){desktop.arrange();toast("Desktop arranged");}public void recenter(){motion.recenter();toast("Tilt centered");}public void feed(){showNativeFeed();}public void reconnectFeed(){retryDiscover();}public void feedDetails(){showDiscoverDetails();}public String feedStatus(){return discover.status();}public void googleApp(){openGoogleFeed();}public void cards(){showCards("");}public void widgets(){showWidgets();}public void folder(){newFolder();}public void overview(){showDesktopOverview();}public void manage(){showDesktopManager();}public void autoSort(){showAutoSort();}public String desktop(boolean add){return editDesktop(add);}public void apps(){showStart();}public void about(){showAbout();}public void backup(boolean restore){settingsDocument(restore);}public void restoreWidgets(){showRestoreWidgets();}public void photoWallpaper(){chooseWallpaperPhoto();}public void androidWallpaper(boolean live){chooseAndroidWallpaper(live);}public void createScene(){showSceneCreator();}public void importScene(){importScenePack();}public void exportScene(){exportAppliedScene();}public void removeScene(){MainActivity.this.removeScene();}public void dockSpaces(){showDockSpaces();}public void placeCards(){showPlaceCards();}public void randomizer(LinearLayout body){randomizerControls(body);}public void sceneWallpaper(){store.preferences.edit().putInt("wallpaper_source",0).apply();applySettings(false);showModes();}
             public Runnable presets(LinearLayout body){DesktopPresetControls controls=new DesktopPresetControls(MainActivity.this,settingsModel(),body,loader,handler,new DesktopPresetControls.Host(){public void beforeCapture(){desktop.savePositions();store.save();}public boolean widgetPending(){return pendingWidgetId>=0;}public void applied(){shortcuts.syncRemoved();if(settingsStudio!=null)settingsStudio.refreshPreview();}public void message(String text){toast(text);}});return controls::dispose;}
             public boolean openApp(String query){List<AppCatalog.Entry> matches=catalog.filter(query,false);if(matches.size()==1){launch(matches.get(0).key);return true;}if(matches.size()>1){showStart();appSearch.setText(query);toast("Choose an app from the matching shortcuts.");return true;}return false;}
