@@ -9,6 +9,11 @@ import android.widget.Button;
 /** Nth Nota AI's own restrained graphite, lilac and ice visual language. */
 final class NotaDesign {
     static final int CANVAS=0xFF171A22,SURFACE=0xFF222630,TEXT=0xFFF3F2F7,MUTED=0xFFB6B9C9,ACCENT=0xFFD3C5FF,LINE=0xFF353A49;
+    static GradientDrawable sceneScrim() {
+        // Shade the header and composer more heavily than the open space between turns.
+        return new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0xB4080B12, 0x40080B12, 0xB4080B12});
+    }
     static GradientDrawable surface(Context c,int color,int radius){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(Ui.dp(c,radius));d.setStroke(Ui.dp(c,1),LINE);return d;}
     static Button action(Context c,String label,Runnable run){Button b=Ui.quiet(c,label,run);b.setTextColor(MUTED);b.setTextSize(12);b.setMinHeight(Ui.dp(c,44));b.setMinimumHeight(Ui.dp(c,44));b.setPadding(Ui.dp(c,10),Ui.dp(c,6),Ui.dp(c,10),Ui.dp(c,6));return b;}
     static final class Mark extends View {

@@ -3,10 +3,15 @@ package com.nth.desktop3d;
 import android.app.*;
 import android.content.*;
 import android.content.pm.ActivityInfo;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.Rect;
 import android.os.SystemClock;
 import android.view.*;
 import android.widget.*;
 import org.json.*;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -52,18 +57,90 @@ public final class Nota096Smoke extends Trial093Support {
     private void ui()throws Exception{
         main(()->{activity.getSharedPreferences("nota_conversations",0).edit().clear().apply();store.preferences.edit().putBoolean("cloud_ai",false).putString("nota_draft","").putBoolean("nota_web_always",false).apply();try{LayeredScene.write(activity,new LayeredScene.Document(),false);}catch(Exception error){throw new AssertionError(error);}store.ambient=false;model.set("reduced_motion",1);store.preferences.edit().putInt("wallpaper_source",3).apply();call(activity,"applySettings",true);call(activity,"showSettings","nota");});
         SettingsStudio studio=(SettingsStudio)field(activity,"settingsStudio");Fake fake=new Fake();inject(studio,fake);
-        await(()->((android.view.View)field(activity,"panel")).isLaidOut()&&((android.view.View)field(activity,"panel")).getAlpha()>.99f,"Chat panel did not become visible");check(find(v->v instanceof SettingsPreview)==null,"Settings preview consumes the chat screen");check(button("Conversation menu")!=null&&button("Close Nth Nota AI")!=null,"Chat navigation is missing");main(()->{android.graphics.drawable.Drawable background=((View)field(activity,"panel")).getBackground();check(background instanceof android.graphics.drawable.GradientDrawable,"Chat reading surface inherited transparent desktop glass");android.graphics.Bitmap pixel=android.graphics.Bitmap.createBitmap(40,40,android.graphics.Bitmap.Config.ARGB_8888);android.graphics.drawable.Drawable.ConstantState saved=background.getConstantState();check(saved!=null,"Chat surface has no drawable state");android.graphics.drawable.Drawable sample=saved.newDrawable();sample.setBounds(0,0,40,40);sample.draw(new android.graphics.Canvas(pixel));check(android.graphics.Color.alpha(pixel.getPixel(20,20))==255,"Desktop icons can show through conversation text");pixel.recycle();});capture("097-nota-welcome");
+        await(()->((android.view.View)field(activity,"panel")).isLaidOut()&&((android.view.View)field(activity,"panel")).getAlpha()>.99f,"Chat panel did not become visible");check(find(v->v instanceof SettingsPreview)==null,"Settings preview consumes the chat screen");check(button("Conversation menu")!=null&&button("Close Nth Nota AI")!=null,"Chat navigation is missing");sceneBackgrounds();capture("097-nota-welcome");
         click("Explore an idea  ↗");check(fake.gets==0&&fake.posts==0&&!chat().question.getText().toString().isEmpty(),"A suggested prompt sent itself");
         send("Explain rainbows.");check(fake.gets==0&&fake.posts==0,"Cloud-off send used the network");send("turn off tilt");check(!store.tilt,"Local launcher command stopped working");
         main(()->{model.set("cloud_ai",1);chat().syncCloud();});send("Explain rainbows.");await(()->!chat().busy(),"Cloud reply did not finish");check(new JSONObject(fake.payload).getJSONArray("messages").length()==0,"Local exchanges became cloud history");
         send("Explain that simply.");await(()->!chat().busy(),"Follow-up reply did not finish");check(new JSONObject(fake.payload).getJSONArray("messages").length()==2,"Follow-up did not include the previous cloud exchange");capture("097-nota-conversation");
         AtomicReference<Intent> opened=new AtomicReference<>();Instrumentation.ActivityMonitor monitor=new Instrumentation.ActivityMonitor(){@Override public Instrumentation.ActivityResult onStartActivity(Intent intent){if(Intent.ACTION_VIEW.equals(intent.getAction())){opened.set(intent);return new Instrumentation.ActivityResult(Activity.RESULT_CANCELED,null);}return null;}};test.addMonitor(monitor);try{main(()->find(v->"nota-source:1".equals(v.getTag())).performClick());await(()->opened.get()!=null,"Source link did not open");check(opened.get().getDataString().equals("https://science.example/rainbow"),"Source link opened a fabricated URL");}finally{test.removeMonitor(monitor);}
-        main(()->{call(activity,"closePanel");call(activity,"showSettings","nota");});check(chat().context().length()==4,"Reopening lost the conversation");
+        main(()->{call(activity,"closePanel");check(desktop.isShown(),"Closing chat left the desktop hidden");call(activity,"showSettings","nota");});check(chat().context().length()==4,"Reopening lost the conversation");
         main(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));await(()->activity.getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE,"Landscape did not apply");await(()->chat()!=null&&chat().getWidth()>0,"Landscape chat missing");check(chat().context().length()==4,"Rotation lost conversation history");check(rect(chat().answer).height()>0,"Landscape opens below the latest reply text");capture("097-nota-landscape");
         main(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));await(()->activity.getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_PORTRAIT,"Portrait did not return");await(()->chat()!=null&&chat().getWidth()>0,"Portrait chat missing");
         studio=(SettingsStudio)field(activity,"settingsStudio");Fake blocked=new Fake();blocked.block=true;inject(studio,blocked);send("Tell me more.");check(blocked.entered.await(8,TimeUnit.SECONDS),"Blocked request never started");main(()->model.set("cloud_ai",0));await(()->!chat().busy(),"Opt-out did not stop the reply");SystemClock.sleep(300);check(chat().answer.getText().toString().contains("stopped"),"Late reply replaced the stopped state");check(chat().context().length()==4,"Stopped request entered model context");
         main(()->chat().newChat());check(chat().context().length()==0,"New chat inherited context");capture("097-nota-new-chat");
         main(()->{chat().draft("A draft stays ready while I type.");((android.view.inputmethod.InputMethodManager)activity.getSystemService(Context.INPUT_METHOD_SERVICE)).showSoftInput(chat().question,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);});SystemClock.sleep(700);check(rect(chat().send).height()>0&&rect(chat().question).height()>0,"Keyboard hid the composer");capture("097-nota-keyboard");
+    }
+    private void sceneBackgrounds() throws Exception {
+        View layered = (View) field(activity, "layeredWallpaper");
+        View scene = (View) field(activity, "scene");
+        NotaChatView opened = chat();
+        check(layered.isShown() && !desktop.isShown(), "Chat obscured the layered scene or exposed desktop icons");
+        Rect transcript = rect(find(v -> "nota-transcript".equals(v.getTag())));
+        // Hold material lighting still so a change inside the transcript proves the wallpaper shows through.
+        main(() -> {
+            model.set("scene_lighting", 0);
+            model.set("wallpaper_source", 0);
+        });
+        for (int fading : new int[]{1, 0}) {
+            main(() -> {
+                model.set("adaptive_glass", fading);
+                model.set("scene", 2);
+            });
+            Bitmap planet = captureScene(false, fading);
+            check(scene.isShown(), "Planet scene unavailable behind chat");
+            try {
+                main(() -> model.set("scene", 8));
+                Bitmap ice = captureScene(true, fading);
+                try {
+                    int changed = 0, samples = 0;
+                    for (int y = transcript.top + 4; y < transcript.bottom - 4; y += 8) {
+                        for (int x = transcript.left + 4; x < transcript.right - 4; x += 8) {
+                            int a = planet.getPixel(x, y), b = ice.getPixel(x, y);
+                            int delta = Math.abs(Color.red(a) - Color.red(b)) + Math.abs(Color.green(a) - Color.green(b))
+                                    + Math.abs(Color.blue(a) - Color.blue(b));
+                            if (delta > 24) changed++;
+                            samples++;
+                        }
+                    }
+                    check(changed > samples / 12, "Scene change is hidden by the chat background");
+                } finally { ice.recycle(); }
+            } finally { planet.recycle(); }
+            check(chat() == opened && !desktop.isShown(), "Changing the scene replaced the conversation or exposed the desktop");
+        }
+        main(() -> {
+            model.set("adaptive_glass", 1);
+            model.set("scene_lighting", 1);
+            model.set("wallpaper_source", 3);
+        });
+        check(layered.isShown() && !desktop.isShown(), "Switching back to the layered scene broke the backdrop");
+    }
+    private Bitmap captureScene(boolean ice, int fading) throws Exception {
+        long deadline = SystemClock.uptimeMillis() + 15000;
+        String name = "099-nota-" + (ice ? "ice-" : "planet-") + fading;
+        while (SystemClock.uptimeMillis() < deadline) {
+            Bitmap frame = test.getUiAutomation().takeScreenshot();
+            if (frame != null) {
+                // The exposed side margin is dark space or blue ice. Wait for composition
+                // before comparing pixels inside the chat or saving the evidence frame.
+                int samples = 0, blue = 0;
+                for (int y = frame.getHeight() / 3; y < frame.getHeight() * 2 / 3; y += 8) {
+                    int pixel = frame.getPixel(4, y);
+                    if (Color.green(pixel) > 24 && Color.blue(pixel) > Color.red(pixel) + 12) blue++;
+                    samples++;
+                }
+                if (ice ? blue > samples / 2 : blue < samples / 10) {
+                    File dir = output == null ? new File(activity.getExternalFilesDir(null), "verification") : new File(output);
+                    dir.mkdirs();
+                    try (FileOutputStream stream = new FileOutputStream(new File(dir, name + ".png"))) {
+                        frame.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                    }
+                    return frame;
+                }
+                frame.recycle();
+            }
+            SystemClock.sleep(120);
+        }
+        throw new AssertionError("Timed out waiting for " + name);
     }
     private void studioPolish()throws Exception{
         main(()->{((android.view.inputmethod.InputMethodManager)activity.getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(chat().question.getWindowToken(),0);chat().newChat();});
@@ -80,7 +157,7 @@ public final class Nota096Smoke extends Trial093Support {
         main(()->((ScrollView)find(v->"nota-transcript".equals(v.getTag()))).fullScroll(View.FOCUS_DOWN));capture("097-nota-code-table");
         main(()->chat().recent());systemClick("Close");
         main(()->chat().draft("A draft for the previous conversation."));click("New conversation");check(chat().context().length()==0&&chat().question.length()==0,"Header new chat kept the prior draft or context");
-        click("Conversation menu");systemClick("Launcher settings");check(((SettingsStudio)field(activity,"settingsStudio")).page().equals("root"),"Chat menu cannot return to launcher settings");
+        click("Conversation menu");systemClick("Launcher settings");check(((SettingsStudio)field(activity,"settingsStudio")).page().equals("root"),"Chat menu cannot return to launcher settings");check(desktop.isShown(),"Returning to Settings left the desktop hidden");
     }
 
 }
