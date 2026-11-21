@@ -20,7 +20,7 @@ final class LiveQuestionHttp implements LiveQuestions.Transport {
     @Override public String post(String url,String json)throws Exception{return request(url,json);}
     private String request(String url,String payload)throws Exception{
         check();URI uri=new URI(url);
-        if(!LiveAnswer.safeLink(url)||!Arrays.asList("en.wikipedia.org","site.api.espn.com","nth-nota-free-ai.bdredenbach.workers.dev").contains(uri.getHost()))throw new IOException("Unsupported provider");
+        if(!LiveAnswer.safeLink(url)||!Arrays.asList("en.wikipedia.org","site.api.espn.com","api.open-meteo.com","geocoding-api.open-meteo.com","nth-nota-free-ai.bdredenbach.workers.dev").contains(uri.getHost()))throw new IOException("Unsupported provider");
         boolean post=payload!=null;long deadline=post?System.nanoTime()+60_000_000_000L:lookupDeadline;
         int remaining=(int)Math.min(55000,Math.max(0,(deadline-System.nanoTime())/1_000_000L));if(remaining<=0)throw new SocketTimeoutException();
         HttpURLConnection current=(HttpURLConnection)new URL(url).openConnection();connection=current;

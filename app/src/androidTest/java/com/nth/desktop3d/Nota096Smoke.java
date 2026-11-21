@@ -23,7 +23,7 @@ public final class Nota096Smoke extends Trial093Support {
     public Nota096Smoke(Instrumentation test,MainActivity activity,String output){super(test,activity,output);}
     public void run()throws Exception{
         snapshot();SharedPreferences saved=activity.getSharedPreferences("nota_conversations",0);String original=saved.getString("document","");boolean cloud=store.preferences.getBoolean("cloud_ai",false);String draft=store.preferences.getString("nota_draft","");
-        try{storage();engine();ui();studioPolish();}finally{main(()->{call(activity,"closePanel");saved.edit().putString("document",original).apply();store.preferences.edit().putBoolean("cloud_ai",cloud).putString("nota_draft",draft).apply();activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);});restore();}
+        try{storage();engine();ui();studioPolish();new WeatherSmoke(test,activity,output).run();}finally{main(()->{call(activity,"closePanel");saved.edit().putString("document",original).apply();store.preferences.edit().putBoolean("cloud_ai",cloud).putString("nota_draft",draft).apply();activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);});restore();}
     }
     private void storage()throws Exception{
         NotaConversation saved=new NotaConversation("");String first=saved.current().id;
