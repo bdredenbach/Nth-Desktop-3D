@@ -10,6 +10,8 @@ import android.os.SystemClock;
 import android.view.*;
 import android.widget.*;
 import org.json.*;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -75,20 +77,20 @@ public final class Nota096Smoke extends Trial093Support {
         check(layered.isShown() && !desktop.isShown(), "Chat obscured the layered scene or exposed desktop icons");
         Rect transcript = rect(find(v -> "nota-transcript".equals(v.getTag())));
         // Hold material lighting still so a change inside the transcript proves the wallpaper shows through.
-        main(() -> model.set("scene_lighting", 0));
+        main(() -> {
+            model.set("scene_lighting", 0);
+            model.set("wallpaper_source", 0);
+        });
         for (int fading : new int[]{1, 0}) {
             main(() -> {
                 model.set("adaptive_glass", fading);
                 model.set("scene", 2);
             });
-            capture("099-nota-planet-" + fading);
-            Bitmap planet = test.getUiAutomation().takeScreenshot();
-            check(planet != null && scene.isShown(), "Planet scene unavailable behind chat");
+            Bitmap planet = captureScene(false, fading);
+            check(scene.isShown(), "Planet scene unavailable behind chat");
             try {
                 main(() -> model.set("scene", 8));
-                capture("099-nota-ice-" + fading);
-                Bitmap ice = test.getUiAutomation().takeScreenshot();
-                check(ice != null, "Ice scene screenshot unavailable");
+                Bitmap ice = captureScene(true, fading);
                 try {
                     int changed = 0, samples = 0;
                     for (int y = transcript.top + 4; y < transcript.bottom - 4; y += 8) {
@@ -111,6 +113,34 @@ public final class Nota096Smoke extends Trial093Support {
             model.set("wallpaper_source", 3);
         });
         check(layered.isShown() && !desktop.isShown(), "Switching back to the layered scene broke the backdrop");
+    }
+    private Bitmap captureScene(boolean ice, int fading) throws Exception {
+        long deadline = SystemClock.uptimeMillis() + 15000;
+        String name = "099-nota-" + (ice ? "ice-" : "planet-") + fading;
+        while (SystemClock.uptimeMillis() < deadline) {
+            Bitmap frame = test.getUiAutomation().takeScreenshot();
+            if (frame != null) {
+                // The exposed side margin is dark space or blue ice. Wait for composition
+                // before comparing pixels inside the chat or saving the evidence frame.
+                int samples = 0, blue = 0;
+                for (int y = frame.getHeight() / 3; y < frame.getHeight() * 2 / 3; y += 8) {
+                    int pixel = frame.getPixel(4, y);
+                    if (Color.green(pixel) > 24 && Color.blue(pixel) > Color.red(pixel) + 12) blue++;
+                    samples++;
+                }
+                if (ice ? blue > samples / 2 : blue < samples / 10) {
+                    File dir = output == null ? new File(activity.getExternalFilesDir(null), "verification") : new File(output);
+                    dir.mkdirs();
+                    try (FileOutputStream stream = new FileOutputStream(new File(dir, name + ".png"))) {
+                        frame.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                    }
+                    return frame;
+                }
+                frame.recycle();
+            }
+            SystemClock.sleep(120);
+        }
+        throw new AssertionError("Timed out waiting for " + name);
     }
     private void studioPolish()throws Exception{
         main(()->{((android.view.inputmethod.InputMethodManager)activity.getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(chat().question.getWindowToken(),0);chat().newChat();});
