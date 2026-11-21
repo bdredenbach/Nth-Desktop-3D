@@ -1,3 +1,7 @@
+## 0.9.9 Nth Nota AI scene background
+
+Nth Nota AI opens over the active scene or wallpaper. Desktop shortcuts and widgets return when you leave the chat. A translucent reading surface keeps replies legible as the scene moves.
+
 ## 0.9.8 space scenes
 
 Holographic Depth and Asteroid Field use the long edge of the star photograph in both orientations. Fine stars render at display resolution as the sky moves with tilt.
@@ -55,7 +59,7 @@ Open Settings → Launcher → Setup & permissions to revisit optional access. R
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and eleven original GPU scenes. Current trial build is **0.9.8**.
+animated Start menus and eleven original GPU scenes. Current trial build is **0.9.9**.
 
 Install the supplied signed release APK for continued updates. Version 0.3.2
 uses the owner's replacement **R2** signing certificate. Moving from the lost

@@ -225,15 +225,26 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void applyCrystalAppearance(){
         if(dock!=null){int opacity=Math.max(50,Math.min(235,255*(100-crystal.transparency())/100+80));dock.setBackground(store.preferences.getBoolean("dock_background",true)?Ui.satin(this,(opacity<<24)|0x0044819C,0xCF0B1E36,store.preferences.getInt("dock_radius",24)):new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));}
         if(panel!=null){
-            boolean adaptive=store.preferences.getBoolean("adaptive_glass",true)&&!"nota".equals(panelArea);
-            overlay.setBackgroundColor(adaptive||flyoutPanel?Color.TRANSPARENT:0xAA030A17);
+            boolean reading = "nota".equals(panelArea);
+            boolean adaptive = store.preferences.getBoolean("adaptive_glass", true);
+            if (reading) overlay.setBackground(NotaDesign.sceneScrim());
+            else overlay.setBackgroundColor(adaptive || flyoutPanel ? Color.TRANSPARENT : 0xAA030A17);
             if(adaptive){if(!(panel.getBackground() instanceof AdaptiveMenuDrawable)){menuGlass=new AdaptiveMenuDrawable(this);panel.setBackground(menuGlass);}menuGlass.radius("folder".equals(panel.getTag())?store.preferences.getInt("folder_radius",26):26);}
-            else{menuGlass=null;int alpha=Math.max(175,Math.min(245,255-crystal.transparency()*2/3));panel.setBackground("nota".equals(panelArea)?Ui.notaSurface(this):flyoutPanel?new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT):Ui.satin(this,(alpha<<24)|0x00335C76,0xF20B1A30,26));}
+            else {
+                menuGlass = null;
+                int alpha = Math.max(175, Math.min(245, 255 - crystal.transparency() * 2 / 3));
+                android.graphics.drawable.Drawable surface = flyoutPanel
+                        ? new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+                        : Ui.satin(this, (alpha << 24) | 0x00335C76, 0xF20B1A30, 26);
+                if (reading) surface.setAlpha(96 - crystal.transparency() / 2);
+                panel.setBackground(surface);
+            }
         }
         styleAreaMenu();
     }
     private View areaMenuBody;private AdaptiveMenuDrawable areaMenuGlass;
     private java.util.List<android.graphics.RectF> menuBackdrops(View target){
+        if (!shell.isShown()) return java.util.Collections.emptyList();
         java.util.List<android.graphics.RectF> boxes=desktopManager==null||target!=panel?desktop.backdropRects(target):new java.util.ArrayList<>();
         if(dockContents!=null&&dockContents.isShown())for(int i=0;i<dockContents.getChildCount();i++)BackdropGeometry.append(boxes,dockContents.getChildAt(i),target);
         BackdropGeometry.append(boxes,dock,target);BackdropGeometry.append(boxes,paging,target);return boxes;
@@ -393,7 +404,7 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private void closePanel(){
         shuffleHomeAfter=android.os.SystemClock.uptimeMillis()+5000;if(randomizerDialog!=null){randomizerDialog.dismiss();randomizerDialog=null;}
         stopFolderMotion();
-        savePanel();if(sceneComposer!=null){sceneComposer.dispose();sceneComposer=null;}if(areaMenu!=null){areaMenu.dismiss();areaMenu=null;}setupGuide=null;areaButton=null;panelArea=null;if(desktopManager!=null){desktopManager.dispose();desktopManager=null;}if(nativeFeed!=null){nativeFeed.dispose();nativeFeed=null;}if(discover!=null)discover.close();if(cardsView!=null){cardsView.dispose();cardsView=null;}if(settingsStudio!=null){settingsStudio.dispose();settingsStudio=null;}menuGlass=null;lastGlassUpdate=0;onPanelClose=null;panelKind=0;appsAdapter=null;appSearch=null;drawerSearchResults=null;drawerSearchScroll=null;drawerGrid=null;drawerResultQuery=null;drawerLocalTargets.clear();drawerLocalCount=0;
+        savePanel();if(sceneComposer!=null){sceneComposer.dispose();sceneComposer=null;}if(areaMenu!=null){areaMenu.dismiss();areaMenu=null;}setupGuide=null;areaButton=null;setPanelArea(null);if(desktopManager!=null){desktopManager.dispose();desktopManager=null;}if(nativeFeed!=null){nativeFeed.dispose();nativeFeed=null;}if(discover!=null)discover.close();if(cardsView!=null){cardsView.dispose();cardsView=null;}if(settingsStudio!=null){settingsStudio.dispose();settingsStudio=null;}menuGlass=null;lastGlassUpdate=0;onPanelClose=null;panelKind=0;appsAdapter=null;appSearch=null;drawerSearchResults=null;drawerSearchScroll=null;drawerGrid=null;drawerResultQuery=null;drawerLocalTargets.clear();drawerLocalCount=0;
         if(overlay!=null){((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(overlay.getWindowToken(),0);root.removeView(overlay);overlay=null;panel=null;}
         desktop.setModal(false);desktop.setAlpha(1);startButton.setSelected(false);restoreDesktopMotion();scene.requestRender();
     }
@@ -1039,7 +1050,16 @@ public final class MainActivity extends Activity implements MotionController.Lis
     private boolean setupPending(){return store.preferences.getBoolean("setup_in_progress",false);}
     private void welcome(){if(!destroyed&&resumed&&setupGuide==null&&(setupPending()||!store.preferences.getBoolean("welcomed",false)))showSetup(store.preferences.getInt("setup_step",0));}
     private void showSetup(int step){LinearLayout body=openPanel("Setup & permissions");setPanelArea(null);setupGuide=new SetupGuide(this,store,step,this::requestHome,this::closePanel);body.addView(setupGuide,new LinearLayout.LayoutParams(-1,0,1));}
-    private void setPanelArea(String area){panelArea=area;if(areaButton!=null){areaButton.setVisibility(area==null||area.equals("nota")?View.GONE:View.VISIBLE);areaButton.setContentDescription(AreaSettingsMenu.title(area)+" settings menu");}}
+    private void setPanelArea(String area) {
+        panelArea = area;
+        boolean reading = "nota".equals(area);
+        // The wallpaper is a sibling of the shell, so it keeps its position and animation.
+        shell.setVisibility(reading ? View.INVISIBLE : View.VISIBLE);
+        if (areaButton != null) {
+            areaButton.setVisibility(area == null || reading ? View.GONE : View.VISIBLE);
+            areaButton.setContentDescription(AreaSettingsMenu.title(area) + " settings menu");
+        }
+    }
     private void showAreaSettings(){if(panelArea==null)return;areaMenu=new AreaSettingsMenu(this,settingsModel(),panelArea,new AreaSettingsMenu.Host(){public void page(String id){showSettings(id);}public void setting(String id){SettingsModel.Spec spec=settingsModel().specs.get(id);if(spec!=null){showSettings(spec.page);settingsStudio.focusSetting(id);}}public void setup(){showSetup(0);}public void action(String id){switch(id){case "scene":showSceneCreator();break;case "remove_scene":removeScene();break;case "dock":showDockSpaces();break;default:if(sceneComposer!=null)sceneComposer.focus(id);else{sceneFocus=id;showSceneCreator();}}}}).show();}
     private void requestHome(){
         if(Build.VERSION.SDK_INT>=29){RoleManager roles=getSystemService(RoleManager.class);if(roles.isRoleAvailable(RoleManager.ROLE_HOME)){if(roles.isRoleHeld(RoleManager.ROLE_HOME)){toast("Nth Desktop 3D is already your Home app.");return;}try{startActivityForResult(roles.createRequestRoleIntent(RoleManager.ROLE_HOME),101);return;}catch(RuntimeException ignored){}}}
