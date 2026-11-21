@@ -89,8 +89,48 @@ vec3 starEnvironment(vec2 uv) {
     }
     return col;
 }
+
+vec3 spaceBackdrop(vec2 uv) {
+    // Fit the long side of the sky photograph to the long side of the display.
+    // In portrait this uses the atlas's 2048-pixel axis down the phone.
+    bool portrait = resolution.y > resolution.x;
+    vec2 display = portrait ? resolution.yx : resolution;
+    vec2 view = portrait ? uv.yx : uv;
+    vec2 pan = portrait ? tilt.yx : tilt;
+    float t = clockTime * motion;
+    float aspect = display.x / display.y;
+    vec2 crop = min(vec2(1.0), vec2(aspect * .5, 2.0 / aspect));
+    vec2 sky = .5 + (view - .5) * crop * .94 + pan * .008;
+    sky.x += sin(t * .012) * .009;
+    vec2 atlas = vec2(sky.x, (1.0 - sky.y) * .5);
+    vec3 photo = texture2D(celestialSky, atlas).rgb;
+
+    // Recover local contrast in enlarged photographic stars while keeping dark dust smooth.
+    vec2 texel = vec2(1.0 / 2048.0, 0.0);
+    vec3 nearby = (texture2D(celestialSky, atlas + texel.xy).rgb
+                 + texture2D(celestialSky, atlas - texel.xy).rgb
+                 + texture2D(celestialSky, atlas + texel.yx).rgb
+                 + texture2D(celestialSky, atlas - texel.yx).rgb) * .25;
+    vec3 skyColor = photo + .65 * (photo - nearby);
+
+    // Stable, subpixel-positioned points add a nearer layer. Evaluate their
+    // footprint in display pixels so small movements keep continuous coverage.
+    float shortSide = min(resolution.x, resolution.y);
+    float spacing = max(10.0, shortSide / 72.0);
+    vec2 grid = ((uv - .5) * resolution + tilt * shortSide * .021) / spacing;
+    vec2 cell = floor(grid);
+    float magnitude = hash(cell);
+    vec2 center = .22 + .56 * vec2(hash(cell + 11.7), hash(cell + 37.1));
+    float distancePx = length(fract(grid) - center) * spacing;
+    float radius = clamp(shortSide / 1080.0, .70, 1.5) * mix(.60, 1.15, magnitude);
+    float core = 1.0 - smoothstep(max(0.0, radius - .65), radius + .65, distancePx);
+    float light = smoothstep(.80, 1.0, magnitude);
+    skyColor += core * light * mix(vec3(.56,.66,.83), vec3(.94,.87,.76), center.x);
+    return max(skyColor, vec3(0.0));
+}
+
 vec3 hologram(vec2 uv) {
-    float t=clockTime*motion;vec3 col=starEnvironment(uv);
+    float t=clockTime*motion;vec3 col=spaceBackdrop(uv);
     vec2 aspect=resolution/min(resolution.x,resolution.y);
     vec2 p=(uv-vec2(.56,.60))*aspect-tilt*.055;
     float radius=.31,r=length(p)/radius,edge=1.0-smoothstep(.995,1.006,r);
@@ -110,7 +150,7 @@ vec3 hologram(vec2 uv) {
     return col;
 }
 vec3 asteroidField(vec2 uv) {
-    float t=clockTime*motion;vec3 col=starEnvironment(uv);
+    float t=clockTime*motion;vec3 col=spaceBackdrop(uv);
     vec2 aspect=resolution/min(resolution.x,resolution.y),p=(uv-.5)*aspect;
     for(int i=0;i<5;i++) {
         float k=float(i);vec2 center;float size;

@@ -1,3 +1,7 @@
+## 0.9.8 space scenes
+
+Holographic Depth and Asteroid Field use the long edge of the star photograph in both orientations. Fine stars render at display resolution as the sky moves with tilt.
+
 ## 0.9.7 Nth Nota AI studio
 
 The launcher assistant now has its own graphite conversation studio, original Nth branding, quick new/recent chats, native formatted replies, code copying, comparison tables, source cards and a keyboard-aware composer. It is named **Nth Nota AI** throughout launcher entry points, separately from the **Nth Nota** notes app. Provider and AI-variant setup remains independently maintained. See [studio design and verification](docs/nota-ai-studio-097.md).
@@ -51,7 +55,7 @@ Open Settings → Launcher → Setup & permissions to revisit optional access. R
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and eleven original GPU scenes. Current signed trial: **0.9.7**. Build/lint and the new conversation suite pass; broader regression limitations are recorded in the conversation trial notes.
+animated Start menus and eleven original GPU scenes. Current trial build is **0.9.8**.
 
 Install the supplied signed release APK for continued updates. Version 0.3.2
 uses the owner's replacement **R2** signing certificate. Moving from the lost
