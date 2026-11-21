@@ -1,3 +1,7 @@
+## 0.10.0 current weather in Nth Nota AI
+
+With Cloud questions enabled, ask for the weather where you are, or name a city. Nota and the weather card share Open-Meteo conditions and the card’s °F/°C preference. Reports show their local time and source. If a refresh fails, a recent report for the same place is marked as saved. Location-based lookups use approximate location, and weather replies stay out of model history.
+
 ## 0.9.9 Nth Nota AI scene background
 
 Nth Nota AI opens over the active scene or wallpaper. Desktop shortcuts and widgets return when you leave the chat. A translucent reading surface keeps replies legible as the scene moves.
@@ -59,7 +63,7 @@ Open Settings → Launcher → Setup & permissions to revisit optional access. R
 # Nth Desktop 3D
 
 An Android Home launcher with tilt parallax, perspective desktop transitions,
-animated Start menus and eleven original GPU scenes. Current trial build is **0.9.9**.
+animated Start menus and eleven original GPU scenes. Current trial build is **0.10.0**.
 
 Install the supplied signed release APK for continued updates. Version 0.3.2
 uses the owner's replacement **R2** signing certificate. Moving from the lost

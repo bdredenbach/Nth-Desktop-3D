@@ -23,7 +23,7 @@ final class SettingsStudio extends LinearLayout {
     interface Host {default void area(String id){}default void close(){}void setup();void home();void arrange();void recenter();void feed();void reconnectFeed();void feedDetails();String feedStatus();void googleApp();void cards();void widgets();void folder();void overview();void manage();void autoSort();String desktop(boolean add);void apps();void about();void backup(boolean restore);default void restoreWidgets(){}default void photoWallpaper(){}default void androidWallpaper(boolean live){}default void sceneWallpaper(){}default void createScene(){}default void importScene(){}default void exportScene(){}default void removeScene(){}default void dockSpaces(){}default void placeCards(){}default void randomizer(LinearLayout body){}default Runnable presets(LinearLayout body){return ()->{};}boolean openApp(String query);}
     static final String[][] PAGES={{"look","Look & feel","Desktop, menu and folder effects, glass and color"},{"home","Home screen","Grid, icon size, labels and placement"},{"dock","Dock","Visibility, spacing and material"},{"folders","Folders","Live folder layout and appearance"},{"drawer","App drawer","Icon layout and names"},{"search","Search & Nth Nota AI","Folder search, keyboard and cloud questions"},{"cards","Cards","Media, calendar, weather, photos and reading in crystal"},{"wallpaper","Wallpaper","Photos, your layered scenes and Android wallpapers"},{"motion","Scenes & motion","Aquatic scenes, 3D depth, tilt and motion"},{"shuffle","Scene randomizer","Selected scenes and optional timed shuffle"},{"gestures","Gestures","Actions on empty desktop space"},{"feed","Feed page","Built-in news, interests and edge swipe"},{"presets","Desktop presets","Save and restore complete desktop setups"},{"backup","Backup & restore","Desktops, folders, shortcuts, notes and settings"},{"nota","Nth Nota AI","Conversations, ideas, web answers and local commands"},{"about","Launcher","Default Home and app information"}};
     final SettingsModel model;private final Host host;private final SettingsPreview preview;private final EditText search;private final TextView title;
-    private final Button back,ask;private final AppCatalog catalog;private LinearLayout suggestions;private final LinearLayout body;private final ScrollView scroll;private String current="root",parent="root";private boolean advanced,searching;private final NotaSettingsClient cloud;private TextView answer;private Button send,undo;private EditText question;private NotaChatView chat;private final Button closeChat;private final LinearLayout navigation;
+    private final Button back,ask;private final AppCatalog catalog;private LinearLayout suggestions;private final LinearLayout body;private final ScrollView scroll;private String current="root",parent="root";private boolean advanced,searching;private final NotaSettingsClient cloud;private TextView answer;private Button send,undo;private EditText question;private NotaChatView chat;private NotaWeather weather;private final Button closeChat;private final LinearLayout navigation;
     SettingsStudio(Context c,SettingsModel model,AppCatalog catalog,Host host,String page){
         super(c);this.model=model;this.host=host;this.catalog=catalog;cloud=new NotaSettingsClient(model.store.preferences,this::pause);setOrientation(VERTICAL);setClipChildren(false);setClipToPadding(false);
         navigation=Ui.row(c);back=Ui.quiet(c,"‹ Settings",()->back());navigation.addView(back,new LayoutParams(Ui.dp(c,110),Ui.dp(c,44)));title=Ui.text(c,"Settings",17,Ui.TEXT);title.setTypeface(null,Typeface.BOLD);navigation.addView(title,new LayoutParams(0,-2,1));ask=Ui.quiet(c,"Ask AI",()->{if(current.equals("nota"))showChatMenu();else showPage("nota");});navigation.addView(ask,new LayoutParams(Ui.dp(c,90),Ui.dp(c,44)));closeChat=Ui.icon(c,"close","Close Nth Nota",host::close);navigation.addView(closeChat,new LayoutParams(Ui.dp(c,44),Ui.dp(c,44)));closeChat.setVisibility(GONE);addView(navigation);
@@ -37,7 +37,9 @@ final class SettingsStudio extends LinearLayout {
     String page(){return current;}
     void tilt(float x,float y){preview.tilt(x,y);}
     boolean back(){if(!search.getText().toString().isEmpty()){search.setText("");return true;}if(current.equals("root"))return false;showPage(current.startsWith("choice:")?parent:"root");return true;}
-    void pause(){cloud.cancel();if(chat!=null){chat.stop();syncChat();}else if(send!=null)send.setEnabled(true);}
+    void activityPaused(){if(weather==null || !weather.waitingPermission()) pause();}
+    void weatherPermissionResult(){if(weather!=null) weather.permissionResult();}
+    void pause(){if(weather!=null){weather.close();weather=null;}cloud.cancel();if(chat!=null){chat.stop();syncChat();}else if(send!=null)send.setEnabled(true);}
     void dispose(){pause();if(pageCleanup!=null){pageCleanup.run();pageCleanup=null;}model.endGesture();cloud.close();}
     private String pageTitle(String id){for(String[] p:PAGES)if(p[0].equals(id))return p[1];return "Settings";}
     private Runnable pageCleanup;
@@ -122,6 +124,15 @@ final class SettingsStudio extends LinearLayout {
         if(text.toLowerCase(Locale.ROOT).startsWith("open ")&&host.openApp(text.substring(5).trim())){reply("Opened "+text.substring(5).trim()+".");return;}
         if(text.matches("(?i)(help|help me|settings|change settings|change something|what can you do|i need help)[.!?]*")){reply("I can explain things, help you write or plan, and work with your launcher. Try a question, or a direct command such as “turn off tilt”. Enable Cloud questions for conversations; local commands work on this device.");return;}
         if(model.value("cloud_ai")==0){for(SettingsModel.Spec spec:model.specs.values())if(text.toLowerCase(Locale.ROOT).contains(spec.title.toLowerCase(Locale.ROOT))){reply(spec.title+": "+spec.value()+". "+spec.help);return;}reply("Cloud questions are off. Turn on the switch below to chat with Nth Nota AI. You can still open apps and change launcher settings with local commands.");return;}
+        String weatherCity=CurrentWeather.cityInQuestion(text);
+        if(weatherCity!=null) {
+            weather=new NotaWeather((android.app.Activity)getContext(),model.store.preferences,chat,cloud,answer->{
+                weather.close(); weather=null;
+                chat.finish(answer,false); syncChat();
+            });
+            weather.start(weatherCity);
+            return;
+        }
         chat.progress("Thinking about your question");cloud.ask(text,model.context(),history,searchAlways,stage->{if(chat!=null)chat.progress(stage);},result->{if(chat!=null){chat.finish(result,!result.searchFallback);syncChat();}});
     }
     private void showChatMenu(){

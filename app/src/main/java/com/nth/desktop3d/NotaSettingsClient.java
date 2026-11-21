@@ -24,13 +24,29 @@ final class NotaSettingsClient {
     }
     private boolean enabled(){return preferences.getBoolean("cloud_ai",false);}
     void cancel(){generation++;LiveQuestions.Transport current=transport;if(current!=null)current.cancel();}
-    void ask(String question,String settings,Consumer<LiveAnswer> result){
-        askInternal(question,settings,null,false,stage->{},result);
+    private interface Lookup {
+        LiveAnswer run(LiveQuestions.Transport transport, BooleanSupplier allowed) throws Exception;
     }
-    void ask(String question,String settings,org.json.JSONArray history,boolean alwaysSearch,Consumer<String> progress,Consumer<LiveAnswer> result){
-        askInternal(question,settings,history,alwaysSearch,progress,result);
+    void ask(String question,String settings,Consumer<LiveAnswer> result) {
+        submit((transport,allowed)->new LiveQuestions(clock).answer(question,settings,transport,allowed),result);
     }
-    private void askInternal(String question,String settings,org.json.JSONArray history,boolean alwaysSearch,Consumer<String> progress,Consumer<LiveAnswer> result){
+    void ask(String question,String settings,org.json.JSONArray history,boolean alwaysSearch,Consumer<String> progress,Consumer<LiveAnswer> result) {
+        submit((transport,allowed)->new LiveQuestions(clock).converse(question,settings,history,alwaysSearch,transport,allowed,
+                stage->handler.post(()->{if(allowed.getAsBoolean()) progress.accept(stage);})),result);
+    }
+    void weather(CurrentWeather.Place place, BooleanSupplier locationAllowed, Consumer<LiveAnswer> result) {
+        submit((transport,allowed)->{
+            BooleanSupplier permitted=()->!place.nearby() || locationAllowed.getAsBoolean();
+            try {
+                return CurrentWeather.lookup(preferences,place,false,clock,transport,()->allowed.getAsBoolean() && permitted.getAsBoolean());
+            } catch(CancellationException canceled) {
+                if(allowed.getAsBoolean() && !permitted.getAsBoolean())
+                    return LiveAnswer.plain("Location access is off. Ask for weather in a city instead.","Location unavailable");
+                throw canceled;
+            }
+        },result);
+    }
+    private void submit(Lookup lookup, Consumer<LiveAnswer> result) {
         cancel();if(closed)return;final int request=generation;
         if(!enabled()){handler.post(()->{if(!closed&&request==generation)result.accept(LiveAnswer.plain("Turn on Cloud questions for Nth Nota AI to ask online questions. Local launcher commands still work.","Cloud questions off"));});return;}
         BooleanSupplier allowed=()->!closed&&request==generation&&enabled();
@@ -38,7 +54,7 @@ final class NotaSettingsClient {
             LiveQuestions.Transport current=null;LiveAnswer reply;
             try{
                 if(!allowed.getAsBoolean())return;current=factory.create(allowed);transport=current;if(!allowed.getAsBoolean()){current.cancel();return;}
-                reply=history==null?new LiveQuestions(clock).answer(question,settings,current,allowed):new LiveQuestions(clock).converse(question,settings,history,alwaysSearch,current,allowed,stage->{if(allowed.getAsBoolean())handler.post(()->{if(allowed.getAsBoolean())progress.accept(stage);});});
+                reply=lookup.run(current,allowed);
             }catch(CancellationException canceled){return;}
             catch(Exception error){
                 if(!allowed.getAsBoolean())return;

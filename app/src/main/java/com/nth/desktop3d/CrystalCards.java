@@ -14,8 +14,8 @@ import android.os.*;
 import android.provider.CalendarContract;
 import android.view.*;
 import android.widget.*;
-import java.io.*;
-import java.net.*;
+import java.io.IOException;
+import java.io.InputStream;
 import java.text.DateFormat;
 import java.util.*;
 import java.util.concurrent.*;
@@ -28,13 +28,13 @@ final class CrystalCards extends LinearLayout {
     static final String[][] TYPES={{"media","Media controls"},{"ai","Nth Nota AI"},{"weather","Weather"},{"calendar","Calendar"},{"photos","Photos"},{"reading","Reading"},{"notes","Notes"},{"apps","App cards"}};
     private final Activity activity;private final LauncherStore store;private final Host host;private final String query,embedded;
     private final Handler main=new Handler(Looper.getMainLooper());private final ExecutorService worker=Executors.newFixedThreadPool(2);
-    private android.os.CancellationSignal locationRequest;private volatile boolean disposed,paused;private volatile int generation;private MediaController controller;private MediaSessionManager sessions;private LinearLayout mediaBody;
+    private final WeatherLocation weatherLocation;private volatile boolean disposed,paused;private volatile int generation;private MediaController controller;private MediaSessionManager sessions;private LinearLayout mediaBody;
     private final MediaController.Callback playback=new MediaController.Callback(){@Override public void onMetadataChanged(MediaMetadata m){renderMedia();}@Override public void onPlaybackStateChanged(PlaybackState s){renderMedia();}@Override public void onSessionDestroyed(){observeMedia();}};
     private final MediaSessionManager.OnActiveSessionsChangedListener sessionListener=list->observeMedia();
     CrystalCards(Activity activity,LauncherStore store,Host host,String query){this(activity,store,host,query,null);}
-    CrystalCards(Activity activity,LauncherStore store,Host host,String query,String embedded){super(activity);this.activity=activity;this.store=store;this.host=host;this.query=query==null?"":query.toLowerCase(Locale.ROOT).trim();this.embedded=embedded;setOrientation(VERTICAL);setClipChildren(false);setClipToPadding(false);if(embedded==null)refresh();}
+    CrystalCards(Activity activity,LauncherStore store,Host host,String query,String embedded){super(activity);weatherLocation=new WeatherLocation(activity);this.activity=activity;this.store=store;this.host=host;this.query=query==null?"":query.toLowerCase(Locale.ROOT).trim();this.embedded=embedded;setOrientation(VERTICAL);setClipChildren(false);setClipToPadding(false);if(embedded==null)refresh();}
     private int dp(float n){return Ui.dp(activity,n);}
-    void refresh(){if(disposed)return;paused=false;generation++;stopMedia();removeAllViews();
+    void refresh(){if(disposed)return;paused=false;generation++;weatherLocation.cancel();stopMedia();removeAllViews();
         if(embedded==null){Button manage=Ui.quiet(activity,"Manage crystal cards",this::manage);addView(manage,new LayoutParams(-1,dp(48)));action(this,"Place card on desktop",host::place);}int shown=0;String forced=embedded!=null?embedded:CardLayout.type(query);
         for(String[] type:TYPES){if(forced!=null){if(!type[0].equals(forced))continue;}else{if(!store.preferences.getBoolean("card_"+type[0],true))continue;if(!query.isEmpty()&&!matches(type))continue;}shown++;LinearLayout body=card(type[0],type[1]);switch(type[0]){case "media":mediaBody=body;observeMedia();break;case "ai":ai(body);break;case "weather":weather(body);break;case "calendar":calendar(body);break;case "photos":photos(body);break;case "reading":reading(body);break;case "notes":String note=store.preferences.getString("note","");text(body,note.isEmpty()?"Capture a thought in Nth Notes.":note);action(body,"Open Nth Notes",host::notes);break;default:apps(body);}}
         if(shown==0)text(this,query.isEmpty()?"Choose cards using Manage crystal cards.":"No matching cards. Try music, photos, reading, weather or calendar.");
@@ -67,16 +67,62 @@ final class CrystalCards extends LinearLayout {
     }
     private JSONArray array(String key){try{Object stored=store.preferences.getAll().get(key);return new JSONArray(stored instanceof String?(String)stored:"[]");}catch(JSONException bad){return new JSONArray();}}
     private void reading(LinearLayout body){JSONArray entries=array("card_bookmarks");if(entries.length()==0)text(body,"Save articles and links to read later.");for(int i=0;i<entries.length();i++){JSONObject entry=entries.optJSONObject(i);if(entry==null)continue;String url=entry.optString("url"),title=entry.optString("title",url);Button b=action(body,title,()->web(url));int index=i;b.setOnLongClickListener(v->{new AlertDialog.Builder(activity).setTitle("Remove saved link?").setPositiveButton("Remove",(d,w)->{JSONArray kept=new JSONArray();for(int n=0;n<entries.length();n++)if(n!=index)kept.put(entries.opt(n));store.preferences.edit().putString("card_bookmarks",kept.toString()).apply();refresh();}).setNegativeButton("Cancel",null).show();return true;});}action(body,"Add reading link",()->{LinearLayout fields=Ui.column(activity);Ui.pad(fields,16);EditText title=new EditText(activity),url=new EditText(activity);title.setHint("Title");title.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(80)});url.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(2048)});url.setHint("https://example.com");url.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_URI);fields.addView(title);fields.addView(url);AlertDialog dialog=new AlertDialog.Builder(activity).setTitle("Save reading link").setView(fields).setPositiveButton("Save",null).setNegativeButton("Cancel",null).create();dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{String value=url.getText().toString().trim();Uri uri=Uri.parse(value);if(!("https".equalsIgnoreCase(uri.getScheme())||"http".equalsIgnoreCase(uri.getScheme()))||uri.getHost()==null){url.setError("Enter an http or https address");return;}if(entries.length()>=20){url.setError("Remove a saved link before adding another");return;}try{JSONObject entry=new JSONObject();entry.put("url",value);entry.put("title",title.getText().toString().trim().isEmpty()?uri.getHost():title.getText().toString().trim());entries.put(entry);store.preferences.edit().putString("card_bookmarks",entries.toString()).apply();dialog.dismiss();refresh();}catch(JSONException ignored){}}));dialog.show();});}
-    private void locateWeather(){if(activity.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED){activity.requestPermissions(new String[]{android.Manifest.permission.ACCESS_COARSE_LOCATION},3075);return;}try{android.location.LocationManager manager=activity.getSystemService(android.location.LocationManager.class);android.location.Location last=null;for(String provider:manager.getProviders(true)){try{android.location.Location found=manager.getLastKnownLocation(provider);if(found!=null&&(last==null||found.getTime()>last.getTime()))last=found;}catch(SecurityException ignored){}}if(last!=null&&System.currentTimeMillis()-last.getTime()<60*60*1000){saveWeatherLocation(last);return;}if(android.os.Build.VERSION.SDK_INT>=30&&manager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)){if(locationRequest!=null)locationRequest.cancel();locationRequest=new android.os.CancellationSignal();android.os.CancellationSignal request=locationRequest;manager.getCurrentLocation(android.location.LocationManager.NETWORK_PROVIDER,request,activity.getMainExecutor(),location->{if(disposed||paused||request!=locationRequest)return;locationRequest=null;if(location!=null)saveWeatherLocation(location);else Toast.makeText(activity,"Location unavailable. Choose a weather city instead.",android.widget.Toast.LENGTH_SHORT).show();});main.postDelayed(()->{if(locationRequest==request){request.cancel();locationRequest=null;Toast.makeText(activity,"Location unavailable. Choose a weather city instead.",android.widget.Toast.LENGTH_SHORT).show();}},10000);}else Toast.makeText(activity,"Enable Android Location or choose a weather city instead.",android.widget.Toast.LENGTH_SHORT).show();}catch(RuntimeException unavailable){Toast.makeText(activity,"Location unavailable. Choose a weather city instead.",android.widget.Toast.LENGTH_SHORT).show();}}
-    private void saveWeatherLocation(android.location.Location location){double lat=Math.rint(location.getLatitude()*100)/100,lon=Math.rint(location.getLongitude()*100)/100;store.preferences.edit().putBoolean("card_weather_location",true).putString("card_weather_lat",String.valueOf(lat)).putString("card_weather_lon",String.valueOf(lon)).remove("card_weather_cache").apply();refresh();}
-    private void weather(LinearLayout body){boolean located=store.preferences.getBoolean("card_weather_location",false);String city=located?"My approximate location":store.preferences.getString("card_weather_city","");TextView conditions=text(body,city.isEmpty()?"Choose a city for the weather card.":"Loading weather for "+city+"");action(body,"Choose weather city",()->{EditText input=new EditText(activity);input.setSingleLine(true);input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(100)});input.setHint("City, state or country");input.setText(city);new AlertDialog.Builder(activity).setTitle("Weather city").setMessage("The city name is sent to Open-Meteo to fetch weather.").setView(input).setPositiveButton("Save",(d,w)->{String value=input.getText().toString().trim();store.preferences.edit().putBoolean("card_weather_location",false).putString("card_weather_city",value).remove("card_weather_cache").apply();refresh();}).setNegativeButton("Cancel",null).show();});action(body,"Use my location",()->new AlertDialog.Builder(activity).setTitle("Use approximate location?").setMessage("Your approximate coordinates will be sent to Open-Meteo for this weather card. You can choose a city instead.").setNegativeButton("Cancel",null).setPositiveButton("Use location",(dialog,which)->locateWeather()).show());action(body,"Weather data: Open-Meteo",()->web("https://open-meteo.com/"));if(city.isEmpty())return;int token=generation;
-        worker.execute(()->{if(disposed||paused||token!=generation)return;String result;try{JSONObject cached=new JSONObject(store.preferences.getString("card_weather_cache","{}"));if(!city.equals(cached.optString("query"))||System.currentTimeMillis()-cached.optLong("saved")>30*60*1000){JSONObject location;if(located)location=new JSONObject().put("latitude",Double.parseDouble(store.preferences.getString("card_weather_lat","0"))).put("longitude",Double.parseDouble(store.preferences.getString("card_weather_lon","0"))).put("name",city);else{JSONObject found=json("https://geocoding-api.open-meteo.com/v1/search?name="+URLEncoder.encode(city,"UTF-8")+"&count=1&language=en&format=json");JSONArray matches=found.optJSONArray("results");if(matches==null||matches.length()==0)throw new IOException("City not found");location=matches.getJSONObject(0);}JSONObject forecast=json("https://api.open-meteo.com/v1/forecast?latitude="+location.getDouble("latitude")+"&longitude="+location.getDouble("longitude")+"&current=temperature_2m,weather_code&timezone=auto");cached=new JSONObject().put("query",city).put("name",location.getString("name")+", "+location.optString("country","")).put("temp",forecast.getJSONObject("current").getDouble("temperature_2m")).put("code",forecast.getJSONObject("current").getInt("weather_code")).put("saved",System.currentTimeMillis());if(!disposed&&!paused&&token==generation)store.preferences.edit().putString("card_weather_cache",cached.toString()).apply();}double temperature=cached.getDouble("temp");boolean fahrenheit=store.preferences.getBoolean("card_weather_fahrenheit",Locale.getDefault().getCountry().equals("US"));result=cached.getString("name")+"\n"+Math.round(fahrenheit?temperature*9/5+32:temperature)+(fahrenheit?" °F":" °C")+" · "+weatherCode(cached.getInt("code"))+"\nUpdated "+DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date(cached.getLong("saved")));}catch(IOException|JSONException|RuntimeException failed){result="Weather could not be loaded. Check the city and connection, then refresh.";}String value=result;post(token,()->conditions.setText(value));});action(body,"Switch °C / °F",()->{store.preferences.edit().putBoolean("card_weather_fahrenheit",!store.preferences.getBoolean("card_weather_fahrenheit",Locale.getDefault().getCountry().equals("US"))).apply();refresh();});action(body,"Refresh weather",()->{store.preferences.edit().remove("card_weather_cache").apply();refresh();});
+    static final int WEATHER_PERMISSION=3092;
+    private void weather(LinearLayout body) {
+        boolean nearby=store.preferences.getBoolean("card_weather_location",false);
+        String saved=store.preferences.getString("card_weather_city","").trim();
+        TextView conditions=text(body,"");
+        action(body,"Choose weather city",()->{
+            EditText input=new EditText(activity);
+            input.setSingleLine(true); input.setHint("City, state or country"); input.setText(saved);
+            input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(100)});
+            new AlertDialog.Builder(activity).setTitle("Weather city").setMessage("The city name is sent to Open-Meteo to fetch weather.")
+                    .setView(input).setNegativeButton("Cancel",null).setPositiveButton("Save",(d,w)->{
+                        store.preferences.edit().putBoolean("card_weather_location",false)
+                                .putString("card_weather_city",input.getText().toString().trim())
+                                .remove("card_weather_lat").remove("card_weather_lon").apply();
+                        refresh();
+                    }).show();
+        });
+        action(body,"Use my location",()->new AlertDialog.Builder(activity).setTitle("Use approximate location?")
+                .setMessage("Your approximate location will be sent to Open-Meteo for weather.")
+                .setNegativeButton("Cancel",null).setPositiveButton("Use location",(d,w)->{
+                    if(!weatherLocation.permitted()) activity.requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},WEATHER_PERMISSION);
+                    else { store.preferences.edit().putBoolean("card_weather_location",true).apply(); refresh(); }
+                }).show());
+        action(body,"Weather data: Open-Meteo",()->web(CurrentWeather.SOURCE));
+        if(!nearby && saved.isEmpty()) { conditions.setText("Choose a city for the weather card."); return; }
+        Runnable load=()->loadWeather(conditions,nearby,saved,false);
+        load.run();
+        action(body,"Switch °C / °F",()->{
+            boolean f=store.preferences.getBoolean("card_weather_fahrenheit","US".equals(Locale.getDefault().getCountry()));
+            store.preferences.edit().putBoolean("card_weather_fahrenheit",!f).apply(); refresh();
+        });
+        action(body,"Refresh weather",()->loadWeather(conditions,nearby,saved,true));
     }
-    private static String weatherCode(int code){if(code==0)return "Clear";if(code<=3)return "Cloudy";if(code==45||code==48)return "Fog";if(code>=95)return "Thunderstorm";if(code>=71&&code<=77||code==85||code==86)return "Snow";return "Rain";}
-    private static JSONObject json(String url)throws IOException,JSONException{HttpURLConnection connection=(HttpURLConnection)new URL(url).openConnection();connection.setConnectTimeout(8000);connection.setReadTimeout(10000);try{if(connection.getResponseCode()!=200)throw new IOException("Weather unavailable");try(InputStream in=connection.getInputStream();ByteArrayOutputStream bytes=new ByteArrayOutputStream()){byte[] block=new byte[4096];int n;while((n=in.read(block))!=-1){if(bytes.size()+n>128000)throw new IOException("Response too large");bytes.write(block,0,n);}return new JSONObject(bytes.toString("UTF-8"));}}finally{connection.disconnect();}}
+    private volatile int weatherRequest;
+    private void loadWeather(TextView view,boolean nearby,String city,boolean refresh) {
+        int token=generation, request=++weatherRequest;
+        view.setText(nearby?"Checking your approximate location":"Loading weather for "+city);
+        java.util.function.Consumer<CurrentWeather.Place> load=place->{
+            if(disposed || paused || token!=generation || request!=weatherRequest) return;
+            if(place==null) { view.setText("Location unavailable. Choose a city or enable weather location."); return; }
+            java.util.function.BooleanSupplier active=()->!disposed && !paused && token==generation && request==weatherRequest
+                    && (!nearby || weatherLocation.permitted());
+            worker.execute(()->{
+                LiveQuestionHttp http=new LiveQuestionHttp(active);
+                try {
+                    LiveAnswer answer=CurrentWeather.lookup(store.preferences,place,refresh,java.time.Clock.systemDefaultZone(),http,active);
+                    post(token,()->{if(request==weatherRequest) view.setText(answer.text);});
+                } catch(java.util.concurrent.CancellationException canceled) { /* A newer request owns the card. */ }
+                finally { http.cancel(); }
+            });
+        };
+        if(nearby) weatherLocation.locate(load); else load.accept(CurrentWeather.Place.city(city));
+    }
     private void post(int token,Runnable work){main.post(()->{if(!disposed&&!paused&&token==generation)work.run();});}
     private void manage(){String[] names=new String[TYPES.length];boolean[] checked=new boolean[TYPES.length];for(int i=0;i<TYPES.length;i++){names[i]=TYPES[i][1];checked[i]=store.preferences.getBoolean("card_"+TYPES[i][0],true);}new AlertDialog.Builder(activity).setTitle("Crystal cards").setMultiChoiceItems(names,checked,(dialog,index,on)->checked[index]=on).setPositiveButton("Apply",(d,w)->{SharedPreferences.Editor edit=store.preferences.edit();for(int i=0;i<TYPES.length;i++)edit.putBoolean("card_"+TYPES[i][0],checked[i]);edit.apply();refresh();}).setNegativeButton("Cancel",null).setNeutralButton("Settings",(d,w)->host.settings()).show();}
     void tilt(float x,float y){if(store.reducedMotion)return;for(int i=0;i<getChildCount();i++){View card=getChildAt(i);if("crystal-card".equals(card.getTag())){card.setRotationX(-y*2);card.setRotationY(x*2);}}}
-    void pause(){if(locationRequest!=null){locationRequest.cancel();locationRequest=null;}paused=true;generation++;stopMedia();}
+    void pause(){weatherLocation.cancel();paused=true;generation++;stopMedia();}
     void dispose(){disposed=true;pause();main.removeCallbacksAndMessages(null);worker.shutdownNow();}
 }
